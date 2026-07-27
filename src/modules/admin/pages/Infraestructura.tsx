@@ -59,6 +59,16 @@ function MapController({ center, zoom, activeId }: { center: [number, number]; z
   return null;
 }
 
+// Re-centra el mapa del modal cuando cambian lat/lng (p.ej. tras "Usar mi ubicación" o al tocar el mapa).
+// Necesario porque React-Leaflet ignora cambios del prop `center` de <MapContainer> tras el montaje.
+function RecenterMap({ lat, lng }: { lat: number | null; lng: number | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (lat !== null && lng !== null) map.setView([lat, lng], map.getZoom(), { animate: true });
+  }, [lat, lng]);
+  return null;
+}
+
 function MapClickPicker({ isPicking, onPick }: { isPicking: boolean; onPick: (p: [number, number]) => void }) {
   const map = useMapEvents({ click(e) { if (isPicking) onPick([e.latlng.lat, e.latlng.lng]); } });
   useEffect(() => { map.getContainer().style.cursor = isPicking ? 'crosshair' : ''; }, [isPicking, map]);
@@ -800,14 +810,14 @@ export const Infraestructura = () => {
       {/* ===== MODAL EDIFICIO (crear/editar) ===== */}
       {(edModal === 'create' || edModal === 'edit') && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
-          <div className="bg-white rounded-[24px] w-full max-w-[850px] relative animate-scale-in flex flex-col p-8 max-h-[95vh] overflow-y-auto custom-scrollbar shadow-2xl">
-            <button onClick={() => setEdModal(null)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors p-1"><X className="w-5 h-5" /></button>
+          <div className="bg-white rounded-[24px] w-full max-w-[850px] relative animate-scale-in flex flex-col p-5 sm:p-8 max-h-[95vh] overflow-y-auto custom-scrollbar shadow-2xl">
+            <button onClick={() => setEdModal(null)} className="absolute top-4 right-4 sm:top-6 sm:right-6 text-gray-400 hover:text-gray-600 transition-colors p-1"><X className="w-5 h-5" /></button>
             <div className="mb-6">
               <h3 className="text-[22px] font-bold text-gray-900 tracking-tight leading-none mb-1.5">{edModal === 'create' ? 'Registrar Edificio' : 'Editar Edificio'}</h3>
               <p className="text-[13px] text-gray-500 font-medium">{edModal === 'create' ? 'Agregue un nuevo edificio al campus.' : `Modifique los datos de ${selectedEdForm?.nombre}.`}</p>
             </div>
             <form onSubmit={handleSaveEdificio} className="flex flex-col">
-              <div className="flex flex-col md:flex-row gap-8">
+              <div className="flex flex-col md:flex-row gap-5 md:gap-8">
                 <div className="flex flex-col gap-6 flex-[0.8] md:max-w-[340px]">
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Imagen del Edificio</label>
@@ -830,6 +840,7 @@ export const Infraestructura = () => {
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
                         {edificios.map(ed => <Marker key={ed.id} position={[ed.lat, ed.lng]} icon={getBuildingIcon(ed)} />)}
                         <UserLocationMarker />
+                        <RecenterMap lat={edForm.lat} lng={edForm.lng} />
                         <LocationPicker position={edForm.lat && edForm.lng ? [edForm.lat, edForm.lng] : null} setPosition={p => setEdForm({ ...edForm, lat: p[0], lng: p[1] })} />
                       </MapContainer>
                     </div>
@@ -908,14 +919,14 @@ export const Infraestructura = () => {
       {/* ===== MODAL ESPACIO (crear/editar) ===== */}
       {(espModal === 'create' || espModal === 'edit') && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
-          <div className="bg-white rounded-[24px] w-full max-w-[850px] relative animate-scale-in flex flex-col p-8 max-h-[95vh] overflow-y-auto custom-scrollbar shadow-2xl">
-            <button onClick={() => setEspModal(null)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors p-1"><X className="w-5 h-5" /></button>
+          <div className="bg-white rounded-[24px] w-full max-w-[850px] relative animate-scale-in flex flex-col p-5 sm:p-8 max-h-[95vh] overflow-y-auto custom-scrollbar shadow-2xl">
+            <button onClick={() => setEspModal(null)} className="absolute top-4 right-4 sm:top-6 sm:right-6 text-gray-400 hover:text-gray-600 transition-colors p-1"><X className="w-5 h-5" /></button>
             <div className="mb-6">
               <h3 className="text-[22px] font-bold text-gray-900 tracking-tight leading-none mb-1.5">{espModal === 'create' ? 'Registrar Espacio' : 'Editar Espacio'}</h3>
               <p className="text-[13px] text-gray-500 font-medium">{espModal === 'create' ? 'Agregue un aula o laboratorio.' : `Modifique los datos de ${selectedEsp?.nombre}.`}</p>
             </div>
             <form onSubmit={handleSaveEspacio} className="flex flex-col">
-              <div className="flex flex-col md:flex-row gap-8">
+              <div className="flex flex-col md:flex-row gap-5 md:gap-8">
                 <div className="flex flex-col gap-6 flex-[0.8] md:max-w-[340px]">
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Fotos</label>
@@ -942,6 +953,7 @@ export const Infraestructura = () => {
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
                         {edificios.map(ed => <Marker key={ed.id} position={[ed.lat, ed.lng]} icon={getBuildingIcon(ed)} />)}
                         <UserLocationMarker />
+                        <RecenterMap lat={espForm.lat} lng={espForm.lng} />
                         <LocationPicker position={espForm.lat !== null && espForm.lng !== null ? [espForm.lat, espForm.lng] : null} setPosition={p => setEspForm({ ...espForm, lat: p[0], lng: p[1] })} />
                       </MapContainer>
                     </div>
