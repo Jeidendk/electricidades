@@ -4,7 +4,7 @@ import {
   X, BookOpen, Layers, Upload, Image as ImageIcon,
   Check, FileText, FileCheck2, Library,
   ChevronRight, CalendarDays,
-  Eye, AlertCircle, Info,
+  Eye, AlertCircle,
   // Iconos Seleccionables
   Cpu, FlaskConical, Briefcase, Stethoscope, Globe, Palette,
   Microscope, PenTool, Laptop, Zap, Database, Activity, Calculator,

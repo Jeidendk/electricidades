@@ -16,7 +16,7 @@ const ROLES = ['Administrador', 'Estudiante', 'Tecnico'];
 const DEPARTAMENTOS = ['FIE', 'Sistemas', 'Mecánica', 'Rectorado', 'Bienestar Estudiantil'];
 
 export const Usuarios = () => {
-  const { items, fetchUsuarios, addUsuario, updateUsuario, removeUsuario } = useUsuariosStore();
+  const { items, fetchUsuarios, updateUsuario, removeUsuario } = useUsuariosStore();
 
   useEffect(() => { fetchUsuarios(); }, []);
 

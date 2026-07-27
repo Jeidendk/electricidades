@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { GraduationCap, Search, Bell, ShoppingCart, ChevronDown, User, Settings, LogOut, ShieldCheck, Eye, Wrench, Users } from 'lucide-react';
+import { GraduationCap, Bell, ShoppingCart, ChevronDown, User, Settings, LogOut, ShieldCheck, Eye, Wrench, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '../../../store/cartStore';
 import { ThemeToggle } from '../../../components/ui/ThemeToggle';

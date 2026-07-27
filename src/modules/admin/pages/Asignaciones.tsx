@@ -61,7 +61,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
   const tecnicos = useMemo(() => {
     return rawUsers
       .filter(u => {
-        const rolName = u.roles?.nombre || u.rol || '';
+        const rolName = (u as any).roles?.nombre || (u as any).rol || '';
         return rolName.toLowerCase().includes('tecnico') || rolName.toLowerCase().includes('técnico');
       })
       .map(u => ({
