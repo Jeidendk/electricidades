@@ -299,21 +299,21 @@ export const Login = () => {
       </div>
 
       {/* Contenedor de Contenido */}
-      <div className="relative z-10 w-full max-w-[1200px] px-4 sm:px-8 py-10 sm:py-12 flex flex-col xl:flex-row justify-between items-center min-h-[100vh] xl:min-h-[700px] gap-8 xl:gap-0 mt-8 sm:mt-0">
+      <div className="relative z-10 w-full max-w-[1200px] px-4 sm:px-8 py-2 sm:py-12 flex flex-col xl:flex-row justify-start xl:justify-between items-center min-h-[100vh] xl:min-h-[700px] gap-3 sm:gap-6 xl:gap-0">
 
         {/* ================= COLUMNA IZQUIERDA ================= */}
-        <div className="flex flex-col justify-between h-full w-full xl:w-1/2 py-4 items-center xl:items-start text-center xl:text-left">
-          
+        <div className="flex flex-col justify-start xl:justify-between h-auto xl:h-full w-full xl:w-1/2 py-0 sm:py-4 items-center xl:items-start text-center xl:text-left">
+
           {/* Logo y Estado */}
-          <div className="flex flex-col gap-4 sm:gap-6 items-center xl:items-start">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="bg-espoch-red p-2.5 rounded-xl shadow-[0_4px_15px_rgba(176,0,0,0.4)] flex items-center justify-center">
-                <GraduationCap className="text-white w-[45px] h-[45px] sm:w-[54px] sm:h-[54px]" strokeWidth={1.5} />
+          <div className="flex flex-col gap-3 sm:gap-6 items-center xl:items-start">
+            <div className="flex items-center gap-2.5 sm:gap-4">
+              <div className="bg-espoch-red p-2 sm:p-2.5 rounded-xl shadow-[0_4px_15px_rgba(176,0,0,0.4)] flex items-center justify-center">
+                <GraduationCap className="text-white w-[28px] h-[28px] sm:w-[54px] sm:h-[54px]" strokeWidth={1.5} />
               </div>
               <div className="flex flex-col justify-center text-left">
-                <h1 className="text-gray-900 dark:text-white text-4xl sm:text-5xl font-bold tracking-tight leading-none m-0 transition-colors">ESPOCH</h1>
-                <span className="text-espoch-red dark:text-espoch-yellow text-[11px] sm:text-[13px] font-bold tracking-[0.2em] mt-1 sm:ml-1 flex items-center gap-1.5 uppercase transition-colors">
-                  <Zap className="w-3.5 h-3.5 fill-current" /> ELECTRICIDAD
+                <h1 className="text-gray-900 dark:text-white text-[24px] sm:text-5xl font-bold tracking-tight leading-none m-0 transition-colors">ESPOCH</h1>
+                <span className="text-espoch-red dark:text-espoch-yellow text-[9px] sm:text-[13px] font-bold tracking-[0.18em] sm:tracking-[0.2em] mt-1 sm:ml-1 flex items-center gap-1 sm:gap-1.5 uppercase transition-colors">
+                  <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" /> ELECTRICIDAD
                 </span>
               </div>
             </div>
@@ -327,13 +327,13 @@ export const Login = () => {
             </div>
           </div>
 
-          {/* Reloj Central Esférico */}
-          <div className="my-8 sm:my-12 xl:ml-4 flex justify-center xl:justify-start">
-            <div className="w-[280px] h-[280px] sm:w-[350px] sm:h-[350px] rounded-full border-[16px] sm:border-[20px] border-white/70 bg-[#f4f5f7]/95 shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:border-[#151921] dark:bg-[#0c1016] dark:shadow-[0_20px_50px_rgba(0,0,0,0.7)] flex flex-col items-center justify-center relative transition-all duration-500 backdrop-blur-md">
-              <div className="absolute inset-0 rounded-full shadow-[inset_0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] pointer-events-none transition-shadow duration-500"></div>
-              <span className="text-[75px] sm:text-[90px] font-bold text-gray-900 dark:text-white leading-none tracking-tighter mt-4 transition-colors">{timeString}</span>
-              <span className="text-espoch-red dark:text-espoch-yellow text-xs sm:text-sm font-semibold tracking-[0.2em] mt-3 transition-colors">{dayString}</span>
-              <span className="text-gray-500 text-[10px] sm:text-[11px] font-medium tracking-widest mt-1.5">{dateString}</span>
+          {/* Reloj — móvil/tablet: chip compacto arriba-izquierda; desktop (xl): esfera central */}
+          <div className="absolute top-3 left-3 z-40 xl:static xl:top-auto xl:left-auto xl:my-12 xl:ml-4 flex justify-center xl:justify-start">
+            <div className="w-[66px] h-[66px] rounded-2xl border-[3px] xl:w-[350px] xl:h-[350px] xl:rounded-full xl:border-[20px] border-white/70 bg-[#f4f5f7]/95 shadow-[0_8px_20px_rgba(0,0,0,0.15)] xl:shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:border-[#151921] dark:bg-[#0c1016] dark:shadow-[0_20px_50px_rgba(0,0,0,0.7)] flex flex-col items-center justify-center relative transition-all duration-500 backdrop-blur-md">
+              <div className="absolute inset-0 rounded-2xl xl:rounded-full shadow-[inset_0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] pointer-events-none transition-shadow duration-500"></div>
+              <span className="text-[16px] xl:text-[90px] font-bold text-gray-900 dark:text-white leading-none tracking-tighter xl:mt-4 transition-colors">{timeString}</span>
+              <span className="text-espoch-red dark:text-espoch-yellow text-[7px] xl:text-sm font-semibold tracking-[0.12em] xl:tracking-[0.2em] mt-0.5 xl:mt-3 transition-colors">{dayString}</span>
+              <span className="text-gray-500 text-[6px] xl:text-[11px] font-medium tracking-wider xl:tracking-widest mt-px xl:mt-1.5">{dateString}</span>
             </div>
           </div>
 
@@ -346,21 +346,21 @@ export const Login = () => {
         </div>
 
         {/* ================= COLUMNA DERECHA (Panel Dinámico) ================= */}
-        <div className="w-full max-w-[480px] xl:w-[480px] bg-[#f6f7f9] dark:bg-[#22272e]/80 backdrop-blur-xl border border-white/80 dark:border-gray-500/20 rounded-[2rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] transition-colors duration-500 overflow-hidden mb-8 sm:mb-0">
+        <div className="w-full max-w-[480px] xl:w-[480px] bg-[#f6f7f9] dark:bg-[#22272e]/80 backdrop-blur-xl border border-white/80 dark:border-gray-500/20 rounded-[2rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] transition-colors duration-500 overflow-hidden mb-0">
 
           {/* Solo se renderiza UN panel a la vez en el DOM */}
           {view === 'login' && (
-            <div key="login" className="p-6 sm:p-8 animate-fade-in">
+            <div key="login" className="p-5 sm:p-8 animate-fade-in">
               <div className="text-center sm:text-left">
                 <h2 className="text-[24px] sm:text-[28px] font-bold text-gray-900 dark:text-white mb-1.5 tracking-tight transition-colors">Portal Académico</h2>
-                <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-6 font-normal leading-relaxed transition-colors">
+                <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 font-normal leading-relaxed transition-colors">
                   Ingrese sus credenciales institucionales para continuar.
                 </p>
               </div>
 
-              <div className="w-full h-px bg-gray-200 dark:bg-gray-600/60 mb-6 transition-colors"></div>
+              <div className="w-full h-px bg-gray-200 dark:bg-gray-600/60 mb-4 sm:mb-6 transition-colors"></div>
 
-              <form onSubmit={handleLogin} className="flex flex-col gap-5">
+              <form onSubmit={handleLogin} className="flex flex-col gap-4 sm:gap-5">
                 <div>
                   <label className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1.5 flex items-center gap-1.5 uppercase tracking-wider transition-colors">
                     <span className="text-espoch-red dark:text-espoch-yellow text-lg leading-none mt-[-2px]">&bull;</span> Correo Institucional
@@ -425,7 +425,7 @@ export const Login = () => {
           )}
 
           {view === 'register' && (
-            <div key="register" className="p-6 sm:p-8 animate-fade-in">
+            <div key="register" className="p-5 sm:p-8 animate-fade-in">
               <div className="text-center">
                 <h2 className="text-[24px] sm:text-[28px] font-bold text-gray-900 dark:text-white mb-1.5 tracking-tight transition-colors">Registro de Usuario</h2>
                 <p className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 mb-4 font-normal transition-colors">
@@ -436,7 +436,7 @@ export const Login = () => {
               <div className="w-full h-px bg-gray-200 dark:bg-gray-600/60 mb-5 transition-colors"></div>
 
               <form className="flex flex-col">
-                <div className="flex flex-col gap-5 mb-6">
+                <div className="flex flex-col gap-4 sm:gap-5 mb-4 sm:mb-6">
                   <div>
                     <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest mb-3.5 transition-colors">Datos Personales e Institucionales</h3>
                     <div className="flex flex-col gap-3.5">
@@ -461,7 +461,7 @@ export const Login = () => {
 
                   <div>
                     <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest mb-3.5 transition-colors">Información Académica</h3>
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
                       <div>
                         <label className="text-[9px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Facultad</label>
                         <div className="relative">
@@ -607,8 +607,8 @@ export const Login = () => {
         </div>
 
 
-        {/* Pie de página móvil */}
-        <div className="block xl:hidden bg-white/90 dark:bg-[#11161d]/80 backdrop-blur-md border border-gray-100 dark:border-gray-800/80 rounded-xl p-4 w-full max-w-[480px] shadow-lg transition-colors mb-8 text-center">
+        {/* Pie de página móvil (oculto en móvil para que el formulario entre sin scroll; se muestra solo en tablet vertical) */}
+        <div className="hidden bg-white/90 dark:bg-[#11161d]/80 backdrop-blur-md border border-gray-100 dark:border-gray-800/80 rounded-xl p-4 w-full max-w-[480px] shadow-lg transition-colors mb-8 text-center">
           <p className="text-[10px] text-gray-600 dark:text-gray-400 leading-relaxed font-normal m-0 transition-colors">
             Sistema de gestión y asignación de aulas. Acceso exclusivo para docentes y estudiantes de la Carrera de Electricidad.
           </p>
