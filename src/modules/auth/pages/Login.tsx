@@ -305,7 +305,7 @@ export const Login = () => {
         <div className="flex flex-col justify-start xl:justify-between h-auto xl:h-full w-full xl:w-1/2 py-0 sm:py-4 items-center xl:items-start text-center xl:text-left">
 
           {/* Logo y Estado */}
-          <div className="flex flex-col gap-3 sm:gap-6 items-center xl:items-start">
+          <div className="flex flex-col gap-7 sm:gap-6 items-center xl:items-start">
             <div className="flex items-center gap-2.5 sm:gap-4">
               <div className="bg-espoch-red p-2 sm:p-2.5 rounded-xl shadow-[0_4px_15px_rgba(176,0,0,0.4)] flex items-center justify-center">
                 <GraduationCap className="text-white w-[28px] h-[28px] sm:w-[54px] sm:h-[54px]" strokeWidth={1.5} />
@@ -360,7 +360,7 @@ export const Login = () => {
 
               <div className="w-full h-px bg-gray-200 dark:bg-gray-600/60 mb-4 sm:mb-6 transition-colors"></div>
 
-              <form onSubmit={handleLogin} className="flex flex-col gap-4 sm:gap-5">
+              <form onSubmit={handleLogin} className="flex flex-col gap-3 sm:gap-5">
                 <div>
                   <label className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1.5 flex items-center gap-1.5 uppercase tracking-wider transition-colors">
                     <span className="text-espoch-red dark:text-espoch-yellow text-lg leading-none mt-[-2px]">&bull;</span> Correo Institucional
