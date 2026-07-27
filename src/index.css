@@ -1,0 +1,137 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "Montserrat", sans-serif;
+  
+  --color-espoch-red: #b00000;
+  --color-espoch-darkred: #8b0000;
+  --color-espoch-yellow: #ffc107;
+  --color-espoch-sidebar: #11161d;
+  --color-espoch-sidebarhover: #1a222d;
+
+  /* Tokens oscuros del sistema (antes hex sueltos) */
+  --color-espoch-ink: #0f172a;       /* acción primaria (botón navy) */
+  --color-espoch-slate: #1e2733;     /* estado activo / seleccionado */
+  --color-espoch-hero: #1a1f26;      /* fondo del hero banner */
+  --color-espoch-herocard: #212730;  /* tarjeta KPI dentro del hero */
+  --color-espoch-navy: #1a2b4b;      /* texto de breadcrumb */
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    margin: 0;
+    padding: 0;
+    transition: background-color 0.3s ease;
+  }
+  html.dark body { background-color: #0d1218; color: #e5e7eb; }
+}
+
+/* ===== DENSIDAD COMPACTA =====
+   Activada desde Configuración: reduce el alto de filas de tablas y listas.
+   Ataca los paddings verticales de utilidades comunes en filas/celdas. */
+html.density-compact [class*='py-3'] { padding-top: 0.45rem !important; padding-bottom: 0.45rem !important; }
+html.density-compact [class*='py-2.5'] { padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
+html.density-compact [class*='p-4'] { padding-top: 0.6rem !important; padding-bottom: 0.6rem !important; }
+
+/* ===== MODO OSCURO GLOBAL =====
+   Override de superficies/texto/bordes comunes bajo .dark, para cubrir
+   todas las screens sin tocar cada clase a mano. */
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/80,
+.dark .bg-white\/70 { background-color: #161b22 !important; }
+
+.dark .bg-\[\#f4f7fb\],
+.dark .bg-\[\#f4f7fb\]\/90,
+.dark .bg-\[\#f4f7fb\]\/80,
+.dark .bg-\[\#f8fafc\] { background-color: #0d1218 !important; }
+
+.dark .bg-\[\#fafafa\] { background-color: #1b212b !important; }
+
+/* Superficies casi-blancas usadas como paneles en distintas screens */
+.dark .bg-\[\#f8f9fa\],
+.dark .bg-\[\#fcf8f8\],
+.dark .bg-\[\#f1f5f9\],
+.dark .bg-\[\#f1f3f4\],
+.dark .bg-\[\#f8f9f9\] { background-color: #161b22 !important; }
+
+.dark .bg-gray-50,
+.dark .bg-gray-50\/80,
+.dark .bg-gray-50\/50,
+.dark .bg-gray-50\/40,
+.dark .bg-gray-50\/30 { background-color: #1b212b !important; }
+
+.dark .bg-gray-100,
+.dark .bg-gray-100\/60 { background-color: #232a35 !important; }
+
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700 { color: #e5e7eb !important; }
+
+.dark .text-gray-600,
+.dark .text-gray-500 { color: #9aa4b2 !important; }
+
+.dark .text-gray-400,
+.dark .text-gray-300 { color: #6b7280 !important; }
+
+.dark .border-gray-50,
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-100\/60,
+.dark .border-gray-200\/60,
+.dark .border-gray-200\/50,
+.dark .border-gray-100\/50 { border-color: #2a313c !important; }
+
+/* Hover comunes */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover { background-color: #232a35 !important; }
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+  }
+
+  /* Custom Leaflet Popup */
+  .custom-leaflet-popup .leaflet-popup-content-wrapper {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .custom-leaflet-popup .leaflet-popup-content {
+    margin: 0 !important;
+    width: auto !important;
+  }
+  .custom-leaflet-popup .leaflet-popup-tip-container {
+    display: none !important;
+  }
+  .custom-leaflet-popup .leaflet-popup-close-button {
+    display: none !important;
+  }
+}
