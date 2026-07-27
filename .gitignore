@@ -23,6 +23,9 @@ fix-*.cjs
 test.mjs
 eslint_out.txt
 
+# Use npm lockfile only
+pnpm-lock.yaml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
