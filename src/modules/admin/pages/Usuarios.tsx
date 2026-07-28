@@ -7,6 +7,7 @@ import {
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { useUsuariosStore } from '../../../store/usuariosStore';
+import { useFacultadesStore } from '../../../store/facultadesStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { uploadImage } from '../../../lib/upload';
 import { supabase } from '../../../lib/supabase';
@@ -17,8 +18,22 @@ const DEPARTAMENTOS = ['FIE', 'Sistemas', 'Mecánica', 'Rectorado', 'Bienestar E
 
 export const Usuarios = () => {
   const { items, fetchUsuarios, updateUsuario, removeUsuario } = useUsuariosStore();
+  const facultades = useFacultadesStore(s => s.facultades);
+  const fetchFacultades = useFacultadesStore(s => s.fetchAll);
+  const [rolesDb, setRolesDb] = useState<{ id: number; nombre: string }[]>([]);
 
-  useEffect(() => { fetchUsuarios(); }, []);
+  useEffect(() => {
+    fetchUsuarios();
+    fetchFacultades();
+    // Roles reales desde la BD (en vez de la lista hardcodeada).
+    supabase.from('roles').select('id, nombre').order('id').then(({ data }) => {
+      if (data) setRolesDb(data as { id: number; nombre: string }[]);
+    });
+  }, []);
+
+  // Opciones de dropdowns desde la BD; caen a las constantes solo si aún no cargan.
+  const rolNombres = rolesDb.length ? rolesDb.map(r => r.nombre) : ROLES;
+  const departamentos = facultades.length ? facultades.map(f => (f as any).siglas || f.nombre) : DEPARTAMENTOS;
 
   // Mapear campos de Supabase al formato del componente
   const usuarios = useMemo(() => items.map((u: any) => ({
@@ -264,7 +279,7 @@ export const Usuarios = () => {
             <FilterDropdown
               label="Rol"
               value={filterRol || 'todos'}
-              options={[{ key: 'todos', label: 'Todos' }, ...ROLES.map(r => ({ key: r, label: r }))]}
+              options={[{ key: 'todos', label: 'Todos' }, ...rolNombres.map(r => ({ key: r, label: r }))]}
               onChange={(k) => { setFilterRol(k === 'todos' ? '' : k); setCurrentPage(1); }}
             />
             <FilterDropdown
@@ -428,13 +443,14 @@ export const Usuarios = () => {
                       <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Rol de Usuario</label>
                           <select value={formValues.rol} onChange={e => setFormValues({...formValues, rol: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
-                              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                              {rolNombres.map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
                       </div>
                       <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Departamento / Fac.</label>
                           <select value={formValues.departamento} onChange={e => setFormValues({...formValues, departamento: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
-                              {DEPARTAMENTOS.map(d => <option key={d} value={d}>{d}</option>)}
+                              {!departamentos.includes(formValues.departamento) && formValues.departamento && <option value={formValues.departamento}>{formValues.departamento}</option>}
+                              {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
                           </select>
                       </div>
                   </div>
@@ -442,13 +458,13 @@ export const Usuarios = () => {
                   <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Estado</label>
                       <div className="flex gap-4 mt-1">
-                          <label className="flex items-center gap-2 cursor-pointer group">
+                          <label onClick={() => setFormValues({ ...formValues, estado: 'activo' })} className="flex items-center gap-2 cursor-pointer group">
                               <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${formValues.estado === 'activo' ? 'border-blue-600 bg-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
                                   {formValues.estado === 'activo' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
                               </div>
                               <span className="text-[13px] font-bold text-gray-700">Activo</span>
                           </label>
-                          <label className="flex items-center gap-2 cursor-pointer group">
+                          <label onClick={() => setFormValues({ ...formValues, estado: 'inactivo' })} className="flex items-center gap-2 cursor-pointer group">
                               <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${formValues.estado === 'inactivo' ? 'border-red-600 bg-red-600' : 'border-gray-300 group-hover:border-red-400'}`}>
                                   {formValues.estado === 'inactivo' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
                               </div>
