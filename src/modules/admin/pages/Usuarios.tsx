@@ -112,14 +112,36 @@ export const Usuarios = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (modalType === 'create') {
-      import('sweetalert2').then(S => S.default.fire({
-        icon: 'info',
-        title: 'Creación de Usuario Restringida',
-        text: 'Por seguridad, los usuarios deben registrarse primero desde la pantalla principal para vincular su cuenta y contraseña en el sistema Auth. Una vez registrados, aparecerán aquí automáticamente.',
-        confirmButtonColor: '#3b82f6',
-        confirmButtonText: 'Entendido'
-      }));
+      const email = formValues.email.trim();
+      const S = (await import('sweetalert2')).default;
+      if (!email) {
+        S.fire({ icon: 'warning', title: 'Correo requerido', text: 'Ingresa el correo institucional del nuevo usuario.', confirmButtonColor: '#B00020' });
+        return;
+      }
+      setIsSubmitting(true);
+      // No generamos contraseña: se crea la cuenta y se envía un enlace de un solo uso
+      // al correo para que el propio usuario establezca su contraseña (/set-password).
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/set-password`,
+          data: { nombre: formValues.nombre.trim() },
+        },
+      });
+      setIsSubmitting(false);
+      if (error) {
+        S.fire({ icon: 'error', title: 'No se pudo enviar la invitación', text: error.message, confirmButtonColor: '#B00020' });
+        return;
+      }
+      S.fire({
+        icon: 'success',
+        title: 'Invitación enviada',
+        html: `Se envió un enlace de un solo uso a <b>${email}</b>.<br>El usuario podrá establecer su contraseña e ingresar.<br><br><span style="font-size:12px;color:#6b7280">Cuando confirme aparecerá en la lista y podrás asignarle su rol.</span>`,
+        confirmButtonColor: '#B00020',
+      });
       setModalType(null);
+      fetchUsuarios();
     } else if (modalType === 'edit' && selectedUser) {
       setIsSubmitting(true);
       let finalAvatarUrl = formValues.avatar_url;

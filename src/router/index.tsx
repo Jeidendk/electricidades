@@ -8,6 +8,7 @@ import type { Rol } from '../store/authStore';
 // Code-splitting por ruta: cada página/layout carga en su propio chunk bajo demanda.
 // Las páginas se exportan con nombre, por eso se mapea { default: m.Nombre }.
 const Login = lazy(() => import('../modules/auth/pages/Login').then(m => ({ default: m.Login })));
+const SetPassword = lazy(() => import('../modules/auth/pages/SetPassword').then(m => ({ default: m.SetPassword })));
 const StudentLayout = lazy(() => import('../modules/student/layout/StudentLayout').then(m => ({ default: m.StudentLayout })));
 const CatalogoEquipos = lazy(() => import('../modules/student/pages/CatalogoEquipos').then(m => ({ default: m.CatalogoEquipos })));
 const MisSolicitudes = lazy(() => import('../modules/student/pages/MisSolicitudes').then(m => ({ default: m.MisSolicitudes })));
@@ -127,6 +128,10 @@ export const AppRouter = () => {
           <Route path="/login" element={<Login />} />
         </Route>
         <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* Establecer contraseña — destino del enlace de invitación de un solo uso.
+            Sin guardia: la sesión la aporta el propio enlace mágico de Supabase. */}
+        <Route path="/set-password" element={<SetPassword />} />
 
         {/* ── Rutas del Estudiante ── */}
         <Route element={<RequireAuth allowedRoles={['student', 'admin', 'tecnico']} />}>
