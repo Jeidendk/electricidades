@@ -247,6 +247,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
       if (session) {
         const perfil = await fetchPerfil(session.user.id);
         set({ user: perfil, session, loading: false });
+        // Registrar la conexión también al restaurar sesión (con "Mantener conexión"
+        // casi nunca hay un login fresco, por eso antes quedaba en "Sin registro").
+        syncPerfilOnLogin(session.user.id);
       } else {
         set({ loading: false });
       }
@@ -261,6 +264,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
           if (_mfaPending) return;
           const perfil = await fetchPerfil(session.user.id);
           set({ user: perfil, session, loading: false });
+          syncPerfilOnLogin(session.user.id);
         } else if (event === 'SIGNED_OUT') {
           set({ user: null, session: null, loading: false });
         } else if (event === 'TOKEN_REFRESHED' && session) {
