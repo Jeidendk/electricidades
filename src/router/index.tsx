@@ -17,7 +17,6 @@ const HorariosEstudiante = lazy(() => import('../modules/student/pages/HorariosE
 const RecursosEstudiante = lazy(() => import('../modules/student/pages/RecursosEstudiante').then(m => ({ default: m.RecursosEstudiante })));
 const AdminLayout = lazy(() => import('../modules/admin/layout/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const TecnicoLayout = lazy(() => import('../modules/tecnico/layout/TecnicoLayout').then(m => ({ default: m.TecnicoLayout })));
-const TecnicoDashboard = lazy(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard })));
 const Dashboard = lazy(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const Solicitudes = lazy(() => import('../modules/admin/pages/Solicitudes').then(m => ({ default: m.Solicitudes })));
 const Formatos = lazy(() => import('../modules/admin/pages/Formatos').then(m => ({ default: m.Formatos })));
@@ -68,7 +67,7 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
 
 // Ruta inicial por rol.
 const homeFor = (role: Rol) =>
-  role === 'admin' ? '/admin' : role === 'tecnico' ? '/tecnico' : '/student';
+  role === 'admin' ? '/admin' : role === 'tecnico' ? '/tecnico/horarios' : '/student';
 
 // ---------------------------------------------------------------------------
 // Ruta pública: si el usuario ya tiene sesión, redirige a su dashboard
@@ -88,7 +87,11 @@ const PublicRoute = () => {
   if (user) {
     // Restaura la última ruta visitada si existe y es coherente; si no, el home del rol.
     const lastPath = useUiPrefsStore.getState().lastPath;
-    const target = lastPath && lastPath !== '/login' && lastPath !== '/' ? lastPath : homeFor(user.role);
+    const target = user.role === 'tecnico'
+      ? '/tecnico/horarios'
+      : lastPath && lastPath !== '/login' && lastPath !== '/'
+        ? lastPath
+        : homeFor(user.role);
     return <Navigate to={target} replace />;
   }
 
@@ -181,8 +184,8 @@ export const AppRouter = () => {
         {/* ── Rutas del Técnico ── */}
         <Route element={<RequireAuth allowedRoles={['tecnico']} />}>
           <Route path="/tecnico" element={<TecnicoLayout />}>
-            <Route index element={<Navigate to="/tecnico/dashboard" replace />} />
-            <Route path="dashboard" element={<TecnicoDashboard />} />
+            <Route index element={<Navigate to="/tecnico/horarios" replace />} />
+            <Route path="dashboard" element={<Navigate to="/tecnico/horarios" replace />} />
             <Route path="solicitudes" element={<Solicitudes />} />
             <Route path="prestamos" element={<Prestamos />} />
             <Route path="horarios" element={<Horarios />} />

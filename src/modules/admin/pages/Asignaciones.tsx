@@ -67,7 +67,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
       .map(u => ({
         id: u.id,
         nombre: u.nombre,
-        email: u.email,
+        email: u.email || '',
         departamento: u.departamento || 'General',
         avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre)}&background=475569&color=fff`,
       }));

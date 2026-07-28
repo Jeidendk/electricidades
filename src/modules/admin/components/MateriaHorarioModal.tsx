@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X, Plus, Trash2, Clock, MapPin, User } from 'lucide-react';
 import { useClasesStore } from '../../../store/clasesStore';
-import { useUsuariosStore } from '../../../store/usuariosStore';
+import { useDocentesStore } from '../../../store/docentesStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
+import { useAuthStore } from '../../../store/authStore';
+import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
@@ -15,14 +17,17 @@ interface Props {
 // Gestión del horario de UNA materia (paso 1): bloques día/hora/docente.
 // El aula es opcional aquí y se asigna luego en la pantalla Horarios.
 export const MateriaHorarioModal = ({ open, materia, onClose }: Props) => {
+  useExclusiveModal('materia:horario', open, onClose);
+
   const clases = useClasesStore(s => s.clases);
   const fetchClases = useClasesStore(s => s.fetchClases);
   const addClase = useClasesStore(s => s.addClase);
   const removeClase = useClasesStore(s => s.removeClase);
-  const usuarios = useUsuariosStore(s => s.items);
-  const fetchUsuarios = useUsuariosStore(s => s.fetchUsuarios);
+  const docentes = useDocentesStore(s => s.docentes);
+  const fetchDocentes = useDocentesStore(s => s.fetchDocentes);
   const espacios = useEspaciosStore(s => s.items);
   const fetchEspacios = useEspaciosStore(s => s.fetchEspacios);
+  const currentUser = useAuthStore(s => s.user);
 
   const [dia, setDia] = useState('Lunes');
   const [horaInicio, setHoraInicio] = useState('07:00');
@@ -35,7 +40,7 @@ export const MateriaHorarioModal = ({ open, materia, onClose }: Props) => {
   useEffect(() => {
     if (open) {
       if (clases.length === 0) fetchClases();
-      if (usuarios.length === 0) fetchUsuarios();
+      if (docentes.length === 0) fetchDocentes();
       if (espacios.length === 0) fetchEspacios();
     }
   }, [open]);
@@ -47,7 +52,7 @@ export const MateriaHorarioModal = ({ open, materia, onClose }: Props) => {
 
   if (!open || !materia) return null;
 
-  const nombreDocente = (id: string) => usuarios.find((u: any) => u.id === id)?.nombre || '—';
+  const nombreDocente = (id: string) => docentes.find((item) => item.id === id)?.nombre || '—';
   const nombreAula = (id: string | null) => (id ? espacios.find((e: any) => e.id === id)?.nombre || '—' : 'Sin aula');
 
   const handleAdd = async () => {
@@ -63,6 +68,7 @@ export const MateriaHorarioModal = ({ open, materia, onClose }: Props) => {
         dia,
         hora_inicio: horaInicio,
         hora_fin: horaFin,
+        creado_por: currentUser?.id || null,
       } as any);
     } catch (err: any) {
       setError(err?.message || 'No se pudo guardar.');
@@ -91,12 +97,14 @@ export const MateriaHorarioModal = ({ open, materia, onClose }: Props) => {
               <div className="flex items-center gap-3 min-w-0 text-[12px]">
                 <span className="font-bold text-gray-800 w-[70px] shrink-0">{c.dia}</span>
                 <span className="flex items-center gap-1 text-gray-600"><Clock className="w-3.5 h-3.5 text-gray-400" />{(c.hora_inicio || '').slice(0, 5)}–{(c.hora_fin || '').slice(0, 5)}</span>
-                <span className="flex items-center gap-1 text-gray-600 truncate"><User className="w-3.5 h-3.5 text-gray-400" />{c.usuarios?.nombre || nombreDocente(c.id_docente)}</span>
+                <span className="flex items-center gap-1 text-gray-600 truncate"><User className="w-3.5 h-3.5 text-gray-400" />{c.docentes?.nombre || nombreDocente(c.id_docente)}</span>
                 <span className="flex items-center gap-1 text-gray-500 truncate"><MapPin className="w-3.5 h-3.5 text-gray-400" />{c.espacios?.nombre || nombreAula(c.id_espacio)}</span>
               </div>
-              <button onClick={() => removeClase(c.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {(currentUser?.role === 'admin' || c.creado_por === currentUser?.id) && (
+                <button onClick={() => removeClase(c.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -112,7 +120,9 @@ export const MateriaHorarioModal = ({ open, materia, onClose }: Props) => {
             <input type="time" value={horaFin} onChange={e => setHoraFin(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[12px] font-medium outline-none focus:border-indigo-400" />
             <select value={docente} onChange={e => setDocente(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[12px] font-medium outline-none focus:border-indigo-400 col-span-2 sm:col-span-2">
               <option value="">Docente…</option>
-              {usuarios.map((u: any) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+              {docentes
+                .filter(item => item.estado === 'activo')
+                .map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}
             </select>
             <select value={aula} onChange={e => setAula(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[12px] font-medium outline-none focus:border-indigo-400 col-span-2 sm:col-span-1">
               <option value="">Aula (opcional)</option>

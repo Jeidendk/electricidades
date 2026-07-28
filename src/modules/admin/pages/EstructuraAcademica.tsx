@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Search, Plus, Edit2, Trash2, GraduationCap, Building,
   X, BookOpen, Layers, Upload, Image as ImageIcon,
@@ -60,6 +61,7 @@ interface MateriaUI {
   silaboUrl: string | null;
   programaUrl: string | null;
   recursosIds: number[];
+  creadoPor: string | null;
 }
 
 export const EstructuraAcademica = () => {
@@ -69,6 +71,15 @@ export const EstructuraAcademica = () => {
   const recursosData = useRecursosStore(state => state.recursos);
   const fetchRecursos = useRecursosStore(state => state.fetchRecursos);
   const { recursosMap, fetchByMaterias, toggleRecurso } = useMateriaRecursosStore();
+  const { currentUser } = useOutletContext<any>();
+  const esTecnico = currentUser?.role === 'tecnico';
+  const carreraTecnico = useMemo(
+    () => carreras.find(c =>
+      (c.nombre || '').trim().toLocaleLowerCase('es') ===
+      (currentUser?.carreraNombre || '').trim().toLocaleLowerCase('es'),
+    ),
+    [carreras, currentUser?.carreraNombre],
+  );
 
   useEffect(() => {
     fetchFacultades();
@@ -90,17 +101,30 @@ export const EstructuraAcademica = () => {
 
   // Initial Selection
   useEffect(() => {
+    if (esTecnico) {
+      if (carreraTecnico) {
+        setSelectedFacultadId(carreraTecnico.id_facultad);
+        setSelectedCarreraId(carreraTecnico.id);
+        setExpandedFacultades([carreraTecnico.id_facultad]);
+      }
+      return;
+    }
+
     if (!selectedFacultadId && !selectedCarreraId && facultades.length > 0) {
       setSelectedFacultadId(facultades[0].id);
       setExpandedFacultades([facultades[0].id]);
     }
-  }, [facultades, selectedFacultadId, selectedCarreraId]);
+  }, [facultades, selectedFacultadId, selectedCarreraId, esTecnico, carreraTecnico]);
 
   const toggleExpand = (id: string) => {
     setExpandedFacultades(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
   };
 
   const selectFacultad = (id: string) => {
+    if (esTecnico && carreraTecnico) {
+      selectCarrera(carreraTecnico.id_facultad, carreraTecnico.id);
+      return;
+    }
     setSelectedFacultadId(id);
     setSelectedCarreraId(null);
     if (!expandedFacultades.includes(id)) {
@@ -117,18 +141,25 @@ export const EstructuraAcademica = () => {
   };
 
   // MAPPED DATA
-  const mappedFacultades = useMemo(() => facultades.map(f => ({
+  const mappedFacultades = useMemo(() => facultades
+    .filter(f => !esTecnico || f.id === carreraTecnico?.id_facultad)
+    .map(f => ({
     ...f, colorHex: f.color_hex || '#3b82f6', customSvg: f.custom_svg, decano: f.decano || 'No Asignado', estado: f.estado || 'activo',
-    totalCarreras: carreras.filter(c => c.id_facultad === f.id).length
-  })), [facultades, carreras]);
+    totalCarreras: carreras.filter(c => c.id_facultad === f.id && (!esTecnico || c.id === carreraTecnico?.id)).length
+  })), [facultades, carreras, esTecnico, carreraTecnico]);
 
-  const mappedCarreras = useMemo(() => carreras.map(c => ({
+  const mappedCarreras = useMemo(() => carreras
+    .filter(c => !esTecnico || c.id === carreraTecnico?.id)
+    .map(c => ({
     ...c, colorHex: c.color_hex || '#3b82f6', customSvg: c.custom_svg, idFacultad: c.id_facultad, director: c.director || 'No Asignado', semestres: c.semestres ?? 9, estado: c.estado || 'activo'
-  })), [carreras]);
+  })), [carreras, esTecnico, carreraTecnico]);
 
   const materias: MateriaUI[] = useMemo(() => (dbMaterias || []).map(m => ({
-    id: m.id, idCarrera: m.id_carrera, semestre: m.semestre, nombre: m.nombre, codigo: m.codigo, creditos: m.creditos, silaboUrl: m.silabo_url ?? null, programaUrl: m.programa_url ?? null, recursosIds: recursosMap[m.id] || [],
+    id: m.id, idCarrera: m.id_carrera, semestre: m.semestre, nombre: m.nombre, codigo: m.codigo, creditos: m.creditos, silaboUrl: m.silabo_url ?? null, programaUrl: m.programa_url ?? null, recursosIds: recursosMap[m.id] || [], creadoPor: m.creado_por ?? null,
   })), [dbMaterias, recursosMap]);
+
+  const puedeGestionarMateria = (materia: MateriaUI) =>
+    !esTecnico || materia.creadoPor === currentUser?.id;
 
   // --- MODALS STATE ---
   const [modalType, setModalType] = useState<null | 'createFacultad' | 'editFacultad' | 'createCarrera' | 'editCarrera'>(null);
@@ -214,12 +245,23 @@ export const EstructuraAcademica = () => {
     if (!formMateria.nombre.trim() || !formMateria.codigo.trim() || !formMateria.idCarrera) {
       setMateriaError('Completa todos los campos obligatorios.'); return;
     }
+    if (esTecnico && formMateria.idCarrera !== carreraTecnico?.id) {
+      setMateriaError('Solo puedes registrar materias en la carrera asignada a tu perfil.');
+      return;
+    }
+    if (editingMateriaId) {
+      const materiaEditada = materias.find(m => m.id === editingMateriaId);
+      if (materiaEditada && !puedeGestionarMateria(materiaEditada)) {
+        setMateriaError('No puedes editar una materia registrada por otro usuario.');
+        return;
+      }
+    }
     setSavingMateria(true); setMateriaError(null);
     try {
       if (editingMateriaId) {
         await updateMateria(editingMateriaId, { id_carrera: formMateria.idCarrera, codigo: formMateria.codigo.trim().toUpperCase(), nombre: formMateria.nombre.trim(), semestre: formMateria.semestre, creditos: formMateria.creditos });
       } else {
-        await addMateria({ id: `MAT-${formMateria.codigo.trim().toUpperCase().replace(/\s+/g, '-')}-${Date.now()}`, id_carrera: formMateria.idCarrera, codigo: formMateria.codigo.trim().toUpperCase(), nombre: formMateria.nombre.trim(), semestre: formMateria.semestre, creditos: formMateria.creditos, silabo_url: null, programa_url: null });
+        await addMateria({ id: `MAT-${formMateria.codigo.trim().toUpperCase().replace(/\s+/g, '-')}-${Date.now()}`, id_carrera: formMateria.idCarrera, codigo: formMateria.codigo.trim().toUpperCase(), nombre: formMateria.nombre.trim(), semestre: formMateria.semestre, creditos: formMateria.creditos, silabo_url: null, programa_url: null, creado_por: currentUser?.id || null });
       }
       setIsAddingMateria(false);
       setEditingMateriaId(null);
@@ -227,6 +269,8 @@ export const EstructuraAcademica = () => {
   };
 
   const handleDeleteMateria = async (m: { id: string; nombre: string }) => {
+    const materia = materias.find(item => item.id === m.id);
+    if (materia && !puedeGestionarMateria(materia)) return;
     if (await confirmDelete({ title: `¿Eliminar "${m.nombre}"?` })) removeMateria(m.id);
   };
 
@@ -338,6 +382,7 @@ export const EstructuraAcademica = () => {
   };
 
   const currentMateria = materias.find(m => m.id === selectedMateriaId) || null;
+  const currentMateriaEditable = !!currentMateria && puedeGestionarMateria(currentMateria);
 
   return (
     <div className="flex flex-col h-screen bg-[#f4f7fb]">
@@ -377,13 +422,15 @@ export const EstructuraAcademica = () => {
           <div className="p-5 border-b border-gray-100 shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[14px] font-bold text-gray-900">Facultades y carreras</h3>
-              <button
-                onClick={() => { setFormFacultad(defaultFacultadValues); setModalType('createFacultad'); }}
-                className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm"
-                title="Agregar Facultad"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              {!esTecnico && (
+                <button
+                  onClick={() => { setFormFacultad(defaultFacultadValues); setModalType('createFacultad'); }}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm"
+                  title="Agregar Facultad"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -417,9 +464,11 @@ export const EstructuraAcademica = () => {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] font-bold text-gray-600 bg-white border border-gray-100 px-2 py-0.5 rounded-full shadow-sm" title={`${facCarreras.length} ${facCarreras.length === 1 ? 'carrera' : 'carreras'}`}>{facCarreras.length}</span>
-                      <button onClick={(e) => { e.stopPropagation(); setFormCarrera({ ...defaultCarreraValues, idFacultad: fac.id }); setModalType('createCarrera'); }} className="w-6 h-6 border border-gray-200 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-colors shadow-sm" title="Agregar carrera">
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                      {!esTecnico && (
+                        <button onClick={(e) => { e.stopPropagation(); setFormCarrera({ ...defaultCarreraValues, idFacultad: fac.id }); setModalType('createCarrera'); }} className="w-6 h-6 border border-gray-200 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-colors shadow-sm" title="Agregar carrera">
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -445,7 +494,7 @@ export const EstructuraAcademica = () => {
                         );
                       })}
 
-                      {facCarreras.length === 0 && (
+                      {facCarreras.length === 0 && !esTecnico && (
                         <button
                           onClick={() => { setFormCarrera({ ...defaultCarreraValues, idFacultad: fac.id }); setModalType('createCarrera'); }}
                           className="flex items-center justify-center gap-2 py-2.5 border border-dashed border-gray-200 rounded-xl text-[11px] font-bold text-gray-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-colors w-full"
@@ -495,14 +544,14 @@ export const EstructuraAcademica = () => {
                       <p className="text-[11px] font-medium text-gray-400">{selectedFacultad.siglas} · Decano/a: {selectedFacultad.decano} · {facultadKpis.carreras} {facultadKpis.carreras === 1 ? 'carrera' : 'carreras'}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  {!esTecnico && <div className="flex items-center gap-3 shrink-0">
                     <button onClick={() => { setFormFacultad({ siglas: selectedFacultad.siglas, nombre: selectedFacultad.nombre, decano: selectedFacultad.decano, estado: selectedFacultad.estado, colorHex: selectedFacultad.colorHex, icono: selectedFacultad.icono, customSvg: selectedFacultad.customSvg }); setModalType('editFacultad'); }} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
                       <Edit2 className="w-3.5 h-3.5" /> Editar Facultad
                     </button>
                     <button onClick={() => handleDeleteFacultad(selectedFacultad.id, selectedFacultad.nombre)} className="bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
                       <Trash2 className="w-3.5 h-3.5" /> Eliminar
                     </button>
-                  </div>
+                  </div>}
                 </div>
 
                 <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
@@ -517,9 +566,11 @@ export const EstructuraAcademica = () => {
                   <div className="flex items-center gap-3">
                     <ViewToggle value={carreraViewMode} onChange={setCarreraViewMode} />
 
-                    <button onClick={() => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }} className="bg-[#0f172a] hover:bg-black text-white px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
-                      <Plus className="w-3.5 h-3.5" /> Nueva Carrera
-                    </button>
+                    {!esTecnico && (
+                      <button onClick={() => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }} className="bg-[#0f172a] hover:bg-black text-white px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
+                        <Plus className="w-3.5 h-3.5" /> Nueva Carrera
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -533,8 +584,8 @@ export const EstructuraAcademica = () => {
                       <EmptyState
                         icon={GraduationCap}
                         title={searchCarrera ? `Sin resultados para "${searchCarrera}"` : 'Sin carreras registradas'}
-                        actionLabel={searchCarrera ? undefined : 'Crear primera carrera'}
-                        onAction={searchCarrera ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
+                        actionLabel={searchCarrera || esTecnico ? undefined : 'Crear primera carrera'}
+                        onAction={searchCarrera || esTecnico ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
                         secondaryLabel={searchCarrera ? 'Limpiar búsqueda' : undefined}
                         onSecondary={searchCarrera ? () => setSearchCarrera('') : undefined}
                         className="py-12"
@@ -563,8 +614,12 @@ export const EstructuraAcademica = () => {
                         key: 'acciones', header: 'Acciones', width: '120px', align: 'right',
                         render: car => (
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setEditingCarreraId(car.id); setFormCarrera({ idFacultad: car.idFacultad, nombre: car.nombre, semestres: car.semestres, director: car.director, estado: car.estado, colorHex: car.colorHex, icono: car.icono, customSvg: car.customSvg }); setModalType('editCarrera'); }} className="p-1.5 text-gray-400 hover:text-blue-600 bg-white rounded-md border border-gray-200 hover:border-blue-300 shadow-sm transition-all"><Edit2 className="w-3.5 h-3.5" /></button>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteCarrera(car.id, car.nombre); }} className="p-1.5 text-gray-400 hover:text-red-600 bg-white rounded-md border border-gray-200 hover:border-red-300 shadow-sm transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                            {!esTecnico && (
+                              <>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setEditingCarreraId(car.id); setFormCarrera({ idFacultad: car.idFacultad, nombre: car.nombre, semestres: car.semestres, director: car.director, estado: car.estado, colorHex: car.colorHex, icono: car.icono, customSvg: car.customSvg }); setModalType('editCarrera'); }} className="p-1.5 text-gray-400 hover:text-blue-600 bg-white rounded-md border border-gray-200 hover:border-blue-300 shadow-sm transition-all"><Edit2 className="w-3.5 h-3.5" /></button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteCarrera(car.id, car.nombre); }} className="p-1.5 text-gray-400 hover:text-red-600 bg-white rounded-md border border-gray-200 hover:border-red-300 shadow-sm transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </>
+                            )}
                             <button type="button" className="p-1.5 text-gray-400 hover:text-indigo-600 bg-white rounded-md border border-gray-200 hover:border-indigo-300 shadow-sm transition-all"><ChevronRight className="w-3.5 h-3.5" /></button>
                           </div>
                         ),
@@ -610,8 +665,8 @@ export const EstructuraAcademica = () => {
                         variant="card"
                         title={searchCarrera ? `Sin resultados para "${searchCarrera}"` : 'Sin carreras registradas'}
                         description={searchCarrera ? undefined : 'Crea la primera carrera para esta facultad.'}
-                        actionLabel={searchCarrera ? undefined : 'Crear primera carrera'}
-                        onAction={searchCarrera ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
+                        actionLabel={searchCarrera || esTecnico ? undefined : 'Crear primera carrera'}
+                        onAction={searchCarrera || esTecnico ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
                         secondaryLabel={searchCarrera ? 'Limpiar búsqueda' : undefined}
                         onSecondary={searchCarrera ? () => setSearchCarrera('') : undefined}
                         className="col-span-full"
@@ -638,14 +693,14 @@ export const EstructuraAcademica = () => {
                       <span className="text-gray-900 truncate max-w-[180px]">{selectedCarrera.nombre}</span>
                     </nav>
                     {<EstadoBadge estado={selectedCarrera.estado} />}
-                    <div className="flex items-center gap-1">
+                    {!esTecnico && <div className="flex items-center gap-1">
                       <button onClick={() => { setEditingCarreraId(selectedCarrera.id); setFormCarrera({ nombre: selectedCarrera.nombre, semestres: selectedCarrera.semestres, icono: selectedCarrera.icono, idFacultad: selectedCarrera.idFacultad, estado: selectedCarrera.estado, director: selectedCarrera.director, colorHex: selectedCarrera.colorHex, customSvg: selectedCarrera.customSvg }); setModalType('editCarrera'); }} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Editar carrera">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => handleDeleteCarrera(selectedCarrera.id, selectedCarrera.nombre)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Eliminar carrera">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    </div>
+                    </div>}
                     <div className="w-px h-6 bg-gray-200 hidden md:block"></div>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -720,8 +775,12 @@ export const EstructuraAcademica = () => {
                             render: m => (
                               <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <button type="button" title="Horarios" onClick={(e) => { e.stopPropagation(); setHorarioMateria({ id: m.id, nombre: m.nombre, codigo: m.codigo }); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-indigo-400 hover:text-indigo-600 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm"><CalendarDays className="w-3.5 h-3.5" /></button>
-                                <button type="button" title="Editar" onClick={(e) => { e.stopPropagation(); setFormMateria({ nombre: m.nombre, codigo: m.codigo, semestre: m.semestre, creditos: m.creditos, idCarrera: m.idCarrera }); setEditingMateriaId(m.id); setIsAddingMateria(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-blue-400 hover:text-blue-600 border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all shadow-sm"><Edit2 className="w-3.5 h-3.5" /></button>
-                                <button type="button" title="Eliminar" onClick={(e) => { e.stopPropagation(); handleDeleteMateria(m); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-red-400 hover:text-red-600 border border-gray-100 hover:border-red-200 hover:bg-red-50 transition-all shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
+                                {puedeGestionarMateria(m) && (
+                                  <>
+                                    <button type="button" title="Editar" onClick={(e) => { e.stopPropagation(); setFormMateria({ nombre: m.nombre, codigo: m.codigo, semestre: m.semestre, creditos: m.creditos, idCarrera: m.idCarrera }); setEditingMateriaId(m.id); setIsAddingMateria(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-blue-400 hover:text-blue-600 border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all shadow-sm"><Edit2 className="w-3.5 h-3.5" /></button>
+                                    <button type="button" title="Eliminar" onClick={(e) => { e.stopPropagation(); handleDeleteMateria(m); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-red-400 hover:text-red-600 border border-gray-100 hover:border-red-200 hover:bg-red-50 transition-all shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  </>
+                                )}
                               </div>
                             ),
                           },
@@ -819,22 +878,26 @@ export const EstructuraAcademica = () => {
                                           >
                                             <CalendarDays className="w-3.5 h-3.5" />
                                           </button>
-                                          <button
-                                            type="button"
-                                            title="Editar"
-                                            onClick={(e) => { e.stopPropagation(); setFormMateria({ nombre: m.nombre, codigo: m.codigo, semestre: m.semestre, creditos: m.creditos, idCarrera: m.idCarrera }); setEditingMateriaId(m.id); setIsAddingMateria(true); }}
-                                            className="w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                          >
-                                            <Edit2 className="w-3.5 h-3.5" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            title="Eliminar"
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteMateria(m); }}
-                                            className="w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
+                                          {puedeGestionarMateria(m) && (
+                                            <>
+                                              <button
+                                                type="button"
+                                                title="Editar"
+                                                onClick={(e) => { e.stopPropagation(); setFormMateria({ nombre: m.nombre, codigo: m.codigo, semestre: m.semestre, creditos: m.creditos, idCarrera: m.idCarrera }); setEditingMateriaId(m.id); setIsAddingMateria(true); }}
+                                                className="w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                              >
+                                                <Edit2 className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                title="Eliminar"
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteMateria(m); }}
+                                                className="w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                              >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </button>
+                                            </>
+                                          )}
                                         </div>
                                       </div>
 
@@ -1165,12 +1228,12 @@ export const EstructuraAcademica = () => {
             </div>
             <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Documentos</p>
             <div className="flex flex-col gap-2 mb-5">
-              <DocRow label="Sílabo" Icon={FileCheck2} url={currentMateria.silaboUrl} onUpload={(f) => handleUploadDoc(currentMateria.id, 'silaboUrl', f)} onRemove={() => updateMateria(currentMateria.id, { silabo_url: null })} />
-              <DocRow label="Programa analítico" Icon={FileText} url={currentMateria.programaUrl} onUpload={(f) => handleUploadDoc(currentMateria.id, 'programaUrl', f)} onRemove={() => updateMateria(currentMateria.id, { programa_url: null })} />
+              <DocRow editable={currentMateriaEditable} label="Sílabo" Icon={FileCheck2} url={currentMateria.silaboUrl} onUpload={(f) => handleUploadDoc(currentMateria.id, 'silaboUrl', f)} onRemove={() => updateMateria(currentMateria.id, { silabo_url: null })} />
+              <DocRow editable={currentMateriaEditable} label="Programa analítico" Icon={FileText} url={currentMateria.programaUrl} onUpload={(f) => handleUploadDoc(currentMateria.id, 'programaUrl', f)} onRemove={() => updateMateria(currentMateria.id, { programa_url: null })} />
             </div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Recursos vinculados</p>
-              <button onClick={() => setShowRecursoPicker(v => !v)} className="text-[10px] font-bold text-[#0f172a] hover:text-black flex items-center gap-1"><Plus className="w-3 h-3" /> Vincular</button>
+              {currentMateriaEditable && <button onClick={() => setShowRecursoPicker(v => !v)} className="text-[10px] font-bold text-[#0f172a] hover:text-black flex items-center gap-1"><Plus className="w-3 h-3" /> Vincular</button>}
             </div>
             <div className="flex flex-col gap-2">
               {currentMateria.recursosIds.length === 0 && !showRecursoPicker && <p className="text-[11px] text-gray-400 italic py-2">Sin recursos vinculados.</p>}
@@ -1181,12 +1244,12 @@ export const EstructuraAcademica = () => {
                   <div key={rid} className="flex items-center gap-3 p-2.5 bg-gray-50/50 border border-gray-100 rounded-xl group">
                     <img src={r.portada_url ?? ''} className="w-8 h-10 object-cover rounded-md shrink-0 border border-gray-200" alt={r.titulo} />
                     <div className="flex-1 min-w-0"><p className="text-[12px] font-bold text-gray-800 truncate">{r.titulo}</p><p className="text-[10px] text-gray-400 truncate">{r.autor ?? r.tipo} · {r.formato}</p></div>
-                    <button onClick={() => toggleRecurso(currentMateria.id, rid)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    {currentMateriaEditable && <button onClick={() => toggleRecurso(currentMateria.id, rid)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>}
                   </div>
                 );
               })}
             </div>
-            {showRecursoPicker && (
+            {currentMateriaEditable && showRecursoPicker && (
               <div className="mt-3 border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar">
                 <p className="text-[10px] font-bold text-gray-500 mb-1">Catálogo de recursos</p>
                 {recursosData.map(r => {
@@ -1211,7 +1274,7 @@ export const EstructuraAcademica = () => {
   );
 };
 
-function DocRow({ label, Icon, url, onUpload, onRemove }: { label: string; Icon: React.ElementType; url: string | null; onUpload: (file?: File) => void; onRemove: () => void; }) {
+function DocRow({ label, Icon, url, onUpload, onRemove, editable = true }: { label: string; Icon: React.ElementType; url: string | null; onUpload: (file?: File) => void; onRemove: () => void; editable?: boolean; }) {
   const inputId = `doc-${label.replace(/\s+/g, '-').toLowerCase()}`;
   const hasDoc = !!url;
   return (
@@ -1221,10 +1284,10 @@ function DocRow({ label, Icon, url, onUpload, onRemove }: { label: string; Icon:
         <p className="text-[12px] font-bold text-gray-800">{label}</p>
         <p className={`text-[10px] font-semibold ${hasDoc ? 'text-emerald-600' : 'text-gray-400'}`}>{hasDoc ? 'Cargado' : 'Sin documento'}</p>
       </div>
-      <input id={inputId} type="file" accept="application/pdf" className="hidden" onChange={(e) => onUpload(e.target.files?.[0])} />
+      {editable && <input id={inputId} type="file" accept="application/pdf" className="hidden" onChange={(e) => onUpload(e.target.files?.[0])} />}
       {hasDoc && url !== '#' && <a href={url} target="_blank" rel="noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 shrink-0" title="Ver"><Eye className="w-3.5 h-3.5" /></a>}
-      <button onClick={() => document.getElementById(inputId)?.click()} className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 shrink-0" title="Subir PDF"><Upload className="w-3.5 h-3.5" /></button>
-      {hasDoc && <button onClick={onRemove} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 shrink-0" title="Quitar"><Trash2 className="w-3.5 h-3.5" /></button>}
+      {editable && <button onClick={() => document.getElementById(inputId)?.click()} className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 shrink-0" title="Subir PDF"><Upload className="w-3.5 h-3.5" /></button>}
+      {editable && hasDoc && <button onClick={onRemove} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 shrink-0" title="Quitar"><Trash2 className="w-3.5 h-3.5" /></button>}
     </div>
   );
 }

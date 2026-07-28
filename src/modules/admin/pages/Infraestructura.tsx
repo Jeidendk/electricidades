@@ -541,9 +541,9 @@ export const Infraestructura = () => {
                 <p className="text-sm text-gray-500 max-w-sm">Elige un edificio del panel izquierdo para gestionar sus aulas y laboratorios, o crea uno nuevo.</p>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar bg-gray-50/30 p-6 md:p-8">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-50/30 p-6 md:p-8">
                 {/* IDENTITY CARD */}
-                <div className="bg-white border border-gray-100 rounded-[24px] shadow-sm mb-6 flex flex-col md:flex-row md:items-center p-3 gap-4 md:gap-5">
+                <div className="shrink-0 bg-white border border-gray-100 rounded-[24px] shadow-sm mb-6 flex flex-col md:flex-row md:items-center p-3 gap-4 md:gap-5">
                   <img src={selectedEdificio.imagen} alt={selectedEdificio.nombre} className="w-full md:w-[150px] h-[120px] md:h-[90px] object-cover rounded-2xl shrink-0" />
                   <div className="flex-1 flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6 min-w-0">
                     {/* Nombre + ubicación */}
@@ -607,7 +607,7 @@ export const Infraestructura = () => {
                 </div>
 
                 {/* TOOLBAR */}
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-5 py-3 mb-4 flex items-center justify-between gap-4 flex-wrap">
+                <div className="shrink-0 bg-white border border-gray-200 rounded-xl shadow-sm px-5 py-3 mb-4 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -638,6 +638,7 @@ export const Infraestructura = () => {
                 </div>
 
                 {/* SPACES */}
+                <div className="flex-1 min-h-0 flex flex-col">
                 {filteredEspacios.length === 0 ? (
                   <EmptyState
                     icon={Microscope}
@@ -651,6 +652,7 @@ export const Infraestructura = () => {
                   />
                 ) : espView === 'list' ? (
                   <DataTable
+                    fill
                     rows={filteredEspacios}
                     rowKey={sp => sp.id}
                     minWidthClass="min-w-[820px]"
@@ -681,6 +683,7 @@ export const Infraestructura = () => {
                     ]}
                   />
                 ) : (
+                  <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {filteredEspacios.map(sp => (
                       <div key={sp.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-indigo-300 hover:shadow-lg transition-all group flex flex-col">
@@ -710,7 +713,9 @@ export const Infraestructura = () => {
                       </div>
                     ))}
                   </div>
+                  </div>
                 )}
+                </div>
               </div>
             )}
           </div>

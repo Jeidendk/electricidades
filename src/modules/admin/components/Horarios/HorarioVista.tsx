@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Download, Plus, BookOpen, Calendar, FileText, User, Info } from 'lucide-react';
-import { dias, horas, espaciosPorEdificio, availableIcons } from './horariosData';
+import React from 'react';
+import { Download, Plus, BookOpen, FileText, User, Info } from 'lucide-react';
+import { dias, horas, availableIcons, rangoIncluyeBloque } from './horariosData';
 import { SearchInput } from '../../../../components/ui/SearchInput';
 import { FilterDropdown } from '../../../../components/ui/FilterDropdown';
 
@@ -19,8 +19,11 @@ interface HorarioVistaProps {
   setIsModalOpen: (val: boolean) => void;
   clases: any[];
   carreras: any[];
+  edificios: any[];
+  espacios: any[];
   setSelectedClaseId: (val: string | null) => void;
   handleFormatAll: () => void;
+  canFormatAll: boolean;
 }
 
 const hexToRgba = (hex: string, opacity: number) => {
@@ -43,36 +46,37 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   setIsModalOpen,
   clases,
   carreras,
+  edificios,
+  espacios,
   setSelectedClaseId,
   handleFormatAll,
+  canFormatAll,
 }) => {
   const getClaseEnCasilla = (dia: string, hora: string) => {
-    return clases.find(c => c.dia === dia && c.hora === hora &&
+    return clases.find(c => c.dia === dia && rangoIncluyeBloque(c.hora, hora) &&
       (filterEdificio === '' || c.edificio === filterEdificio) &&
-      (filterAula === '' || c.aula === filterAula) &&
+      (filterAula === '' || c.idEspacio === filterAula) &&
       (searchQuery === '' || c.materia.toLowerCase().includes(searchQuery.toLowerCase()) || c.docente.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   };
 
-  const [periodo, setPeriodo] = useState('2026-1');
-
-  const periodoOpts = [
-    { key: '2026-1', label: '2026-1' },
-    { key: '2026-2', label: '2026-2' },
-    { key: '2025-2', label: '2025-2' },
-  ];
-
   const edificioOpts = [
     { key: 'todos', label: 'Todos' },
-    ...Object.keys(espaciosPorEdificio).map(ed => ({ key: ed, label: ed })),
+    ...[...edificios]
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+      .map(edificio => ({ key: edificio.id, label: edificio.nombre })),
   ];
 
   const aulaOpts = [
     { key: 'todos', label: 'Todas' },
-    ...(filterEdificio && espaciosPorEdificio[filterEdificio]
-      ? espaciosPorEdificio[filterEdificio].map(esp => ({ key: esp.nombre, label: esp.nombre }))
-      : []),
+    ...espacios
+      .filter(espacio => !filterEdificio || espacio.id_edificio === filterEdificio)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+      .map(espacio => ({ key: espacio.id, label: espacio.nombre })),
   ];
+
+  const nombreEdificioFiltrado = edificios.find(edificio => edificio.id === filterEdificio)?.nombre;
+  const nombreAulaFiltrada = espacios.find(espacio => espacio.id === filterAula)?.nombre;
 
   return (
     <div className="absolute inset-0 bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-4 md:p-5 flex flex-col overflow-hidden animate-fade-in">
@@ -98,22 +102,17 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
             options={aulaOpts}
             onChange={(k) => setFilterAula(k === 'todos' ? '' : k)}
           />
-          <FilterDropdown
-            icon={Calendar}
-            label="Periodo"
-            value={periodo}
-            options={periodoOpts}
-            onChange={setPeriodo}
-          />
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={handleFormatAll} className="text-gray-600 hover:text-red-700 hover:bg-red-50 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all">
-            <FileText className="w-3.5 h-3.5" /> Formatear todos
-          </button>
-          <button onClick={() => { setIsExportModalOpen(true); if (filterEdificio) setExportEdificio(filterEdificio); if (filterAula) setExportAula(filterAula); }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
+          {canFormatAll && (
+            <button onClick={handleFormatAll} className="text-gray-600 hover:text-red-700 hover:bg-red-50 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all">
+              <FileText className="w-3.5 h-3.5" /> Formatear todos
+            </button>
+          )}
+          <button onClick={() => { setIsExportModalOpen(true); if (nombreEdificioFiltrado) setExportEdificio(nombreEdificioFiltrado); if (nombreAulaFiltrada) setExportAula(nombreAulaFiltrada); }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> Exportar
           </button>
-          <button onClick={() => { setModalMode('create'); setFormValues({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', dia: 'Lunes', hora: '07:00 - 08:00' }); setIsModalOpen(true); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-[12px] px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all border border-gray-800">
+          <button onClick={() => { setModalMode('create'); setFormValues({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' }); setIsModalOpen(true); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-[12px] px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all border border-gray-800">
             <Plus className="w-3.5 h-3.5" /> Nueva Clase
           </button>
         </div>
@@ -179,7 +178,8 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                                 idEdificio: clase.edificio, 
                                 idEspacio: clase.idEspacio, 
                                 dia: clase.dia, 
-                                hora: clase.hora 
+                                horaInicio: clase.horaInicio,
+                                horaFin: clase.horaFin,
                               }); 
                               setModalMode('edit'); 
                               setIsModalOpen(true); 
@@ -217,7 +217,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                               setModalMode('create');
                               setFormValues({ 
                                 idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', 
-                                idEspacio: '', dia: dia, hora: hora 
+                                idEspacio: '', dia: dia, horaInicio: hora.split(' - ')[0], horaFin: hora.split(' - ')[1],
                               });
                               setIsModalOpen(true);
                             }}

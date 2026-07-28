@@ -55,8 +55,14 @@ export const useMateriasStore = create<MateriasState>()((set) => ({
 
   removeMateria: async (id) => {
     try {
-      const { error } = await supabase.from('materias').delete().eq('id', id);
+      const { data, error } = await supabase
+        .from('materias')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('No tienes permiso para eliminar esta materia.');
       set((s) => ({ materias: s.materias.filter((m) => m.id !== id) }));
     } catch (err: any) { notifyStoreError('Error removing materia:', err); throw err; }
   },

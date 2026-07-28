@@ -11,6 +11,7 @@ import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { Avatar } from '../../../components/ui/Avatar';
 import { ConfigModal } from '../../../components/ui/ConfigModal';
+import { ProfileModal } from '../../../components/ui/ProfileModal';
 import { MfaSetupModal } from '../../auth/components/MfaSetupModal';
 interface RouteConfig {
   icon: React.ElementType;
@@ -106,6 +107,7 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const notificaciones = useUiPrefsStore(s => s.notificaciones);
   const authUser = useAuthStore(s => s.user);
   const isAdmin = authUser?.role === 'admin';
@@ -119,7 +121,7 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
   const switchView = (view: 'admin' | 'tecnico' | 'student') => {
     setShowUserDropdown(false);
     if (view === currentView) return;
-    navigate(view === 'admin' ? '/admin' : view === 'tecnico' ? '/tecnico/dashboard' : '/student/catalog');
+    navigate(view === 'admin' ? '/admin' : view === 'tecnico' ? '/tecnico/horarios' : '/student/catalog');
   };
 
   const handleLogout = async () => {
@@ -192,7 +194,10 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
                   <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Opciones</span>
                 </div>
                 <div className="py-0.5">
-                  <button className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg">
+                  <button
+                    onClick={() => { setProfileModalOpen(true); setShowUserDropdown(false); }}
+                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg"
+                  >
                     <User className="w-4 h-4 text-gray-400" />
                     <span className="text-[12px] font-semibold">Mi Perfil</span>
                   </button>
@@ -251,6 +256,7 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
     </header>
 
       {/* MODAL DE SEGURIDAD MFA */}
+      <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
       <MfaSetupModal isOpen={mfaModalOpen} onClose={() => setMfaModalOpen(false)} />
       {/* MODAL DE CONFIGURACIÓN */}
       <ConfigModal isOpen={configOpen} onClose={() => setConfigOpen(false)} />

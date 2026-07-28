@@ -37,41 +37,50 @@ export interface Database {
         Row: {
           id: string
           nombre: string
-          email: string
+          email: string | null
           id_rol: number
           estado: string
           departamento: string
           especialidad: string | null
-          telefono: string | null
           avatar_url: string | null
           ultima_conexion: string | null
+          codigo_institucional: string | null
+          facultad_nombre: string | null
+          carrera_nombre: string | null
+          pao: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           nombre: string
-          email: string
+          email: string | null
           id_rol: number
           estado?: string
           departamento?: string
           especialidad?: string | null
-          telefono?: string | null
           avatar_url?: string | null
           ultima_conexion?: string | null
+          codigo_institucional?: string | null
+          facultad_nombre?: string | null
+          carrera_nombre?: string | null
+          pao?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           nombre?: string
-          email?: string
+          email?: string | null
           id_rol?: number
           estado?: string
           departamento?: string
           especialidad?: string | null
-          telefono?: string | null
           avatar_url?: string | null
           ultima_conexion?: string | null
+          codigo_institucional?: string | null
+          facultad_nombre?: string | null
+          carrera_nombre?: string | null
+          pao?: string | null
           updated_at?: string
         }
       }
@@ -265,6 +274,7 @@ export interface Database {
           creditos: number
           silabo_url: string | null
           programa_url: string | null
+          creado_por: string | null
           created_at: string
           updated_at: string
         }
@@ -277,6 +287,7 @@ export interface Database {
           creditos?: number
           silabo_url?: string | null
           programa_url?: string | null
+          creado_por?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -288,6 +299,7 @@ export interface Database {
           creditos?: number
           silabo_url?: string | null
           programa_url?: string | null
+          creado_por?: string | null
           updated_at?: string
         }
       }

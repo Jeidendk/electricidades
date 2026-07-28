@@ -12,8 +12,9 @@ export interface AuthUser {
   avatar: string | null;
   role: Rol;         // rol funcional para routing/permisos
   tecnicoId?: string;
+  facultadNombre?: string;
   carreraId?: string;     // carrera del estudiante (de metadata de registro) → horario automático
-  carreraNombre?: string; // nombre de la carrera (para encabezados)
+  carreraNombre?: string; // carrera asignada al estudiante o técnico
   pao?: number;           // PAO/periodo del estudiante
 }
 
@@ -41,20 +42,39 @@ interface AuthState {
  * RLS permite el self-update porque el usuario está autenticado como sí mismo.
  */
 async function syncPerfilOnLogin(userId: string): Promise<void> {
-  // 1) Última conexión (columna existente).
-  supabase.from('usuarios').update({ ultima_conexion: new Date().toISOString() }).eq('id', userId).then(() => {}, () => {});
-  // 2) Datos del registro desde la metadata (columnas nuevas; opcional).
+  // La fila pública es la fuente principal. La metadata sólo completa datos
+  // todavía vacíos durante el primer acceso; nunca reemplaza una edición administrativa.
+  const { data: perfilActual } = await supabase
+    .from('usuarios')
+    .select('codigo_institucional, facultad_nombre, carrera_nombre, departamento, pao')
+    .eq('id', userId)
+    .maybeSingle();
+
   const { data: authData } = await supabase.auth.getUser();
   const meta = (authData?.user?.user_metadata ?? {}) as Record<string, any>;
-  const extra: Record<string, any> = {};
-  if (meta.codigo_institucional) extra.codigo_institucional = meta.codigo_institucional;
-  if (meta.facultad_nombre) extra.facultad_nombre = meta.facultad_nombre;
-  if (meta.carrera_nombre) extra.carrera_nombre = meta.carrera_nombre;
-  if (meta.departamento) extra.departamento = meta.departamento;
-  if (meta.pao != null && meta.pao !== '') extra.pao = Number(meta.pao);
-  if (Object.keys(extra).length) {
-    supabase.from('usuarios').update(extra).eq('id', userId).then(() => {}, () => {});
+  const patch: Record<string, any> = {
+    ultima_conexion: new Date().toISOString(),
+  };
+  if (!perfilActual?.codigo_institucional && meta.codigo_institucional) {
+    patch.codigo_institucional = meta.codigo_institucional;
   }
+  if (!perfilActual?.facultad_nombre && meta.facultad_nombre) {
+    patch.facultad_nombre = meta.facultad_nombre;
+  }
+  if (!perfilActual?.carrera_nombre && meta.carrera_nombre) {
+    patch.carrera_nombre = meta.carrera_nombre;
+  }
+  if (!perfilActual?.departamento && meta.departamento) {
+    patch.departamento = meta.departamento;
+  }
+  if (
+    (perfilActual?.pao == null || perfilActual.pao === '') &&
+    meta.pao != null &&
+    meta.pao !== ''
+  ) {
+    patch.pao = String(meta.pao);
+  }
+  await supabase.from('usuarios').update(patch).eq('id', userId);
 }
 
 /** Dado el id del usuario autenticado, carga su perfil de public.usuarios */
@@ -62,7 +82,7 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
   // 1. Cargar perfil del usuario (sin join para no depender de RLS de roles)
   const { data, error } = await supabase
     .from('usuarios')
-    .select('id, nombre, email, avatar_url, id_rol')
+    .select('id, nombre, email, avatar_url, id_rol, facultad_nombre, carrera_nombre, pao')
     .eq('id', userId)
     .single();
 
@@ -108,26 +128,44 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
     }
   }
 
-  // Carrera + PAO del estudiante (guardados en metadata al registrarse) → horario automático.
+  const { data: authData } = await supabase.auth.getUser();
+  const meta = (authData?.user?.user_metadata ?? {}) as {
+    carrera_id?: string;
+    carrera_nombre?: string;
+    facultad_nombre?: string;
+    pao?: string | number;
+  };
+
+  // Asignación académica del estudiante o técnico.
   let carreraId: string | undefined;
-  let carreraNombre: string | undefined;
+  const carreraNombre = data.carrera_nombre || meta.carrera_nombre || undefined;
+  const facultadNombre = data.facultad_nombre || meta.facultad_nombre || undefined;
   let pao: number | undefined;
   if (rolFuncional === 'student') {
-    const { data: authData } = await supabase.auth.getUser();
-    const meta = (authData?.user?.user_metadata ?? {}) as { carrera_id?: string; carrera_nombre?: string; pao?: string | number };
-    carreraId = meta.carrera_id || undefined;
-    carreraNombre = meta.carrera_nombre || undefined;
-    pao = meta.pao != null && meta.pao !== '' ? Number(meta.pao) : undefined;
+    if (carreraNombre) {
+      const { data: carreraData } = await supabase
+        .from('carreras')
+        .select('id')
+        .eq('nombre', carreraNombre)
+        .limit(1)
+        .maybeSingle();
+      carreraId = carreraData?.id || meta.carrera_id || undefined;
+    } else {
+      carreraId = meta.carrera_id || undefined;
+    }
+    const paoPerfil = data.pao != null && data.pao !== '' ? data.pao : meta.pao;
+    pao = paoPerfil != null && paoPerfil !== '' ? Number(paoPerfil) : undefined;
   }
 
   return {
     id: data.id,
     nombre: data.nombre,
-    email: data.email,
+    email: data.email || '',
     rol: rolVisible,
     avatar: data.avatar_url,
     role: rolFuncional,
     ...(rolFuncional === 'tecnico' ? { tecnicoId: data.id } : {}),
+    ...(facultadNombre ? { facultadNombre } : {}),
     ...(carreraId ? { carreraId } : {}),
     ...(carreraNombre ? { carreraNombre } : {}),
     ...(pao != null ? { pao } : {}),

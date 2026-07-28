@@ -28,7 +28,7 @@ export const useClasesStore = create<ClasesState>()((set) => ({
     try {
       const { data, error } = await supabase
         .from('clases')
-        .select('*, materias(nombre, codigo, id_carrera), espacios(nombre, id_edificio, tipo), usuarios!clases_id_docente_fkey(nombre)')
+        .select('*, materias(nombre, codigo, id_carrera), espacios(nombre, id_edificio, tipo), docentes:usuarios!clases_id_docente_fkey(nombre)')
         .order('dia')
         .order('hora_inicio');
       if (error) throw error;
@@ -53,16 +53,28 @@ export const useClasesStore = create<ClasesState>()((set) => ({
 
   updateClase: async (id, patch) => {
     try {
-      const { error } = await supabase.from('clases').update(patch).eq('id', id);
+      const { data, error } = await supabase
+        .from('clases')
+        .update(patch)
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('No tienes permiso para editar una clase creada por otro usuario.');
       await useClasesStore.getState().fetchClases();
     } catch (err: any) { notifyStoreError('Error updating clase:', err); throw err; }
   },
 
   removeClase: async (id) => {
     try {
-      const { error } = await supabase.from('clases').delete().eq('id', id);
+      const { data, error } = await supabase
+        .from('clases')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('No tienes permiso para eliminar una clase creada por otro usuario.');
       set((s) => ({ clases: s.clases.filter((c) => c.id !== id) }));
     } catch (err: any) { notifyStoreError('Error removing clase:', err); throw err; }
   },

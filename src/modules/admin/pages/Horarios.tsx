@@ -13,7 +13,8 @@ import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useMateriasStore } from '../../../store/materiasStore';
-import { useUsuariosStore } from '../../../store/usuariosStore';
+import { useDocentesStore } from '../../../store/docentesStore';
+import { horasFinDisponibles } from '../components/Horarios/horariosData';
 
 export const Horarios = () => {
   // === SUPABASE STORES ===
@@ -23,7 +24,7 @@ export const Horarios = () => {
 
   const { items: edificiosRaw, fetchEdificios } = useEdificiosStore();
   const { fetchMaterias } = useMateriasStore();
-  const { fetchUsuarios } = useUsuariosStore();
+  const { fetchDocentes } = useDocentesStore();
   
   useEffect(() => {
     fetchClases();
@@ -31,7 +32,7 @@ export const Horarios = () => {
     fetchEdificios();
     fetchFacultades();
     fetchMaterias();
-    fetchUsuarios();
+    fetchDocentes();
   }, []);
 
   // Mapear datos de Supabase al formato que esperan los sub-componentes
@@ -41,7 +42,7 @@ export const Horarios = () => {
     return {
       id: c.id,
       materia: c.materias?.nombre || 'Sin materia',
-      docente: c.usuarios?.nombre || 'Sin docente',
+      docente: c.docentes?.nombre || 'Sin docente',
       aula: c.espacios?.nombre || 'Sin aula',
       edificio: c.espacios?.id_edificio || '',
       tipoEspacio: c.espacios?.tipo || 'Academica',
@@ -52,6 +53,8 @@ export const Horarios = () => {
       idEspacio: c.id_espacio || '',
       dia: c.dia,
       hora: `${c.hora_inicio?.slice(0,5)} - ${c.hora_fin?.slice(0,5)}`,
+      horaInicio: c.hora_inicio?.slice(0,5) || '07:00',
+      horaFin: c.hora_fin?.slice(0,5) || '08:00',
       creadoPor: c.creado_por || '',
       _raw: c,
     };
@@ -107,7 +110,7 @@ export const Horarios = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedClaseId, setSelectedClaseId] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', dia: 'Lunes', hora: '07:00 - 08:00' });
+  const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' });
 
   // Export State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -125,6 +128,15 @@ export const Horarios = () => {
   const [footerImg, setFooterImg] = useState<string>('');
 
   const { currentUser } = useOutletContext<any>();
+  const esTecnico =
+    currentUser?.role === 'tecnico' ||
+    String(currentUser?.rol || '').toLocaleLowerCase('es').includes('técnico') ||
+    String(currentUser?.rol || '').toLocaleLowerCase('es').includes('tecnico');
+  const selectedClase = clases.find(c => c.id === selectedClaseId);
+  const isReadOnly =
+    modalMode === 'edit' &&
+    esTecnico &&
+    selectedClase?.creadoPor !== currentUser?.id;
 
   const totalClases = clases.length;
   const aulasUsadas = new Set(clases.map(c => c.aula)).size;
@@ -143,6 +155,11 @@ export const Horarios = () => {
 
   const handleSaveClase = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (modalMode === 'edit' && isReadOnly) {
+      Swal.fire('Solo lectura', 'No puedes modificar una clase creada por otro técnico.', 'warning');
+      return;
+    }
+
     try {
       if (modalMode === 'create') {
         if (!formValues.idMateria || !formValues.idDocente || !formValues.idEspacio) {
@@ -151,9 +168,16 @@ export const Horarios = () => {
         }
       }
 
+      const horaInicio = formValues.horaInicio;
+      const horaFin = formValues.horaFin;
+      if (!horasFinDisponibles(horaInicio).includes(horaFin)) {
+        Swal.fire('Horario no disponible', 'La hora de fin debe ser posterior al inicio y la clase puede durar como máximo cuatro horas.', 'warning');
+        return;
+      }
+
       // ── Control de cruces: misma aula o mismo docente, mismo día, horas solapadas ──
-      const nuevoIni = formValues.hora.split(' - ')[0] + ':00';
-      const nuevoFin = formValues.hora.split(' - ')[1] + ':00';
+      const nuevoIni = horaInicio + ':00';
+      const nuevoFin = horaFin + ':00';
       const solapa = (c: any) => nuevoIni < c.hora_fin && nuevoFin > c.hora_inicio && c.dia === formValues.dia;
       const otras = (rawClases as any[]).filter(c => c.id !== selectedClaseId);
 
@@ -175,8 +199,8 @@ export const Horarios = () => {
           id_docente: formValues.idDocente,
           id_espacio: formValues.idEspacio,
           dia: formValues.dia,
-          hora_inicio: formValues.hora.split(' - ')[0] + ':00',
-          hora_fin: formValues.hora.split(' - ')[1] + ':00',
+          hora_inicio: nuevoIni,
+          hora_fin: nuevoFin,
           creado_por: currentUser?.id || null
         });
       } else {
@@ -186,8 +210,8 @@ export const Horarios = () => {
             id_docente: formValues.idDocente || undefined,
             id_espacio: formValues.idEspacio || undefined,
             dia: formValues.dia,
-            hora_inicio: formValues.hora.split(' - ')[0] + ':00',
-            hora_fin: formValues.hora.split(' - ')[1] + ':00',
+            hora_inicio: nuevoIni,
+            hora_fin: nuevoFin,
           });
         }
       }
@@ -199,13 +223,27 @@ export const Horarios = () => {
   };
 
   const handleDeleteClase = async () => {
+    if (isReadOnly) {
+      Swal.fire('Solo lectura', 'No puedes eliminar una clase creada por otro técnico.', 'warning');
+      return;
+    }
+
     if (selectedClaseId) {
-      await removeClase(selectedClaseId);
-      setIsModalOpen(false);
+      try {
+        await removeClase(selectedClaseId);
+        setIsModalOpen(false);
+      } catch (err: any) {
+        Swal.fire('No se pudo eliminar', err?.message || 'No tienes permiso para eliminar esta clase.', 'error');
+      }
     }
   };
 
   const handleFormatAll = () => {
+    if (esTecnico) {
+      Swal.fire('Acción no permitida', 'Solo un administrador puede eliminar todo el horario.', 'warning');
+      return;
+    }
+
     Swal.fire({
       title: '¿Estás seguro?',
       text: "¡Se eliminarán todas las clases registradas en el sistema!",
@@ -329,10 +367,6 @@ export const Horarios = () => {
     setPaperSize('A4'); setIncludeFooter(true); setDocumentFontSize(11); setTypography('Inter');
   };
 
-  // Compute if modal should be read only for current user
-  const selectedClase = clases.find(c => c.id === selectedClaseId);
-  const isReadOnly = modalMode === 'edit' && currentUser?.rol === 'Técnico' && selectedClase?.creadoPor !== currentUser?.id;
-
   return (
     <div className="flex flex-col h-screen bg-[#f4f7fb]">
       {/* HERO SECTION */}
@@ -417,8 +451,11 @@ export const Horarios = () => {
                   setModalMode={setModalMode} setFormValues={setFormValues} setIsModalOpen={setIsModalOpen}
                   clases={clases} 
                   carreras={carreras}
+                  edificios={edificiosRaw}
+                  espacios={espaciosRaw}
                   setSelectedClaseId={setSelectedClaseId}
                   handleFormatAll={handleFormatAll}
+                  canFormatAll={!esTecnico}
                 />
               )}
               {activeTab === 'mapa' && (

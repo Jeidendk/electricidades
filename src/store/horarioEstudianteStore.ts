@@ -44,7 +44,7 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
           clases (
             id, dia, hora_inicio, hora_fin,
             materias ( nombre ),
-            usuarios ( nombre ),
+            docentes:usuarios!clases_id_docente_fkey ( nombre ),
             espacios ( nombre, tipo )
           )
         `)
@@ -61,7 +61,7 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
         return {
           id: d.id,
           materia: c?.materias?.nombre || 'Desconocida',
-          docente: c?.usuarios?.nombre || 'Desconocido',
+          docente: c?.docentes?.nombre || 'Desconocido',
           aula: c?.espacios?.nombre || 'Sin aula',
           dia: c?.dia || 'LUN',
           horaInicio: c?.hora_inicio?.substring(0, 5) || '00:00',
@@ -95,11 +95,11 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
 
       if (error) throw error;
 
-      // Nombres de docentes vía la vista `docentes` (la RLS de usuarios bloquea el join directo).
+      // Nombres desde el catálogo de docentes, independiente de las cuentas de acceso.
       const docenteIds = [...new Set((data as any[]).map(c => c.id_docente).filter(Boolean))];
       const docenteMap: Record<string, string> = {};
       if (docenteIds.length) {
-        const { data: docs } = await supabase.from('docentes').select('id, nombre').in('id', docenteIds);
+        const { data: docs } = await supabase.from('usuarios').select('id, nombre').in('id', docenteIds);
         (docs as any[] || []).forEach(d => { docenteMap[d.id] = d.nombre; });
       }
 

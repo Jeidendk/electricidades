@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { X, Plus, BookOpen } from 'lucide-react';
-import { dias, horas } from './horariosData';
+import { X, Plus, BookOpen, Clock } from 'lucide-react';
+import { calcularDuracion, dias, horasSeleccionables } from './horariosData';
 import { useMateriasStore } from '../../../../store/materiasStore';
-import { useUsuariosStore } from '../../../../store/usuariosStore';
+import { useDocentesStore } from '../../../../store/docentesStore';
 import { useFacultadesStore } from '../../../../store/facultadesStore';
 import { useEdificiosStore } from '../../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../../store/espaciosStore';
+import { SearchableSelect } from '../../../../components/ui/SearchableSelect';
+import { useExclusiveModal } from '../../../../hooks/useExclusiveModal';
 
 interface AsignacionModalProps {
   isModalOpen?: boolean;
@@ -31,14 +33,13 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
   isReadOnly,
   creadoPor
 }) => {
-  if (!isModalOpen) return null;
+  useExclusiveModal('horarios:asignacion', isModalOpen, () => setIsModalOpen(false));
 
   const { materias } = useMateriasStore();
-  const { items: usuarios } = useUsuariosStore();
+  const { docentes, loading: loadingDocentes } = useDocentesStore();
   const { facultades, carreras } = useFacultadesStore();
   const { items: edificios } = useEdificiosStore();
   const { items: espacios } = useEspaciosStore();
-
   const carrerasFiltradas = useMemo(() => {
     if (!formValues.idFacultad) return [];
     return carreras.filter(c => c.id_facultad === formValues.idFacultad);
@@ -57,6 +58,31 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
     }
     return filtrados;
   }, [formValues.idEdificio, formValues.tipoEspacio, espacios]);
+
+  const opcionesMateria = useMemo(
+    () =>
+      materiasFiltradas.map((materia) => ({
+        value: materia.id,
+        label: materia.nombre,
+        searchText: `${materia.codigo} semestre ${materia.semestre}`,
+      })),
+    [materiasFiltradas],
+  );
+
+  const opcionesDocente = useMemo(
+    () =>
+      docentes
+        .filter((docente) =>
+          docente.estado === 'activo' || docente.id === formValues.idDocente,
+        )
+        .map((docente) => ({
+          value: docente.id,
+          label: docente.nombre,
+        })),
+    [docentes, formValues.idDocente],
+  );
+
+  if (!isModalOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in no-print">
@@ -110,25 +136,38 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Materia</label>
-                  <select required value={formValues.idMateria} onChange={e => setFormValues({...formValues, idMateria: e.target.value})} disabled={!formValues.idCarrera || isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
-                      <option value="">Seleccione Materia</option>
-                      {materiasFiltradas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                  </select>
+                  <label htmlFor="asignacion-materia" className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Materia</label>
+                  <SearchableSelect
+                    id="asignacion-materia"
+                    required
+                    value={formValues.idMateria}
+                    options={opcionesMateria}
+                    onChange={(idMateria) => setFormValues({...formValues, idMateria})}
+                    placeholder="Seleccione o busque una materia"
+                    searchPlaceholder="Buscar por materia o código..."
+                    emptyMessage="No hay materias que coincidan con la búsqueda"
+                    disabled={!formValues.idCarrera || isReadOnly}
+                  />
               </div>
               
               <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Docente</label>
-                  <select
+                  <label htmlFor="asignacion-docente" className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Docente</label>
+                  <SearchableSelect
+                      id="asignacion-docente"
                       required
                       value={formValues.idDocente}
-                      onChange={e => setFormValues({...formValues, idDocente: e.target.value})}
+                      options={opcionesDocente}
+                      onChange={(idDocente) => setFormValues({...formValues, idDocente})}
+                      placeholder={loadingDocentes ? 'Cargando docentes...' : 'Seleccione o busque un docente'}
+                      searchPlaceholder="Buscar docente por nombre..."
+                      emptyMessage="No hay docentes activos registrados"
                       disabled={isReadOnly}
-                      className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60"
-                  >
-                      <option value="">Seleccione Docente</option>
-                      {usuarios.filter(u => u.id_rol !== 1).map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-                  </select>
+                  />
+                  {!isReadOnly && (
+                    <p className="text-[10px] font-medium text-gray-400">
+                      Los docentes se registran y editan desde Usuarios.
+                    </p>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -158,7 +197,7 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
                   </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Día</label>
                       <select value={formValues.dia} onChange={e => setFormValues({...formValues, dia: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
@@ -166,11 +205,38 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
                       </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Hora</label>
-                      <select value={formValues.hora} onChange={e => setFormValues({...formValues, hora: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
-                          {horas.map(h => <option key={h} value={h}>{h}</option>)}
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Hora de inicio</label>
+                      <select
+                        value={formValues.horaInicio}
+                        onChange={e => setFormValues({...formValues, horaInicio: e.target.value})}
+                        disabled={isReadOnly}
+                        className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60"
+                      >
+                          {horasSeleccionables.map(hora => <option key={hora} value={hora}>{hora}</option>)}
                       </select>
                   </div>
+                  <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Hora de fin</label>
+                      <select
+                        required
+                        value={formValues.horaFin}
+                        onChange={e => setFormValues({...formValues, horaFin: e.target.value})}
+                        disabled={isReadOnly}
+                        className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60"
+                      >
+                          {horasSeleccionables.map(hora => <option key={hora} value={hora}>{hora}</option>)}
+                      </select>
+                  </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/70 px-3.5 py-2.5">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Clock className="h-4 w-4 shrink-0 text-red-600" />
+                    <span className="text-[12px] font-bold">{formValues.horaInicio} – {formValues.horaFin}</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-gray-500">
+                    {calcularDuracion(formValues.horaInicio, formValues.horaFin)} {calcularDuracion(formValues.horaInicio, formValues.horaFin) === 1 ? 'hora' : 'horas'}
+                  </span>
               </div>
           </form>
         </div>

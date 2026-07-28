@@ -1,5 +1,5 @@
 import React from 'react';
-import { diasFormales, horas } from './horariosData';
+import { diasFormales, horas, rangoIncluyeBloque } from './horariosData';
 
 interface PlantillaWordProps {
   pdfZoom: number;
@@ -43,7 +43,7 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
   };
 
   const getClaseParaExportacion = (dia: string, hora: string, aulaTarget: string) => {
-    return clases.find(c => c.dia.toUpperCase() === dia.toUpperCase() && c.hora === hora && c.aula === aulaTarget);
+    return clases.find(c => c.dia.toUpperCase() === dia.toUpperCase() && rangoIncluyeBloque(c.hora, hora) && c.aula === aulaTarget);
   };
 
   const getHeader1Size = () => `${documentFontSize + 7}px`;

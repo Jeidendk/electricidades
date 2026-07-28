@@ -1,4 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
+import { useExclusiveModal } from '../../hooks/useExclusiveModal';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -13,6 +14,8 @@ interface ConfirmDialogProps {
 export const ConfirmDialog = ({
   open, title, message, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', onConfirm, onCancel,
 }: ConfirmDialogProps) => {
+  useExclusiveModal(`confirm:${title}`, open, onCancel);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">

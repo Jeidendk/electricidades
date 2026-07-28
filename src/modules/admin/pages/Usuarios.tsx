@@ -11,13 +11,13 @@ import { useFacultadesStore } from '../../../store/facultadesStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { uploadImage } from '../../../lib/upload';
 import { supabase } from '../../../lib/supabase';
+import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 
 // Constantes para formularios (dropdowns)
-const ROLES = ['Administrador', 'Estudiante', 'Tecnico'];
-const DEPARTAMENTOS = ['FIE', 'Sistemas', 'Mecánica', 'Rectorado', 'Bienestar Estudiantil'];
+const ROLES = ['Administrador', 'Estudiante', 'Tecnico', 'Docente'];
 
 export const Usuarios = () => {
-  const { items, fetchUsuarios, updateUsuario, removeUsuario } = useUsuariosStore();
+  const { items, fetchUsuarios, addUsuario, updateUsuario, removeUsuario } = useUsuariosStore();
   const facultades = useFacultadesStore(s => s.facultades);
   const carreras = useFacultadesStore(s => s.carreras);
   const fetchFacultades = useFacultadesStore(s => s.fetchAll);
@@ -33,24 +33,43 @@ export const Usuarios = () => {
   }, []);
 
   // Opciones de dropdowns desde la BD; caen a las constantes solo si aún no cargan.
-  const rolNombres = rolesDb.length ? rolesDb.map(r => r.nombre) : ROLES;
-  const departamentos = facultades.length ? facultades.map(f => (f as any).siglas || f.nombre) : DEPARTAMENTOS;
-
+  const rolNombres = rolesDb.length
+    ? Array.from(new Set([...rolesDb.map(r => r.nombre), 'Docente']))
+    : ROLES;
   // Mapear campos de Supabase al formato del componente
-  const usuarios = useMemo(() => items.map((u: any) => ({
-    id: u.id,
-    nombre: u.nombre,
-    email: u.email,
-    rol: u.roles?.nombre || 'Sin rol',
-    estado: u.estado,
-    departamento: u.departamento,
-    codigo: u.codigo_institucional || '',
-    facultad: u.facultad_nombre || u.departamento || '',
-    carrera: u.carrera_nombre || '',
-    pao: u.pao ?? null,
-    ultimaConexion: u.ultima_conexion ? new Date(u.ultima_conexion).toLocaleString('es-EC') : 'Sin registro',
-    avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre)}&background=475569&color=fff`,
-  })), [items]);
+  const usuarios = useMemo(() => items.map((u: any) => {
+    const rol = u.roles?.nombre || 'Sin rol';
+    const esDocente = rol === 'Docente';
+    const nombreFacultad = u.facultad_nombre || u.departamento || '';
+    const facultad = facultades.find((item: any) =>
+      item.nombre === nombreFacultad || item.siglas === nombreFacultad,
+    );
+    const carrera = carreras.find((item: any) =>
+      item.nombre === u.carrera_nombre &&
+      (!facultad || item.id_facultad === facultad.id),
+    );
+    return {
+      id: u.id,
+      tipoRegistro: esDocente ? 'docente' as const : 'usuario' as const,
+      nombre: u.nombre,
+      email: esDocente ? '' : u.email || '',
+      rol,
+      estado: u.estado,
+      departamento: nombreFacultad,
+      codigo: u.codigo_institucional || '',
+      facultad: nombreFacultad,
+      facultadId: facultad?.id || '',
+      carrera: u.carrera_nombre || '',
+      carreraId: carrera?.id || '',
+      pao: u.pao ?? null,
+      ultimaConexion: esDocente
+        ? 'Sin cuenta'
+        : u.ultima_conexion
+          ? new Date(u.ultima_conexion).toLocaleString('es-EC')
+          : 'Sin registro',
+      avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre)}&background=${esDocente ? '7e22ce' : '475569'}&color=fff`,
+    };
+  }), [items, facultades, carreras]);
 
 
   // KPIs
@@ -85,6 +104,8 @@ export const Usuarios = () => {
   };
   const [formValues, setFormValues] = useState(defaultFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useExclusiveModal('usuarios', modalType !== null, () => setModalType(null));
 
   // Cascada facultad → carrera → PAO para el modal de creación (igual que el registro).
   const carrerasDeFacultad = carreras.filter((c: any) => c.id_facultad === formValues.facultadId);
@@ -122,8 +143,85 @@ export const Usuarios = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (modalType === 'create') {
-      const email = formValues.email.trim();
       const S = (await import('sweetalert2')).default;
+      if (formValues.rol === 'Docente') {
+        const nombre = formValues.nombre.trim();
+        const duplicado = items.find(
+          (usuario: any) => usuario.nombre.trim().toLocaleLowerCase('es') === nombre.toLocaleLowerCase('es'),
+        );
+        if (duplicado) {
+          S.fire({
+            icon: 'warning',
+            title: 'Docente ya registrado',
+            text: 'Ya existe un docente con ese nombre. Puedes editarlo desde la lista.',
+            confirmButtonColor: '#B00020',
+          });
+          return;
+        }
+
+        setIsSubmitting(true);
+        try {
+          if (!formValues.facultadId) {
+            S.fire({
+              icon: 'warning',
+              title: 'Facultad requerida',
+              text: 'Selecciona la facultad a la que pertenece el docente.',
+              confirmButtonColor: '#B00020',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+          const rolDocente = rolesDb.find((rol) => rol.nombre.toLocaleLowerCase('es') === 'docente');
+          if (!rolDocente) {
+            S.fire({
+              icon: 'warning',
+              title: 'Rol Docente no disponible',
+              text: 'Ejecuta la migración 0012 para crear el rol Docente.',
+              confirmButtonColor: '#B00020',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+          const facultad: any = facultades.find((item: any) => item.id === formValues.facultadId);
+          const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
+          const id = crypto.randomUUID();
+          await addUsuario({
+            id,
+            nombre,
+            email: null,
+            id_rol: rolDocente.id,
+            estado: formValues.estado,
+            departamento: nombreFacultad,
+            facultad_nombre: nombreFacultad,
+          });
+          setModalType(null);
+          setFormValues(defaultFormValues);
+          S.fire({
+            icon: 'success',
+            title: 'Docente registrado',
+            text: 'Ya está disponible para seleccionarlo en Horarios. No se creó una cuenta de acceso.',
+            confirmButtonColor: '#B00020',
+          });
+        } catch (error: any) {
+          const faltaMigracionDocentes =
+            error?.code === '23503' &&
+            String(error?.message || '').includes('usuarios_id_fkey');
+
+          S.fire({
+            icon: 'error',
+            title: 'No se pudo registrar',
+            text: faltaMigracionDocentes
+              ? 'La base de datos todavía exige una cuenta de acceso. Aplica la migración 0013_docentes_sin_auth.sql e inténtalo nuevamente.'
+              : error?.message || 'Ocurrió un error al guardar el docente.',
+            confirmButtonColor: '#B00020',
+          });
+        } finally {
+          setIsSubmitting(false);
+        }
+        return;
+      }
+
+      const email = formValues.email.trim();
       if (!email) {
         S.fire({ icon: 'warning', title: 'Correo requerido', text: 'Ingresa el correo institucional del nuevo usuario.', confirmButtonColor: '#B00020' });
         return;
@@ -167,44 +265,123 @@ export const Usuarios = () => {
       setModalType(null);
       fetchUsuarios();
     } else if (modalType === 'edit' && selectedUser) {
+      if (selectedUser.tipoRegistro === 'docente') {
+        const S = (await import('sweetalert2')).default;
+        setIsSubmitting(true);
+        try {
+          const facultad: any = facultades.find((item: any) => item.id === formValues.facultadId);
+          const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
+          await updateUsuario(selectedUser.id, {
+            nombre: formValues.nombre.trim(),
+            departamento: nombreFacultad,
+            facultad_nombre: nombreFacultad,
+            estado: formValues.estado,
+          } as any);
+          setModalType(null);
+          setSelectedUser(null);
+          S.fire({
+            icon: 'success',
+            title: 'Docente actualizado',
+            text: 'El nuevo nombre se reflejará también en sus horarios.',
+            confirmButtonColor: '#B00020',
+          });
+        } catch (error: any) {
+          S.fire({
+            icon: 'error',
+            title: 'No se pudo actualizar',
+            text: error?.message || 'Ocurrió un error al actualizar el docente.',
+            confirmButtonColor: '#B00020',
+          });
+        } finally {
+          setIsSubmitting(false);
+        }
+        return;
+      }
+
+      const S = (await import('sweetalert2')).default;
       setIsSubmitting(true);
-      let finalAvatarUrl = formValues.avatar_url;
-      
-      if (formValues.fotoFile) {
-        const uploadedUrl = await uploadImage(formValues.fotoFile, 'avatares');
-        if (uploadedUrl) {
-          finalAvatarUrl = uploadedUrl;
+      try {
+        let finalAvatarUrl = formValues.avatar_url;
+
+        if (formValues.fotoFile) {
+          const uploadedUrl = await uploadImage(formValues.fotoFile, 'avatares');
+          if (uploadedUrl) finalAvatarUrl = uploadedUrl;
         }
-      }
 
-      const patch: any = { 
-        departamento: formValues.departamento, 
-        estado: formValues.estado as any 
-      };
+        const facultad = facultades.find((item: any) => item.id === formValues.facultadId);
+        const carrera = carreras.find((item: any) => item.id === formValues.carreraId);
+        const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
+        const tieneAsignacionAcademica =
+          formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico';
 
-      if (formValues.rol) {
-        const { data: rolData } = await supabase.from('roles').select('id').eq('nombre', formValues.rol).single();
-        if (rolData) {
-          patch.id_rol = rolData.id;
+        const patch: any = {
+          nombre: formValues.nombre.trim(),
+          estado: formValues.estado as any,
+          departamento: tieneAsignacionAcademica ? nombreFacultad : '',
+          facultad_nombre: tieneAsignacionAcademica ? nombreFacultad || null : null,
+          carrera_nombre: tieneAsignacionAcademica ? carrera?.nombre || null : null,
+          codigo_institucional:
+            formValues.rol === 'Estudiante' ? formValues.codigo.trim() || null : null,
+          pao:
+            formValues.rol === 'Estudiante' && formValues.pao
+              ? formValues.pao
+              : null,
+        };
+
+        const { data: rolData, error: rolError } = await supabase
+          .from('roles')
+          .select('id')
+          .eq('nombre', formValues.rol)
+          .single();
+        if (rolError) throw rolError;
+        patch.id_rol = rolData.id;
+
+        if (finalAvatarUrl && !finalAvatarUrl.startsWith('blob:')) {
+          patch.avatar_url = finalAvatarUrl;
         }
-      }
-      
-      if (finalAvatarUrl && !finalAvatarUrl.startsWith('blob:')) {
-        patch.avatar_url = finalAvatarUrl;
-      }
 
-      await updateUsuario(selectedUser.id, patch);
-      setIsSubmitting(false);
-      setModalType(null);
+        await updateUsuario(selectedUser.id, patch);
+        await fetchUsuarios();
+        setModalType(null);
+        setSelectedUser(null);
+        S.fire({
+          icon: 'success',
+          title: 'Usuario actualizado',
+          text: 'Los datos y la asignación académica se guardaron correctamente.',
+          timer: 1600,
+          showConfirmButton: false,
+        });
+      } catch (error: any) {
+        S.fire({
+          icon: 'error',
+          title: 'No se pudo actualizar',
+          text: error?.message || 'Ocurrió un error al actualizar el usuario.',
+          confirmButtonColor: '#B00020',
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
   const handleDelete = async () => {
     if (selectedUser) {
-      await removeUsuario(selectedUser.id);
-      await fetchUsuarios();
-      setModalType(null);
-      setSelectedUser(null);
+      const S = (await import('sweetalert2')).default;
+      try {
+        await removeUsuario(selectedUser.id);
+        await fetchUsuarios();
+        setModalType(null);
+        setSelectedUser(null);
+      } catch (error: any) {
+        S.fire({
+          icon: 'error',
+          title: 'No se puede eliminar',
+          text: selectedUser.tipoRegistro === 'docente'
+            ? 'Este docente está utilizado en uno o más horarios. Puedes marcarlo como inactivo.'
+            : error?.message || 'No se pudo eliminar el usuario.',
+          confirmButtonColor: '#B00020',
+        });
+      }
     }
   };
 
@@ -216,8 +393,9 @@ export const Usuarios = () => {
     setSelectedIds(allSelected ? [] : pageData.map(u => u.id));
   };
   const handleBulkDelete = async () => {
-    for (const id of selectedIds) {
-      await removeUsuario(id);
+    const seleccionados = usuarios.filter((usuario) => selectedIds.includes(usuario.id));
+    for (const registro of seleccionados) {
+      await removeUsuario(registro.id);
     }
     await fetchUsuarios();
     setSelectedIds([]);
@@ -251,6 +429,9 @@ export const Usuarios = () => {
     return <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-full text-[10px] font-bold border border-red-200/50 flex items-center gap-1.5 w-max"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Inactivo</span>;
   };
 
+  const editandoDocente = modalType === 'edit' && selectedUser?.tipoRegistro === 'docente';
+  const esDocenteForm = (modalType === 'create' && formValues.rol === 'Docente') || editandoDocente;
+
   return (
     <div className="flex flex-col h-screen bg-[#f4f7fb]">
       {/* HERO SECTION */}
@@ -265,9 +446,9 @@ export const Usuarios = () => {
             </div>
             <div className="flex flex-col">
               <h2 className="text-[28px] md:text-[34px] font-bold text-white tracking-tight leading-none mb-1.5">
-                Gestión de Usuarios
+                Gestión de Usuarios y Docentes
               </h2>
-              <p className="text-[13px] text-gray-400 font-medium">Administración de cuentas y roles del sistema.</p>
+              <p className="text-[13px] text-gray-400 font-medium">Administración de cuentas y del catálogo docente.</p>
             </div>
           </div>
           <div className="flex items-center gap-6 bg-[#212730] rounded-xl px-6 py-3 border border-white/5 shadow-inner hidden md:flex">
@@ -275,7 +456,7 @@ export const Usuarios = () => {
               <UsersIcon className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
               <div className="flex flex-col">
                 <span className="text-[15px] font-bold text-white leading-tight">{kpis.totalUsuarios}</span>
-                <span className="text-[10px] font-medium text-gray-400 leading-none">Total</span>
+                <span className="text-[10px] font-medium text-gray-400 leading-none">Registros</span>
               </div>
             </div>
             <div className="w-px h-8 bg-white/10 mx-1"></div>
@@ -319,7 +500,7 @@ export const Usuarios = () => {
             <SearchInput
               value={searchQuery}
               onChange={(v) => { setSearchQuery(v); setCurrentPage(1); }}
-              placeholder="Buscar por nombre, email o depto..."
+              placeholder="Buscar usuario o docente..."
               className="w-full sm:w-[260px] shrink-0"
             />
             <FilterDropdown
@@ -358,7 +539,7 @@ export const Usuarios = () => {
               <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
             </button>
             <button onClick={() => { setFormValues(defaultFormValues); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
-              <Plus className="w-3.5 h-3.5" /> Nuevo Usuario
+              <Plus className="w-3.5 h-3.5" /> Nuevo registro
             </button>
           </div>
         </div>
@@ -367,7 +548,7 @@ export const Usuarios = () => {
         <div className="w-full overflow-auto flex-1 flex flex-col min-h-0 relative custom-scrollbar border border-gray-100 rounded-xl">
           <div className="min-w-[1320px] grid grid-cols-[40px_1.4fr_1fr_1.1fr_0.5fr_0.9fr_0.8fr_1fr_90px] gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3">
             <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>USUARIO <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>USUARIO / DOCENTE <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / DEPARTAMENTO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>
@@ -385,7 +566,9 @@ export const Usuarios = () => {
                       <img src={u.avatar} className="w-9 h-9 rounded-full bg-gray-100 object-cover shrink-0" />
                       <div className="flex flex-col min-w-0">
                           <span className="text-xs font-bold text-gray-900 truncate">{u.nombre}</span>
-                          <span className="text-[10px] text-gray-500 truncate">{u.email}</span>
+                          <span className="text-[10px] text-gray-500 truncate">
+                            {u.tipoRegistro === 'docente' ? 'Sin cuenta de acceso' : u.email}
+                          </span>
                       </div>
                   </div>
                   <div className="flex flex-col min-w-0 gap-1 w-max">
@@ -398,7 +581,7 @@ export const Usuarios = () => {
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
-                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: '', carreraId: '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
               </div>
@@ -406,7 +589,7 @@ export const Usuarios = () => {
             {filteredData.length === 0 && (
               <EmptyState
                 icon={UsersIcon}
-                title={usuarios.length === 0 ? 'Sin usuarios registrados' : 'Sin resultados con estos filtros'}
+                title={usuarios.length === 0 ? 'Sin usuarios ni docentes registrados' : 'Sin resultados con estos filtros'}
                 secondaryLabel={usuarios.length > 0 ? 'Limpiar filtros' : undefined}
                 onSecondary={usuarios.length > 0 ? () => { setSearchQuery(''); setFilterRol(''); setFilterEstado(''); setCurrentPage(1); } : undefined}
                 className="py-12"
@@ -445,20 +628,30 @@ export const Usuarios = () => {
       {modalType && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
           {(modalType === 'create' || modalType === 'edit') && (
-            <div className="bg-white rounded-3xl w-full max-w-[500px] relative animate-scale-in flex flex-col p-8 shadow-2xl">
+            <div className="bg-white rounded-3xl w-full max-w-[500px] max-h-[92vh] overflow-y-auto custom-scrollbar relative animate-scale-in flex flex-col p-8 shadow-2xl">
               <button onClick={() => setModalType(null)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-gray-100"><X className="w-4 h-4"/></button>
               <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
                     {modalType === 'create' ? <Plus className="w-6 h-6"/> : <Edit2 className="w-5 h-5"/>}
                   </div>
                   <div>
-                    <h3 className="text-[18px] font-extrabold text-gray-900 tracking-tight">{modalType === 'create' ? 'Crear Nuevo Usuario' : 'Editar Usuario'}</h3>
-                    <p className="text-[12px] font-medium text-gray-500">{modalType === 'create' ? 'Complete los datos para registrar un usuario.' : 'Modifique la información del usuario.'}</p>
+                    <h3 className="text-[18px] font-extrabold text-gray-900 tracking-tight">
+                      {modalType === 'create'
+                        ? esDocenteForm ? 'Registrar Docente' : 'Crear Nuevo Usuario'
+                        : editandoDocente ? 'Editar Docente' : 'Editar Usuario'}
+                    </h3>
+                    <p className="text-[12px] font-medium text-gray-500">
+                      {esDocenteForm
+                        ? 'Registro interno para asignarlo en Horarios, sin crear una cuenta.'
+                        : modalType === 'create'
+                          ? 'Complete los datos para registrar un usuario.'
+                          : 'Modifique la información del usuario.'}
+                    </p>
                   </div>
               </div>
               
               <form onSubmit={handleSave} className="flex flex-col gap-4">
-                  {modalType === 'edit' && (
+                  {modalType === 'edit' && !editandoDocente && (
                     <div className="flex flex-col gap-1.5 items-center mb-2">
                         <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-full">Avatar</label>
                         <div 
@@ -486,31 +679,86 @@ export const Usuarios = () => {
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre Completo</label>
                       <input required value={formValues.nombre} onChange={e => setFormValues({...formValues, nombre: e.target.value})} placeholder="Ej. Juan Pérez" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Correo Electrónico</label>
-                      <input required type="email" value={formValues.email} onChange={e => setFormValues({...formValues, email: e.target.value})} placeholder="usuario@espoch.edu.ec" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
-                  </div>
+                  {!esDocenteForm && (
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Correo Electrónico</label>
+                        <input
+                          required
+                          type="email"
+                          value={formValues.email}
+                          readOnly={modalType === 'edit'}
+                          onChange={e => setFormValues({...formValues, email: e.target.value})}
+                          placeholder="usuario@espoch.edu.ec"
+                          className={`text-[13px] rounded-xl py-3 px-4 outline-none border border-gray-200 font-medium w-full transition-all ${
+                            modalType === 'edit'
+                              ? 'cursor-not-allowed bg-gray-100 text-gray-500'
+                              : 'bg-gray-50/50 text-gray-900 focus:border-blue-500 focus:bg-white'
+                          }`}
+                        />
+                        {modalType === 'edit' && (
+                          <span className="text-[9px] font-medium text-gray-400">
+                            El correo pertenece a la cuenta de acceso y no se cambia desde este formulario.
+                          </span>
+                        )}
+                    </div>
+                  )}
 
-                  <div className={modalType === 'edit' ? 'grid grid-cols-2 gap-4' : 'flex flex-col gap-1.5'}>
+                  <div className="flex flex-col gap-1.5">
                       <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Rol de Usuario</label>
-                          <select value={formValues.rol} onChange={e => setFormValues({...formValues, rol: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
-                              {rolNombres.map(r => <option key={r} value={r}>{r}</option>)}
+                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo / Rol</label>
+                          <select
+                            value={formValues.rol}
+                            onChange={e => {
+                              const rol = e.target.value;
+                              const requiereCarrera = rol === 'Estudiante' || rol === 'Tecnico';
+                              setFormValues({
+                                ...formValues,
+                                rol,
+                                email: rol === 'Docente' ? '' : formValues.email,
+                                facultadId: requiereCarrera ? formValues.facultadId : '',
+                                carreraId: requiereCarrera ? formValues.carreraId : '',
+                                codigo: rol === 'Estudiante' ? formValues.codigo : '',
+                                pao: rol === 'Estudiante' ? formValues.pao : '',
+                              });
+                            }}
+                            disabled={editandoDocente}
+                            className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                              {(modalType === 'edit' && !editandoDocente
+                                ? rolNombres.filter(r => r !== 'Docente' || formValues.rol === 'Docente')
+                                : rolNombres
+                              ).map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
                       </div>
-                      {modalType === 'edit' && (
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Departamento / Fac.</label>
-                            <select value={formValues.departamento} onChange={e => setFormValues({...formValues, departamento: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
-                                {!departamentos.includes(formValues.departamento) && formValues.departamento && <option value={formValues.departamento}>{formValues.departamento}</option>}
-                                {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
-                            </select>
-                        </div>
-                      )}
                   </div>
 
-                  {/* Facultad + Carrera — al CREAR Estudiante o Técnico. El Admin no lleva facultad ni carrera. */}
-                  {modalType === 'create' && (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') && (
+                  {esDocenteForm && (
+                    <>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
+                        <select
+                          required
+                          value={formValues.facultadId}
+                          onChange={e => setFormValues({...formValues, facultadId: e.target.value})}
+                          className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all"
+                        >
+                          <option value="">Seleccione facultad</option>
+                          {facultades.map((facultad: any) => (
+                            <option key={facultad.id} value={facultad.id}>{facultad.siglas || facultad.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-start gap-2.5 rounded-xl border border-purple-100 bg-purple-50/70 px-3.5 py-3">
+                        <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-purple-600" />
+                        <p className="text-[11px] font-medium leading-relaxed text-purple-800">
+                          Este docente podrá seleccionarse y reutilizarse en cualquier horario. Por ahora no tendrá correo, contraseña ni acceso al sistema.
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Facultad + Carrera — al crear o editar Estudiante/Técnico. */}
+                  {(formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') && (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
@@ -529,8 +777,8 @@ export const Usuarios = () => {
                     </div>
                   )}
 
-                  {/* Código + PAO — sólo al CREAR un Estudiante. */}
-                  {modalType === 'create' && formValues.rol === 'Estudiante' && (
+                  {/* Código + PAO — al crear o editar un Estudiante. */}
+                  {formValues.rol === 'Estudiante' && (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Código Institucional</label>
@@ -564,23 +812,13 @@ export const Usuarios = () => {
                       </div>
                   </div>
 
-                  {modalType === 'edit' && (selectedUser?.codigo || selectedUser?.carrera || selectedUser?.pao || selectedUser?.facultad) && (
-                    <div className="flex flex-col gap-2.5 bg-gray-50/70 border border-gray-200 rounded-xl p-3.5">
-                        <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Datos del Registro</span>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Código</p><p className="text-[12px] font-semibold text-gray-800 truncate">{selectedUser.codigo || '—'}</p></div>
-                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Facultad</p><p className="text-[12px] font-semibold text-gray-800 truncate">{selectedUser.facultad || '—'}</p></div>
-                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Carrera</p><p className="text-[12px] font-semibold text-gray-800 truncate">{selectedUser.carrera || '—'}</p></div>
-                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">PAO</p><p className="text-[12px] font-semibold text-gray-800">{selectedUser.pao ? `PAO ${selectedUser.pao}` : '—'}</p></div>
-                        </div>
-                    </div>
-                  )}
-
                   <div className="flex gap-3 mt-4 justify-end">
                       <button type="button" onClick={() => setModalType(null)} disabled={isSubmitting} className="px-5 py-2.5 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50">Cancelar</button>
                       <button type="submit" disabled={isSubmitting} className="bg-[#0f172a] hover:bg-black text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg transition-all border border-gray-800 disabled:opacity-50 flex items-center gap-2">
                         {isSubmitting ? <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> : null}
-                        {modalType === 'create' ? 'Registrar Usuario' : 'Guardar Cambios'}
+                        {modalType === 'create'
+                          ? esDocenteForm ? 'Registrar Docente' : 'Registrar Usuario'
+                          : 'Guardar Cambios'}
                       </button>
                   </div>
               </form>
@@ -592,8 +830,15 @@ export const Usuarios = () => {
               <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
                 <AlertTriangle className="w-7 h-7 text-amber-500" />
               </div>
-              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar Usuario</h3>
-              <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">¿Está seguro que desea eliminar a <b className="text-gray-800">{selectedUser.nombre}</b>? Perderá acceso inmediato al sistema.</p>
+              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">
+                Eliminar {selectedUser.tipoRegistro === 'docente' ? 'Docente' : 'Usuario'}
+              </h3>
+              <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
+                ¿Está seguro que desea eliminar a <b className="text-gray-800">{selectedUser.nombre}</b>?
+                {selectedUser.tipoRegistro === 'docente'
+                  ? ' Si ya está asignado en un horario, el sistema no permitirá eliminarlo.'
+                  : ' Perderá acceso inmediato al sistema.'}
+              </p>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                 <button onClick={handleDelete} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Eliminar</button>
@@ -606,8 +851,10 @@ export const Usuarios = () => {
               <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
                 <AlertTriangle className="w-7 h-7 text-amber-500" />
               </div>
-              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar {selectedIds.length} usuarios</h3>
-              <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">¿Está seguro que desea eliminar <b className="text-gray-800">{selectedIds.length}</b> usuario{selectedIds.length > 1 ? 's' : ''}? Perderán acceso inmediato al sistema.</p>
+              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar {selectedIds.length} registros</h3>
+              <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
+                ¿Está seguro que desea eliminar <b className="text-gray-800">{selectedIds.length}</b> registro{selectedIds.length > 1 ? 's' : ''} seleccionado{selectedIds.length > 1 ? 's' : ''}?
+              </p>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                 <button onClick={handleBulkDelete} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Eliminar</button>

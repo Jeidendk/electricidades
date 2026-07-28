@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useExclusiveModal } from '../../hooks/useExclusiveModal';
 
 interface CrudModalProps {
   open: boolean;
@@ -15,6 +16,8 @@ interface CrudModalProps {
 
 // Esqueleto estándar de modal CRUD admin: overlay + header con ícono + cuerpo scrollable + footer.
 export const CrudModal = ({ open, icon: Icon, title, subtitle, onClose, footer, children, maxWidthClass = 'max-w-[500px]' }: CrudModalProps) => {
+  useExclusiveModal(`crud:${title}`, open, onClose);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

@@ -138,7 +138,7 @@ export const Login = () => {
     }).then(() => {
       const userState = useAuthStore.getState().user;
       if (userState?.role === 'admin') navigate('/admin');
-      else if (userState?.role === 'tecnico') navigate('/tecnico');
+      else if (userState?.role === 'tecnico') navigate('/tecnico/horarios');
       else navigate('/student');
     });
   };
@@ -169,7 +169,7 @@ export const Login = () => {
     }).then(() => {
       const userState = useAuthStore.getState().user;
       if (userState?.role === 'admin') navigate('/admin');
-      else if (userState?.role === 'tecnico') navigate('/tecnico');
+      else if (userState?.role === 'tecnico') navigate('/tecnico/horarios');
       else navigate('/student');
     });
   };

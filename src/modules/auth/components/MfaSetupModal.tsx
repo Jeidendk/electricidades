@@ -3,6 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import * as qrcode from 'qrcode';
 import { X, Shield, Smartphone, ShieldCheck } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 
 interface MfaSetupModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ export const MfaSetupModal = ({ isOpen, onClose }: MfaSetupModalProps) => {
   const [verifyCode, setVerifyCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
+
+  useExclusiveModal('mfa', isOpen, onClose);
 
   useEffect(() => {
     if (isOpen) {

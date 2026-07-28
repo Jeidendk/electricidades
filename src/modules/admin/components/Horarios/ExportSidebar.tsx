@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Download, ChevronDown, Clock, Building2, Users, Printer, RefreshCcw } from 'lucide-react';
-import { espaciosPorEdificio } from './horariosData';
+import { useEdificiosStore } from '../../../../store/edificiosStore';
+import { useEspaciosStore } from '../../../../store/espaciosStore';
 
 interface ExportSidebarProps {
   setIsExportModalOpen: (val: boolean) => void;
@@ -49,6 +50,13 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
   handlePrint,
   handleResetFilters
 }) => {
+  const edificios = useEdificiosStore(state => state.items);
+  const espacios = useEspaciosStore(state => state.items);
+  const edificioSeleccionado = edificios.find(edificio => edificio.nombre === exportEdificio);
+  const espaciosDisponibles = espacios
+    .filter(espacio => espacio.id_edificio === edificioSeleccionado?.id)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
   return (
     <div className="w-full lg:w-[350px] bg-white rounded-[20px] shadow-sm border border-gray-200/60 flex flex-col shrink-0 overflow-hidden lg:h-full">
       <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
@@ -65,7 +73,9 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
             <div className="relative">
               <select value={exportEdificio} onChange={e => { setExportEdificio(e.target.value); setExportAula(''); }} className="bg-white text-xs text-gray-800 rounded-xl py-3 pl-4 pr-10 outline-none border border-gray-200 focus:border-red-500 font-semibold cursor-pointer w-full appearance-none shadow-sm transition-all hover:border-gray-300">
                 <option value="">Seleccione Ubicación...</option>
-                {Object.keys(espaciosPorEdificio).map(ed => <option key={ed} value={ed}>{ed}</option>)}
+                {[...edificios].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(edificio => (
+                  <option key={edificio.id} value={edificio.nombre}>{edificio.nombre}</option>
+                ))}
               </select>
               <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
@@ -76,7 +86,7 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
             <div className="relative">
               <select value={exportAula} onChange={e => setExportAula(e.target.value)} disabled={!exportEdificio} className="bg-white text-xs text-gray-800 rounded-xl py-3 pl-4 pr-10 outline-none border border-gray-200 focus:border-red-500 font-semibold cursor-pointer w-full appearance-none shadow-sm transition-all hover:border-gray-300 disabled:opacity-50 disabled:bg-gray-50">
                 <option value="">Seleccione Espacio...</option>
-                {exportEdificio && espaciosPorEdificio[exportEdificio].map(esp => <option key={esp.nombre} value={esp.nombre}>{esp.nombre}</option>)}
+                {espaciosDisponibles.map(espacio => <option key={espacio.id} value={espacio.nombre}>{espacio.nombre}</option>)}
               </select>
               <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>

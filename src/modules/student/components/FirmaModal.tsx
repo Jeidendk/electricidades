@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { PenTool, Upload, X } from 'lucide-react';
+import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 
 interface FirmaModalProps {
   isOpen: boolean;
@@ -8,6 +9,8 @@ interface FirmaModalProps {
 }
 
 export const FirmaModal = ({ isOpen, onClose, onSave }: FirmaModalProps) => {
+  useExclusiveModal('firma', isOpen, onClose);
+
   const [firmaImg, setFirmaImg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

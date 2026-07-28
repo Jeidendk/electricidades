@@ -63,7 +63,7 @@ export const AdminSidebar = () => {
         <div className="fixed inset-0 bg-black/50 z-[55] lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
       <div className={`flex h-full transition-transform duration-300 lg:transition-all
-        fixed inset-y-0 left-0 z-[60] w-[260px] lg:static lg:z-auto
+        fixed inset-y-0 left-0 z-[60] w-[260px] lg:relative lg:z-[90]
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${collapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}`}>
       <aside className="bg-espoch-sidebar text-gray-400 flex flex-col h-full w-full z-50 shadow-2xl transition-all duration-300 relative overflow-visible">
@@ -86,7 +86,7 @@ export const AdminSidebar = () => {
         {/* Toggle btn — flotante (fixed) para que ningún contenedor lo recorte */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="fixed top-[90px] w-7 h-7 bg-gray-800 rounded-full hidden lg:flex items-center justify-center shadow-lg border-2 border-white text-white cursor-pointer hover:bg-gray-700 hover:scale-110 transition-all duration-300 z-[70]"
+          className="fixed top-[90px] w-7 h-7 bg-gray-800 rounded-full hidden lg:flex items-center justify-center shadow-lg border-2 border-white text-white cursor-pointer hover:bg-gray-700 hover:scale-110 transition-all duration-300 z-[100]"
           style={{ left: collapsed ? 'calc(72px - 14px)' : 'calc(260px - 14px)' }}
           title={collapsed ? 'Expandir menú' : 'Contraer menú'}
         >
@@ -132,7 +132,7 @@ export const AdminSidebar = () => {
           {/* 7 · ESTRUCTURA ACADÉMICA */}
           <NavLink to="/admin/estructura-academica" className={navLinkClass} title={collapsed ? "ESTRUCTURA ACADÉMICA" : ""}>
             <Landmark className="w-5 h-5 shrink-0" />
-            {!collapsed && <span className="whitespace-nowrap overflow-hidden">ESTRUCTURA ACADÉMICA</span>}
+            {!collapsed && <span className="whitespace-nowrap overflow-hidden">ESTRUC. ACAD.</span>}
           </NavLink>
 
           {/* 8 · RECURSOS (Recursos / Formatos) */}

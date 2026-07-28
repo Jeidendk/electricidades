@@ -5,6 +5,7 @@ import { useCartStore } from '../../../store/cartStore';
 import { ThemeToggle } from '../../../components/ui/ThemeToggle';
 import { Avatar } from '../../../components/ui/Avatar';
 import { ConfigModal } from '../../../components/ui/ConfigModal';
+import { ProfileModal } from '../../../components/ui/ProfileModal';
 import { useAuthStore } from '../../../store/authStore';
 import { useEffect } from 'react';
 import { useInventarioStore } from '../../../store/inventarioStore';
@@ -17,6 +18,7 @@ export const StudentLayout = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const cartTotal = useCartStore(state => state.cartTotal());
   const cartOpen = useCartStore(state => state.cartOpen);
   const setCartOpen = useCartStore(state => state.setCartOpen);
@@ -135,7 +137,10 @@ export const StudentLayout = () => {
                   <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>
                   <div className="absolute top-full right-0 mt-3 w-56 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-gray-100 z-50 flex flex-col p-1.5 animate-fade-in">
                     <div className="py-0.5">
-                      <button className="w-full text-left px-3 py-2 text-[13px] text-gray-700 font-semibold hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors">
+                      <button
+                        onClick={() => { setProfileModalOpen(true); setProfileOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-[13px] text-gray-700 font-semibold hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors"
+                      >
                         <User className="w-4 h-4 text-gray-400" />
                         Mi Perfil
                       </button>
@@ -163,7 +168,7 @@ export const StudentLayout = () => {
                           <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Eye className="w-3 h-3" /> Ver como</span>
                         </div>
                         <div className="px-1.5 pb-1 flex gap-1">
-                          {([['/admin', 'Admin', Users], ['/tecnico/dashboard', 'Técnico', Wrench], ['/student/catalog', 'Estudiante', GraduationCap]] as const).map(([path, label, Icon]) => (
+                          {([['/admin', 'Admin', Users], ['/tecnico/horarios', 'Técnico', Wrench], ['/student/catalog', 'Estudiante', GraduationCap]] as const).map(([path, label, Icon]) => (
                             <button
                               key={path}
                               onClick={() => { setProfileOpen(false); navigate(path); }}
@@ -217,6 +222,7 @@ export const StudentLayout = () => {
       </main>
 
       {/* MODAL DE SEGURIDAD MFA */}
+      <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
       <MfaSetupModal isOpen={mfaModalOpen} onClose={() => setMfaModalOpen(false)} />
       {/* MODAL DE CONFIGURACIÓN */}
       <ConfigModal isOpen={configOpen} onClose={() => setConfigOpen(false)} />

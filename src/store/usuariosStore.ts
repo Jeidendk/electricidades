@@ -71,7 +71,9 @@ export const useUsuariosStore = create<UsuariosState>()((set) => ({
       if (error) throw error;
       if (data) set((s) => ({ items: [data as any, ...s.items] }));
     } catch (err: any) {
-      notifyStoreError('Error creating usuario:', err);
+      // La pantalla de Usuarios presenta un mensaje contextual según el rol.
+      // Evitamos abrir un segundo SweetAlert genérico sobre el mismo modal.
+      console.error('Error creating usuario:', err);
       throw err;
     }
   },

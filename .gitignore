@@ -26,6 +26,9 @@ eslint_out.txt
 # Use npm lockfile only
 pnpm-lock.yaml
 
+# Claude Code local config / session
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

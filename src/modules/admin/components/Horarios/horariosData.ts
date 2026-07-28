@@ -3,10 +3,60 @@ import { Cpu, FlaskConical, Briefcase, Zap, Laptop, Wifi, Stethoscope, Globe, Pa
 export const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 export const diasFormales = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
-export const horas = [
-  '07:00 - 08:00', '08:00 - 09:00', '09:00 - 10:00', '10:00 - 11:00',
-  '11:00 - 12:00', '12:00 - 13:00', '14:00 - 15:00', '15:00 - 16:00', '16:00 - 17:00'
-];
+// Jornada académica continua: las clases pueden iniciar desde las 07:00
+// y deben finalizar como máximo a las 17:00.
+export const horas = Array.from({ length: 10 }, (_, indice) => {
+  const inicio = indice + 7;
+  const fin = inicio + 1;
+  return `${String(inicio).padStart(2, '0')}:00 - ${String(fin).padStart(2, '0')}:00`;
+});
+
+// Ambos selectores muestran siempre exactamente el mismo rango completo.
+export const horasSeleccionables = Array.from(
+  { length: 11 },
+  (_, indice) => `${String(indice + 7).padStart(2, '0')}:00`,
+);
+
+export const horasInicio = horasSeleccionables;
+
+const minutosDesdeHora = (hora: string) => {
+  const [horasNumero, minutos] = hora.split(':').map(Number);
+  return horasNumero * 60 + minutos;
+};
+
+const horaDesdeMinutos = (totalMinutos: number) => {
+  const horasNumero = Math.floor(totalMinutos / 60);
+  const minutos = totalMinutos % 60;
+  return `${String(horasNumero).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+};
+
+export const calcularHoraFin = (horaInicio: string, duracion: number) =>
+  horaDesdeMinutos(minutosDesdeHora(horaInicio) + duracion * 60);
+
+export const calcularDuracion = (horaInicio: string, horaFin: string) =>
+  Math.max(1, Math.round((minutosDesdeHora(horaFin) - minutosDesdeHora(horaInicio)) / 60));
+
+export const duracionesDisponibles = (horaInicio: string) =>
+  [1, 2, 3, 4].filter(duracion =>
+    Array.from({ length: duracion }, (_, indice) => {
+      const inicioBloque = calcularHoraFin(horaInicio, indice);
+      const finBloque = calcularHoraFin(horaInicio, indice + 1);
+      return horas.includes(`${inicioBloque} - ${finBloque}`);
+    }).every(Boolean)
+  );
+
+export const horasFinDisponibles = (horaInicio: string) =>
+  horasSeleccionables.filter(horaFin => {
+    const duracion = (minutosDesdeHora(horaFin) - minutosDesdeHora(horaInicio)) / 60;
+    return duracion >= 1 && duracion <= 4;
+  });
+
+export const rangoIncluyeBloque = (rangoClase: string, bloque: string) => {
+  const [inicioClase, finClase] = rangoClase.split(' - ');
+  const [inicioBloque, finBloque] = bloque.split(' - ');
+  if (!inicioClase || !finClase || !inicioBloque || !finBloque) return false;
+  return inicioClase < finBloque && finClase > inicioBloque;
+};
 
 export const availableIcons: Record<string, any> = {
   Cpu, FlaskConical, Briefcase, Stethoscope, Globe, Palette, 
@@ -27,56 +77,3 @@ export const carrerasMock: { id: string; idFacultad: string; nombre: string; col
   { id: 'CAR004', idFacultad: 'FAC002', nombre: 'Administración de Empresas', colorHex: '#d97706', icono: 'Briefcase', customSvg: null },
   { id: 'CAR005', idFacultad: 'FAC003', nombre: 'Ingeniería Automotriz', colorHex: '#10b981', icono: 'Zap', customSvg: null },
 ];
-
-export const initialClases = [
-  { id: 'C001', materia: 'Sistemas Eléctricos', docente: 'Ing. Roberto Sanchez', aula: 'FIE-201', edificio: 'Edificio FIE-A', tipoEspacio: 'Aula', idFacultad: 'FAC001', idCarrera: 'CAR003', dia: 'Lunes', hora: '07:00 - 08:00', creadoPor: 'USR001' },
-  { id: 'C002', materia: 'Sistemas Eléctricos', docente: 'Ing. Roberto Sanchez', aula: 'FIE-201', edificio: 'Edificio FIE-A', tipoEspacio: 'Aula', idFacultad: 'FAC001', idCarrera: 'CAR003', dia: 'Lunes', hora: '08:00 - 09:00', creadoPor: 'USR001' },
-  { id: 'C003', materia: 'Programación Web', docente: 'Ing. María López', aula: 'Lab. Cómputo 1', edificio: 'Centro de Cómputo', tipoEspacio: 'Lab Informático', idFacultad: 'FAC001', idCarrera: 'CAR001', dia: 'Martes', hora: '09:00 - 10:00', creadoPor: 'TEC001' },
-  { id: 'C004', materia: 'Programación Web', docente: 'Ing. María López', aula: 'Lab. Cómputo 1', edificio: 'Centro de Cómputo', tipoEspacio: 'Lab Informático', idFacultad: 'FAC001', idCarrera: 'CAR001', dia: 'Martes', hora: '10:00 - 11:00', creadoPor: 'TEC001' },
-  { id: 'C005', materia: 'Redes II', docente: 'Ing. Carlos Mendoza', aula: 'Lab. Telecomunicaciones', edificio: 'Bloque de Laboratorios', tipoEspacio: 'Lab Técnico', idFacultad: 'FAC001', idCarrera: 'CAR002', dia: 'Miércoles', hora: '14:00 - 15:00', creadoPor: 'TEC002' },
-  { id: 'C006', materia: 'Redes II', docente: 'Ing. Carlos Mendoza', aula: 'Lab. Telecomunicaciones', edificio: 'Bloque de Laboratorios', tipoEspacio: 'Lab Técnico', idFacultad: 'FAC001', idCarrera: 'CAR002', dia: 'Miércoles', hora: '15:00 - 16:00', creadoPor: 'TEC002' },
-  { id: 'C007', materia: 'Gestión Financiera', docente: 'Ing. Ana Gómez', aula: 'Aula 301', edificio: 'Edificio FIE-B', tipoEspacio: 'Aula', idFacultad: 'FAC002', idCarrera: 'CAR004', dia: 'Jueves', hora: '11:00 - 12:00', creadoPor: 'USR001' },
-];
-
-export const initialMapLocations = [
-  { id: '1', nombre: 'Edificio Principal FIE', tipo: 'Edificio', lat: -1.6582, lng: -78.6781, estado: 'operativo', imagen: 'https://images.unsplash.com/photo-1562774053-701939374585?w=400&h=250&fit=crop', capacidad: 500, detalle: 'Facultad de Informática y Electrónica' },
-  { id: '2', nombre: 'Aula 101', tipo: 'Aula', lat: -1.6584, lng: -78.6778, estado: 'disponible', imagen: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=250&fit=crop', capacidad: 40, detalle: 'Edificio FIE-A - Piso 1' },
-  { id: '3', nombre: 'Lab. Circuitos', tipo: 'Laboratorio', lat: -1.6586, lng: -78.6785, estado: 'ocupada', imagen: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400&h=250&fit=crop', capacidad: 20, detalle: 'Edificio FIE-A - Piso 3' },
-  { id: '4', nombre: 'Auditorio', tipo: 'Edificio', lat: -1.6575, lng: -78.6770, estado: 'operativo', imagen: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400&h=250&fit=crop', capacidad: 200, detalle: 'Campus Central' },
-  { id: '5', nombre: 'Aula C-1', tipo: 'Aula', lat: -1.6580, lng: -78.6790, estado: 'disponible', imagen: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=250&fit=crop', capacidad: 35, detalle: 'Bloque de Aulas C - Piso 1' },
-];
-
-export const espaciosPorEdificio: Record<string, { nombre: string, tipo: 'Aula' | 'Lab Técnico' | 'Lab Informático' }[]> = {
-  'Edificio FIE-A': [
-    { nombre: 'FIE-105', tipo: 'Aula' },
-    { nombre: 'FIE-201', tipo: 'Aula' },
-    { nombre: 'Aula 101', tipo: 'Aula' },
-    { nombre: 'Aula 102', tipo: 'Aula' },
-    { nombre: 'Lab. Circuitos', tipo: 'Lab Técnico' },
-    { nombre: 'Lab. Electrónica', tipo: 'Lab Técnico' },
-    { nombre: 'Lab. Redes Eléctricas', tipo: 'Lab Técnico' }
-  ],
-  'Edificio FIE-B': [
-    { nombre: 'FIE-302', tipo: 'Aula' },
-    { nombre: 'Aula 301', tipo: 'Aula' },
-    { nombre: 'Aula 302', tipo: 'Aula' },
-    { nombre: 'Lab. Potencia', tipo: 'Lab Técnico' }
-  ],
-  'Bloque de Aulas C': [
-    { nombre: 'Aula C-1', tipo: 'Aula' },
-    { nombre: 'Aula C-2', tipo: 'Aula' },
-    { nombre: 'Aula C-3', tipo: 'Aula' }
-  ],
-  'Bloque de Laboratorios': [
-    { nombre: 'Lab. Control', tipo: 'Lab Técnico' },
-    { nombre: 'Lab. Telecomunicaciones', tipo: 'Lab Técnico' },
-    { nombre: 'Lab. Energías Renovables', tipo: 'Lab Técnico' },
-    { nombre: 'Lab. Robótica', tipo: 'Lab Técnico' },
-    { nombre: 'Lab. Electromagnetismo', tipo: 'Lab Técnico' }
-  ],
-  'Centro de Cómputo': [
-    { nombre: 'Lab. Cómputo 1', tipo: 'Lab Informático' },
-    { nombre: 'Lab. Cómputo 2', tipo: 'Lab Informático' },
-    { nombre: 'Lab. Cómputo 3', tipo: 'Lab Informático' }
-  ],
-};

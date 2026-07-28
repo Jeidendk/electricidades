@@ -1,6 +1,7 @@
 import { X, Moon, Bell, Rows3 } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore';
 import { useUiPrefsStore } from '../../store/uiPrefsStore';
+import { useExclusiveModal } from '../../hooks/useExclusiveModal';
 
 interface ConfigModalProps {
   isOpen: boolean;
@@ -39,6 +40,8 @@ export const ConfigModal = ({ isOpen, onClose }: ConfigModalProps) => {
   const dark = useThemeStore(s => s.dark);
   const setDark = useThemeStore(s => s.setDark);
   const { notificaciones, setNotificaciones, densidadCompacta, setDensidadCompacta } = useUiPrefsStore();
+
+  useExclusiveModal('config', isOpen, onClose);
 
   if (!isOpen) return null;
 
