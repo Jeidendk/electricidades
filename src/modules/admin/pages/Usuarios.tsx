@@ -19,6 +19,7 @@ const DEPARTAMENTOS = ['FIE', 'Sistemas', 'Mecánica', 'Rectorado', 'Bienestar E
 export const Usuarios = () => {
   const { items, fetchUsuarios, updateUsuario, removeUsuario } = useUsuariosStore();
   const facultades = useFacultadesStore(s => s.facultades);
+  const carreras = useFacultadesStore(s => s.carreras);
   const fetchFacultades = useFacultadesStore(s => s.fetchAll);
   const [rolesDb, setRolesDb] = useState<{ id: number; nombre: string }[]>([]);
 
@@ -79,10 +80,15 @@ export const Usuarios = () => {
 
   // Form
   const defaultFormValues = {
-    nombre: '', email: '', rol: 'Estudiante', departamento: 'FIE', estado: 'activo', avatar_url: '', fotoFile: null as File | null
+    nombre: '', email: '', rol: 'Estudiante', departamento: 'FIE', estado: 'activo', avatar_url: '', fotoFile: null as File | null,
+    codigo: '', facultadId: '', carreraId: '', pao: '',
   };
   const [formValues, setFormValues] = useState(defaultFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Cascada facultad → carrera → PAO para el modal de creación (igual que el registro).
+  const carrerasDeFacultad = carreras.filter((c: any) => c.id_facultad === formValues.facultadId);
+  const numPaosForm = (carreras.find((c: any) => c.id === formValues.carreraId) as any)?.semestres ?? 0;
 
 
 
@@ -123,6 +129,20 @@ export const Usuarios = () => {
         return;
       }
       setIsSubmitting(true);
+      // Metadata según el rol; el usuario la sincroniza a su fila al iniciar sesión
+      // (authStore.syncPerfilOnLogin). Estudiante: facultad+carrera+PAO+código.
+      // Técnico: facultad+carrera. Admin: nada académico.
+      const fac: any = facultades.find((f: any) => f.id === formValues.facultadId);
+      const car: any = carreras.find((c: any) => c.id === formValues.carreraId);
+      const meta: Record<string, any> = { nombre: formValues.nombre.trim() };
+      if (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') {
+        if (fac) { meta.facultad_nombre = fac.siglas || fac.nombre; meta.departamento = fac.siglas || fac.nombre; }
+        if (car) meta.carrera_nombre = car.nombre;
+      }
+      if (formValues.rol === 'Estudiante') {
+        if (formValues.codigo.trim()) meta.codigo_institucional = formValues.codigo.trim();
+        if (formValues.pao) meta.pao = formValues.pao;
+      }
       // No generamos contraseña: se crea la cuenta y se envía un enlace de un solo uso
       // al correo para que el propio usuario establezca su contraseña (/set-password).
       const { error } = await supabase.auth.signInWithOtp({
@@ -130,7 +150,7 @@ export const Usuarios = () => {
         options: {
           shouldCreateUser: true,
           emailRedirectTo: `${window.location.origin}/set-password`,
-          data: { nombre: formValues.nombre.trim() },
+          data: meta,
         },
       });
       setIsSubmitting(false);
@@ -345,19 +365,21 @@ export const Usuarios = () => {
 
         {/* TABLE */}
         <div className="w-full overflow-auto flex-1 flex flex-col min-h-0 relative custom-scrollbar border border-gray-100 rounded-xl">
-          <div className="min-w-[1060px] grid grid-cols-[40px_1.5fr_1fr_1.1fr_0.9fr_1fr_100px] gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3">
+          <div className="min-w-[1320px] grid grid-cols-[40px_1.4fr_1fr_1.1fr_0.5fr_0.9fr_0.8fr_1fr_90px] gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3">
             <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>USUARIO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / DEPARTAMENTO <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>ACADÉMICO <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('codigo')}>CÓDIGO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('estado')}>ESTADO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('ultimaConexion')}>ÚLTIMA CONEXIÓN <ArrowUpDown className="w-3 h-3" /></div>
             <div className="text-right">ACCIONES</div>
           </div>
           
-          <div className="flex flex-col min-w-[1060px]">
+          <div className="flex flex-col min-w-[1320px]">
             {pageData.map((u, i) => (
-              <div key={u.id} className={`grid grid-cols-[40px_1.5fr_1fr_1.1fr_0.9fr_1fr_100px] gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ animationDelay: `${i * 30}ms` }}>
+              <div key={u.id} className={`grid grid-cols-[40px_1.4fr_1fr_1.1fr_0.5fr_0.9fr_0.8fr_1fr_90px] gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ animationDelay: `${i * 30}ms` }}>
                   <div className="flex items-center justify-center"><input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleSelect(u.id)} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
                   <div className="flex items-center gap-3 min-w-0">
                       <img src={u.avatar} className="w-9 h-9 rounded-full bg-gray-100 object-cover shrink-0" />
@@ -370,14 +392,13 @@ export const Usuarios = () => {
                       {getRolBadge(u.rol)}
                       <span className="text-[10px] font-semibold text-gray-500 truncate pl-1">{u.departamento}</span>
                   </div>
-                  <div className="flex flex-col min-w-0 gap-0.5">
-                      <span className="text-[11px] font-semibold text-gray-700 truncate" title={u.carrera}>{u.carrera || '—'}</span>
-                      <span className="text-[10px] text-gray-400 truncate">{[u.pao ? `PAO ${u.pao}` : '', u.codigo].filter(Boolean).join(' · ') || 'Sin datos'}</span>
-                  </div>
+                  <div className="min-w-0"><span className="text-[11px] font-semibold text-gray-700 truncate block" title={u.carrera}>{u.carrera || '—'}</span></div>
+                  <div className="min-w-0">{u.pao ? <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md w-max">PAO {u.pao}</span> : <span className="text-gray-300 text-[11px]">—</span>}</div>
+                  <div className="min-w-0"><span className="text-[11px] font-mono text-gray-500 truncate block">{u.codigo || '—'}</span></div>
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
-                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: '', carreraId: '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
               </div>
@@ -470,21 +491,60 @@ export const Usuarios = () => {
                       <input required type="email" value={formValues.email} onChange={e => setFormValues({...formValues, email: e.target.value})} placeholder="usuario@espoch.edu.ec" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={modalType === 'edit' ? 'grid grid-cols-2 gap-4' : 'flex flex-col gap-1.5'}>
                       <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Rol de Usuario</label>
                           <select value={formValues.rol} onChange={e => setFormValues({...formValues, rol: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
                               {rolNombres.map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Departamento / Fac.</label>
-                          <select value={formValues.departamento} onChange={e => setFormValues({...formValues, departamento: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
-                              {!departamentos.includes(formValues.departamento) && formValues.departamento && <option value={formValues.departamento}>{formValues.departamento}</option>}
-                              {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
-                          </select>
-                      </div>
+                      {modalType === 'edit' && (
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Departamento / Fac.</label>
+                            <select value={formValues.departamento} onChange={e => setFormValues({...formValues, departamento: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
+                                {!departamentos.includes(formValues.departamento) && formValues.departamento && <option value={formValues.departamento}>{formValues.departamento}</option>}
+                                {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+                      )}
                   </div>
+
+                  {/* Facultad + Carrera — al CREAR Estudiante o Técnico. El Admin no lleva facultad ni carrera. */}
+                  {modalType === 'create' && (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
+                            <select value={formValues.facultadId} onChange={e => setFormValues({...formValues, facultadId: e.target.value, carreraId: '', pao: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
+                                <option value="">Seleccione</option>
+                                {facultades.map((f: any) => <option key={f.id} value={f.id}>{f.siglas || f.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Carrera</label>
+                            <select disabled={!formValues.facultadId} value={formValues.carreraId} onChange={e => setFormValues({...formValues, carreraId: e.target.value, pao: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                <option value="">{formValues.facultadId ? 'Seleccione' : 'Elija facultad'}</option>
+                                {carrerasDeFacultad.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                  )}
+
+                  {/* Código + PAO — sólo al CREAR un Estudiante. */}
+                  {modalType === 'create' && formValues.rol === 'Estudiante' && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Código Institucional</label>
+                            <input value={formValues.codigo} onChange={e => setFormValues({...formValues, codigo: e.target.value})} placeholder="Ej. 123456" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">PAO</label>
+                            <select disabled={!formValues.carreraId || numPaosForm === 0} value={formValues.pao} onChange={e => setFormValues({...formValues, pao: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                <option value="">{!formValues.carreraId ? 'Elija carrera' : numPaosForm === 0 ? 'Sin PAO' : 'Seleccione'}</option>
+                                {Array.from({ length: numPaosForm }, (_, i) => i + 1).map(n => <option key={n} value={String(n)}>PAO {n}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Estado</label>

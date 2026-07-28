@@ -50,6 +50,7 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   if (meta.codigo_institucional) extra.codigo_institucional = meta.codigo_institucional;
   if (meta.facultad_nombre) extra.facultad_nombre = meta.facultad_nombre;
   if (meta.carrera_nombre) extra.carrera_nombre = meta.carrera_nombre;
+  if (meta.departamento) extra.departamento = meta.departamento;
   if (meta.pao != null && meta.pao !== '') extra.pao = Number(meta.pao);
   if (Object.keys(extra).length) {
     supabase.from('usuarios').update(extra).eq('id', userId).then(() => {}, () => {});
