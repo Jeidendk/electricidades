@@ -33,6 +33,29 @@ interface AuthState {
   initAuth: () => () => void; // retorna el unsubscribe del listener
 }
 
+/**
+ * Actualiza la propia fila de public.usuarios al iniciar sesión:
+ *  - ultima_conexion (siempre; la columna ya existe)
+ *  - datos del registro guardados en la metadata de Auth (código, facultad, carrera, PAO)
+ *    → sólo se aplican si esas columnas existen; si aún no se corrió la migración, falla en silencio.
+ * RLS permite el self-update porque el usuario está autenticado como sí mismo.
+ */
+async function syncPerfilOnLogin(userId: string): Promise<void> {
+  // 1) Última conexión (columna existente).
+  supabase.from('usuarios').update({ ultima_conexion: new Date().toISOString() }).eq('id', userId).then(() => {}, () => {});
+  // 2) Datos del registro desde la metadata (columnas nuevas; opcional).
+  const { data: authData } = await supabase.auth.getUser();
+  const meta = (authData?.user?.user_metadata ?? {}) as Record<string, any>;
+  const extra: Record<string, any> = {};
+  if (meta.codigo_institucional) extra.codigo_institucional = meta.codigo_institucional;
+  if (meta.facultad_nombre) extra.facultad_nombre = meta.facultad_nombre;
+  if (meta.carrera_nombre) extra.carrera_nombre = meta.carrera_nombre;
+  if (meta.pao != null && meta.pao !== '') extra.pao = Number(meta.pao);
+  if (Object.keys(extra).length) {
+    supabase.from('usuarios').update(extra).eq('id', userId).then(() => {}, () => {});
+  }
+}
+
 /** Dado el id del usuario autenticado, carga su perfil de public.usuarios */
 async function fetchPerfil(userId: string): Promise<AuthUser | null> {
   // 1. Cargar perfil del usuario (sin join para no depender de RLS de roles)
@@ -170,6 +193,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     }
 
     set({ user: perfil, session: data.session });
+    syncPerfilOnLogin(data.session.user.id);
     return { success: true, message: 'Login exitoso' };
   },
 
@@ -199,7 +223,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData?.session) {
       const perfil = await fetchPerfil(sessionData.session.user.id);
-      if (perfil) set({ user: perfil, session: sessionData.session });
+      if (perfil) { set({ user: perfil, session: sessionData.session }); syncPerfilOnLogin(sessionData.session.user.id); }
     }
 
     return { success: true, message: 'MFA verificado correctamente.' };

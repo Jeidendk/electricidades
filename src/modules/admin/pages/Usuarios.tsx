@@ -43,6 +43,10 @@ export const Usuarios = () => {
     rol: u.roles?.nombre || 'Sin rol',
     estado: u.estado,
     departamento: u.departamento,
+    codigo: u.codigo_institucional || '',
+    facultad: u.facultad_nombre || u.departamento || '',
+    carrera: u.carrera_nombre || '',
+    pao: u.pao ?? null,
     ultimaConexion: u.ultima_conexion ? new Date(u.ultima_conexion).toLocaleString('es-EC') : 'Sin registro',
     avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre)}&background=475569&color=fff`,
   })), [items]);
@@ -202,8 +206,8 @@ export const Usuarios = () => {
 
   const exportCsv = () => {
     const rows = selectedIds.length > 0 ? usuarios.filter(u => selectedIds.includes(u.id)) : filteredData;
-    const head = ['ID', 'Nombre', 'Email', 'Rol', 'Estado', 'Departamento', 'Última conexión'];
-    const body = rows.map(u => [u.id, u.nombre, u.email, u.rol, u.estado, u.departamento, u.ultimaConexion]);
+    const head = ['ID', 'Nombre', 'Email', 'Rol', 'Estado', 'Departamento', 'Código', 'Facultad', 'Carrera', 'PAO', 'Última conexión'];
+    const body = rows.map(u => [u.id, u.nombre, u.email, u.rol, u.estado, u.departamento, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.ultimaConexion]);
     const csv = [head, ...body].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -341,18 +345,19 @@ export const Usuarios = () => {
 
         {/* TABLE */}
         <div className="w-full overflow-auto flex-1 flex flex-col min-h-0 relative custom-scrollbar border border-gray-100 rounded-xl">
-          <div className="min-w-[900px] grid grid-cols-[40px_1.5fr_1fr_1fr_1fr_100px] gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3">
+          <div className="min-w-[1060px] grid grid-cols-[40px_1.5fr_1fr_1.1fr_0.9fr_1fr_100px] gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3">
             <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>USUARIO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / DEPARTAMENTO <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>ACADÉMICO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('estado')}>ESTADO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('ultimaConexion')}>ÚLTIMA CONEXIÓN <ArrowUpDown className="w-3 h-3" /></div>
             <div className="text-right">ACCIONES</div>
           </div>
           
-          <div className="flex flex-col min-w-[900px]">
+          <div className="flex flex-col min-w-[1060px]">
             {pageData.map((u, i) => (
-              <div key={u.id} className={`grid grid-cols-[40px_1.5fr_1fr_1fr_1fr_100px] gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ animationDelay: `${i * 30}ms` }}>
+              <div key={u.id} className={`grid grid-cols-[40px_1.5fr_1fr_1.1fr_0.9fr_1fr_100px] gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ animationDelay: `${i * 30}ms` }}>
                   <div className="flex items-center justify-center"><input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleSelect(u.id)} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
                   <div className="flex items-center gap-3 min-w-0">
                       <img src={u.avatar} className="w-9 h-9 rounded-full bg-gray-100 object-cover shrink-0" />
@@ -364,6 +369,10 @@ export const Usuarios = () => {
                   <div className="flex flex-col min-w-0 gap-1 w-max">
                       {getRolBadge(u.rol)}
                       <span className="text-[10px] font-semibold text-gray-500 truncate pl-1">{u.departamento}</span>
+                  </div>
+                  <div className="flex flex-col min-w-0 gap-0.5">
+                      <span className="text-[11px] font-semibold text-gray-700 truncate" title={u.carrera}>{u.carrera || '—'}</span>
+                      <span className="text-[10px] text-gray-400 truncate">{[u.pao ? `PAO ${u.pao}` : '', u.codigo].filter(Boolean).join(' · ') || 'Sin datos'}</span>
                   </div>
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
@@ -494,6 +503,18 @@ export const Usuarios = () => {
                           </label>
                       </div>
                   </div>
+
+                  {modalType === 'edit' && (selectedUser?.codigo || selectedUser?.carrera || selectedUser?.pao || selectedUser?.facultad) && (
+                    <div className="flex flex-col gap-2.5 bg-gray-50/70 border border-gray-200 rounded-xl p-3.5">
+                        <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Datos del Registro</span>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Código</p><p className="text-[12px] font-semibold text-gray-800 truncate">{selectedUser.codigo || '—'}</p></div>
+                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Facultad</p><p className="text-[12px] font-semibold text-gray-800 truncate">{selectedUser.facultad || '—'}</p></div>
+                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Carrera</p><p className="text-[12px] font-semibold text-gray-800 truncate">{selectedUser.carrera || '—'}</p></div>
+                            <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">PAO</p><p className="text-[12px] font-semibold text-gray-800">{selectedUser.pao ? `PAO ${selectedUser.pao}` : '—'}</p></div>
+                        </div>
+                    </div>
+                  )}
 
                   <div className="flex gap-3 mt-4 justify-end">
                       <button type="button" onClick={() => setModalType(null)} disabled={isSubmitting} className="px-5 py-2.5 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50">Cancelar</button>
