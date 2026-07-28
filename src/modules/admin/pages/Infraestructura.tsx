@@ -543,72 +543,65 @@ export const Infraestructura = () => {
             ) : (
               <div className="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar bg-gray-50/30 p-6 md:p-8">
                 {/* IDENTITY CARD */}
-                <div className="bg-white border border-gray-100 rounded-[24px] shadow-sm mb-6 flex flex-col md:flex-row p-3 gap-6">
-                  <img src={selectedEdificio.imagen} alt={selectedEdificio.nombre} className="w-full md:w-[280px] h-[180px] object-cover rounded-2xl shrink-0" />
-                  <div className="flex-1 flex flex-col justify-center py-2 min-w-0 pr-2 md:pr-4">
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-4 mb-3">
-                          <h3 className="text-[32px] font-extrabold text-[#0f172a] truncate leading-none tracking-tight">{selectedEdificio.nombre}</h3>
-                          <EstadoBadge estado={selectedEdificio.estado} />
-                        </div>
-                        <p className="text-[13px] font-medium text-gray-500 flex items-center gap-1.5 mb-6"><MapPin className="w-4 h-4 text-gray-400" /> {selectedEdificio.direccion}</p>
-                        
-                        <div className="flex items-center gap-6 flex-wrap">
-                          {/* Metrica 1 */}
-                          <div className="flex items-center gap-3">
-                            <Building2 className="w-6 h-6 text-slate-700" strokeWidth={1.5} />
-                            <div className="flex flex-col">
-                              <span className="text-[18px] font-extrabold text-slate-900 leading-none">{selectedEdificio.pisos}</span>
-                              <span className="text-[12px] text-slate-500 font-medium mt-1">pisos</span>
-                            </div>
-                          </div>
-                          
-                          <div className="w-px h-10 bg-gray-200"></div>
-                          
-                          {/* Metrica 2 */}
-                          <div className="flex items-center gap-3">
-                            <MapIcon className="w-6 h-6 text-slate-700" strokeWidth={1.5} />
-                            <div className="flex flex-col">
-                              <span className="text-[18px] font-extrabold text-slate-900 leading-none">{selectedEdificio.area} m²</span>
-                              <span className="text-[12px] text-slate-500 font-medium mt-1">Área total</span>
-                            </div>
-                          </div>
-                          
-                          <div className="w-px h-10 bg-gray-200"></div>
-                          
-                          {/* Metrica 3 */}
-                          <div className="flex items-center gap-3">
-                            <Layers className="w-6 h-6 text-slate-700" strokeWidth={1.5} />
-                            <div className="flex flex-col">
-                              <span className="text-[18px] font-extrabold text-slate-900 leading-none">{selectedEdificio.ocupacion}%</span>
-                              <span className="text-[12px] text-slate-500 font-medium mt-1">Ocupación</span>
-                            </div>
-                          </div>
-                          
-                          {edificioKpis.mantenimiento > 0 && (
-                            <>
-                              <div className="w-px h-10 bg-gray-200"></div>
-                              <div className="flex items-center gap-3">
-                                <AlertTriangle className="w-6 h-6 text-orange-500" strokeWidth={1.5} />
-                                <div className="flex flex-col">
-                                  <span className="text-[18px] font-extrabold text-orange-600 leading-none">{edificioKpis.mantenimiento}</span>
-                                  <span className="text-[12px] text-orange-500 font-medium mt-1">en mantenim.</span>
-                                </div>
-                              </div>
-                            </>
-                          )}
+                <div className="bg-white border border-gray-100 rounded-[24px] shadow-sm mb-6 flex flex-col md:flex-row md:items-center p-3 gap-4 md:gap-5">
+                  <img src={selectedEdificio.imagen} alt={selectedEdificio.nombre} className="w-full md:w-[150px] h-[120px] md:h-[90px] object-cover rounded-2xl shrink-0" />
+                  <div className="flex-1 flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6 min-w-0">
+                    {/* Nombre + ubicación */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-[26px] font-extrabold text-[#0f172a] truncate leading-none tracking-tight">{selectedEdificio.nombre}</h3>
+                        <EstadoBadge estado={selectedEdificio.estado} />
+                      </div>
+                      <p className="text-[12px] font-medium text-gray-500 flex items-center gap-1.5 mt-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" /> {selectedEdificio.direccion}</p>
+                    </div>
+
+                    {/* Métricas */}
+                    <div className="flex items-center gap-4 lg:gap-5 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <Building2 className="w-6 h-6 text-slate-700" strokeWidth={1.5} />
+                        <div className="flex flex-col">
+                          <span className="text-[17px] font-extrabold text-slate-900 leading-none">{selectedEdificio.pisos}</span>
+                          <span className="text-[11px] text-slate-500 font-medium mt-0.5">pisos</span>
                         </div>
                       </div>
-                      
-                      <div className="flex flex-col gap-2 shrink-0">
-                        <button onClick={() => openEditEdificio(selectedEdificio)} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
-                          <Edit2 className="w-3.5 h-3.5" /> Editar
-                        </button>
-                        <button onClick={() => { setSelectedEdForm(selectedEdificio); setEdModal('delete'); }} className="bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
-                          <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                        </button>
+                      <div className="w-px h-9 bg-gray-200"></div>
+                      <div className="flex items-center gap-2.5">
+                        <MapIcon className="w-6 h-6 text-slate-700" strokeWidth={1.5} />
+                        <div className="flex flex-col">
+                          <span className="text-[17px] font-extrabold text-slate-900 leading-none">{selectedEdificio.area} m²</span>
+                          <span className="text-[11px] text-slate-500 font-medium mt-0.5">Área total</span>
+                        </div>
                       </div>
+                      <div className="w-px h-9 bg-gray-200"></div>
+                      <div className="flex items-center gap-2.5">
+                        <Layers className="w-6 h-6 text-slate-700" strokeWidth={1.5} />
+                        <div className="flex flex-col">
+                          <span className="text-[17px] font-extrabold text-slate-900 leading-none">{selectedEdificio.ocupacion}%</span>
+                          <span className="text-[11px] text-slate-500 font-medium mt-0.5">Ocupación</span>
+                        </div>
+                      </div>
+                      {edificioKpis.mantenimiento > 0 && (
+                        <>
+                          <div className="w-px h-9 bg-gray-200"></div>
+                          <div className="flex items-center gap-2.5">
+                            <AlertTriangle className="w-6 h-6 text-orange-500" strokeWidth={1.5} />
+                            <div className="flex flex-col">
+                              <span className="text-[17px] font-extrabold text-orange-600 leading-none">{edificioKpis.mantenimiento}</span>
+                              <span className="text-[11px] text-orange-500 font-medium mt-0.5">en mantenim.</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => openEditEdificio(selectedEdificio)} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
+                        <Edit2 className="w-3.5 h-3.5" /> Editar
+                      </button>
+                      <button onClick={() => { setSelectedEdForm(selectedEdificio); setEdModal('delete'); }} className="bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
+                        <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                      </button>
                     </div>
                   </div>
                 </div>
