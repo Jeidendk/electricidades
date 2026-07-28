@@ -676,8 +676,9 @@ export const EstructuraAcademica = () => {
                 <div className="flex-1 flex flex-col min-h-0 bg-white">
 
                   {viewMode === 'list' ? (
-                    <div className="flex-1 m-6 mt-4 min-h-0 overflow-auto custom-scrollbar">
+                    <div className="flex-1 m-6 mt-4 min-h-0 overflow-hidden">
                       <DataTable
+                        fill
                         rows={filteredMaterias}
                         rowKey={m => m.id}
                         onRowClick={m => setSelectedMateriaId(m.id)}

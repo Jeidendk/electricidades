@@ -24,12 +24,14 @@ interface DataTableProps<T> {
   paginate?: boolean;
   defaultPerPage?: number;
   emptyState?: React.ReactNode;
+  /** Estira la tarjeta a toda la altura del contenedor (como la tabla de Inventario). */
+  fill?: boolean;
 }
 
 // Tabla estándar admin (formato Inventario): header sticky ordenable + filas animadas + paginación.
 export function DataTable<T>({
   columns, rows, rowKey, onRowClick,
-  minWidthClass = 'min-w-[820px]', paginate = true, defaultPerPage = 10, emptyState,
+  minWidthClass = 'min-w-[820px]', paginate = true, defaultPerPage = 10, emptyState, fill = false,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
@@ -59,8 +61,8 @@ export function DataTable<T>({
   const alignCls = (a?: string) => a === 'center' ? 'justify-center text-center' : a === 'right' ? 'justify-end text-right' : '';
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
-      <div className="overflow-auto custom-scrollbar">
+    <div className={cn('bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col overflow-hidden', fill && 'h-full')}>
+      <div className={cn('overflow-auto custom-scrollbar', fill && 'flex-1 min-h-0')}>
         <div className={cn(minWidthClass, 'grid gap-4 px-4 pt-3 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10')} style={{ gridTemplateColumns: template }}>
           {columns.map(col => (
             <div key={col.key} onClick={() => handleSort(col)} className={cn('flex items-center gap-1.5', alignCls(col.align), col.sortValue && 'cursor-pointer hover:text-gray-700')}>
