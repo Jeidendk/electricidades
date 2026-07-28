@@ -7,9 +7,6 @@ import { useThemeStore } from '../../../store/themeStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { supabase } from '../../../lib/supabase';
 
-// Periodos Académicos Ordinarios disponibles (ya no son "semestres").
-const PAOS = Array.from({ length: 10 }, (_, i) => i + 1);
-
 export const Login = () => {
   const navigate = useNavigate();
   const { login, verifyMfa } = useAuthStore();
@@ -46,6 +43,11 @@ export const Login = () => {
 
   // Carreras de la facultad seleccionada (cascada).
   const carrerasFiltradas = carreras.filter((c) => c.id_facultad === registerFacultad);
+
+  // PAOs disponibles según la carrera elegida (carreras.semestres = N° de PAO de la carrera).
+  const paoCarrera = carreras.find((c) => c.id === registerCarrera);
+  const numPaos = (paoCarrera as any)?.semestres ?? 0;
+  const paoOptions = Array.from({ length: numPaos }, (_, i) => i + 1);
 
   const evaluatePassword = (pass: string) => {
     let score = 0;
@@ -477,7 +479,7 @@ export const Login = () => {
                       <div>
                         <label className="text-[9px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Carrera</label>
                         <div className="relative">
-                          <select required disabled={!registerFacultad} value={registerCarrera} onChange={(e) => setRegisterCarrera(e.target.value)} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                          <select required disabled={!registerFacultad} value={registerCarrera} onChange={(e) => { setRegisterCarrera(e.target.value); setRegisterPao(''); }} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                             <option value="">{registerFacultad ? 'Seleccione' : 'Elija facultad'}</option>
                             {carrerasFiltradas.map((c) => (
                               <option key={c.id} value={c.id}>{c.nombre}</option>
@@ -489,9 +491,9 @@ export const Login = () => {
                       <div>
                         <label className="text-[9px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">PAO</label>
                         <div className="relative">
-                          <select required value={registerPao} onChange={(e) => setRegisterPao(e.target.value)} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer">
-                            <option value="">PAO</option>
-                            {PAOS.map(n => <option key={n} value={String(n)}>PAO {n}</option>)}
+                          <select required disabled={!registerCarrera || numPaos === 0} value={registerPao} onChange={(e) => setRegisterPao(e.target.value)} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">{!registerCarrera ? 'Elija carrera' : numPaos === 0 ? 'Sin PAO' : 'PAO'}</option>
+                            {paoOptions.map(n => <option key={n} value={String(n)}>PAO {n}</option>)}
                           </select>
                           <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400 pointer-events-none" />
                         </div>
