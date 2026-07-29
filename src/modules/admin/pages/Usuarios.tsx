@@ -89,7 +89,7 @@ export const Usuarios = () => {
   const [sortAsc, setSortAsc] = useState(true);
 
   // Filters
-  const [filterRol, setFilterRol] = useState('');
+  const [filterRol, setFilterRol] = useState('Administrador');
   const [filterEstado, setFilterEstado] = useState('');
 
   // Modals
