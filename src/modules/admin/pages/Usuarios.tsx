@@ -232,7 +232,7 @@ export const Usuarios = () => {
       // Técnico: facultad+carrera. Admin: nada académico.
       const fac: any = facultades.find((f: any) => f.id === formValues.facultadId);
       const car: any = carreras.find((c: any) => c.id === formValues.carreraId);
-      const meta: Record<string, any> = { nombre: formValues.nombre.trim() };
+      const meta: Record<string, any> = { nombre: formValues.nombre.trim(), rol: formValues.rol };
       if (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') {
         if (fac) { meta.facultad_nombre = fac.siglas || fac.nombre; meta.departamento = fac.siglas || fac.nombre; }
         if (car) meta.carrera_nombre = car.nombre;
