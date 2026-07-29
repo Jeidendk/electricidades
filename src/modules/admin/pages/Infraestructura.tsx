@@ -243,7 +243,7 @@ export const Infraestructura = () => {
     if (!document.fullscreenElement) mapWrapperRef.current?.requestFullscreen().catch(() => {});
     else document.exitFullscreen();
   };
-  const centerMapOnCampus = () => { setMapCenter([baseLat, baseLng]); setMapZoom(16); setActiveMarkerId(null); };
+  // (El botón de la brújula ahora usa "Mi ubicación"; se retiró el centrar-en-campus.)
 
   const getBuildingIcon = (ed: any) => {
     const isActive = activeMarkerId === ed.id;
@@ -380,6 +380,33 @@ export const Infraestructura = () => {
     try { const c = await getCurrentPosition(); setEspForm(f => ({ ...f, lat: c.lat, lng: c.lng })); setMapCenter([c.lat, c.lng]); }
     catch (err: any) { import('sweetalert2').then(S => S.default.fire('Ubicación', err?.message || 'No se pudo obtener la ubicación.', 'warning')); }
     finally { setGpsEsp(false); }
+  };
+
+  // Botón "Mi ubicación" del mapa: ubica al usuario por GPS y pregunta qué desea colocar.
+  const handleMiUbicacion = async () => {
+    const S = (await import('sweetalert2')).default;
+    S.fire({ title: 'Obteniendo tu ubicación…', allowOutsideClick: false, didOpen: () => S.showLoading() });
+    try {
+      const c = await getCurrentPosition();
+      setMapCenter([c.lat, c.lng]);
+      setMapZoom(18);
+      const res = await S.fire({
+        icon: 'question',
+        title: 'Tu ubicación',
+        text: '¿Deseas colocar aquí una ubicación de edificio o espacio?',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Edificio',
+        denyButtonText: 'Espacio',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0f172a',
+        denyButtonColor: '#B00020',
+      });
+      if (res.isConfirmed) openCreateEdificio(c.lat, c.lng);
+      else if (res.isDenied) openCreateEspacio({ lat: c.lat, lng: c.lng });
+    } catch (err: any) {
+      S.fire('Ubicación', err?.message || 'No se pudo obtener tu ubicación.', 'warning');
+    }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
@@ -725,21 +752,28 @@ export const Infraestructura = () => {
         <div className="flex-1 flex p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0">
             <div ref={mapWrapperRef} className="flex-1 rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden relative">
-              {/* Picker toolbar */}
-              <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2">
-                {picking ? (
+              {/* Banner de modo "ubicar" (solo mientras se coloca) */}
+              {picking && (
+                <div className="absolute left-4 top-4 z-[1000]">
                   <div className="bg-gray-900/90 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 backdrop-blur-md">
                     <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-espoch-red opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
                     <span className="text-[12px] font-bold">Clic en el mapa para ubicar {picking === 'edificio' ? 'el edificio' : 'el espacio'}</span>
                     <button onClick={() => setPicking(null)} className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"><X className="w-3 h-3" /></button>
                   </div>
-                ) : (
-                  <div className="flex bg-white rounded-xl shadow-md border border-gray-100 p-1">
-                    <button onClick={() => setPicking('edificio')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-600 hover:bg-gray-50 transition-colors"><Building2 className="w-3.5 h-3.5" /> Edificio</button>
-                    <button onClick={() => setPicking('espacio')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-600 hover:bg-gray-50 transition-colors"><Microscope className="w-3.5 h-3.5" /> Espacio</button>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Botones AGREGAR — derecha, en columna, junto a pantalla completa */}
+              {!picking && (
+                <div className="absolute right-4 top-[64px] z-[1000] flex flex-col gap-2 pointer-events-auto">
+                  <button onClick={() => setPicking('edificio')} className="flex items-center gap-2 bg-[#0f172a] hover:bg-black text-white text-[11px] font-bold px-3.5 py-2 rounded-xl shadow-md border border-gray-800 transition-colors">
+                    <Plus className="w-3.5 h-3.5 shrink-0" /> <Building2 className="w-3.5 h-3.5 shrink-0" /> Edificio
+                  </button>
+                  <button onClick={() => setPicking('espacio')} className="flex items-center gap-2 bg-[#0f172a] hover:bg-black text-white text-[11px] font-bold px-3.5 py-2 rounded-xl shadow-md border border-gray-800 transition-colors">
+                    <Plus className="w-3.5 h-3.5 shrink-0" /> <Microscope className="w-3.5 h-3.5 shrink-0" /> Espacio
+                  </button>
+                </div>
+              )}
 
               <div className="absolute inset-0 z-0">
                 <MapContainer center={mapCenter} zoom={mapZoom} zoomControl={false} className="w-full h-full" style={{ background: '#f8f9fa' }}>
@@ -752,7 +786,7 @@ export const Infraestructura = () => {
                   <TileLayer url={getTileUrl(mapLayer)} attribution="&copy; CARTO" />
                   <Marker position={[baseLat, baseLng]} icon={campusMarkerIcon} interactive={false} zIndexOffset={2000} />
                   <UserLocationMarker />
-                  {edificios.map(ed => (
+                  {!picking && edificios.map(ed => (
                     <Marker key={ed.id} position={[ed.lat, ed.lng]} icon={getBuildingIcon(ed)} zIndexOffset={activeMarkerId === ed.id ? 1000 : 0}
                       eventHandlers={{ click: () => { if (!picking) { setActiveMarkerId(ed.id); setMapCenter([ed.lat, ed.lng]); setMapZoom(18); } } }}>
                       <Popup offset={[0, -20]} className="custom-leaflet-popup">
@@ -770,7 +804,7 @@ export const Infraestructura = () => {
                       </Popup>
                     </Marker>
                   ))}
-                  {mapEspacios.map(sp => (
+                  {!picking && mapEspacios.map(sp => (
                     <Marker key={sp.id} position={[sp.lat as number, sp.lng as number]} icon={getSpaceIcon(sp)} zIndexOffset={activeMarkerId === sp.id ? 1000 : 0}
                       eventHandlers={{ click: () => { if (!picking) { setActiveMarkerId(sp.id); setMapCenter([sp.lat as number, sp.lng as number]); setMapZoom(19); } } }}>
                       <Popup offset={[0, -14]} className="custom-leaflet-popup">
@@ -791,13 +825,7 @@ export const Infraestructura = () => {
                 </MapContainer>
                 <MapControls
                   layer={mapLayer} onLayer={setMapLayer} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut}
-                  onCenter={centerMapOnCampus} onFullscreen={toggleFullscreen}
-                  legend={[
-                    { label: 'Edificio operativo', dotClass: 'bg-emerald-500' },
-                    { label: 'Espacio disponible', dotClass: 'bg-emerald-500' },
-                    { label: 'Ocupada', dotClass: 'bg-blue-500' },
-                    { label: 'Mantenimiento', dotClass: 'bg-orange-500' },
-                  ]}
+                  onCenter={handleMiUbicacion} centerTitle="Mi ubicación" onFullscreen={toggleFullscreen}
                 />
               </div>
             </div>
@@ -836,7 +864,7 @@ export const Infraestructura = () => {
                     <div className="w-full h-[200px] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden relative z-0">
                       <MapContainer center={edForm.lat && edForm.lng ? [edForm.lat, edForm.lng] : mapCenter} zoom={16} zoomControl={false} className="w-full h-full">
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                        {edificios.map(ed => <Marker key={ed.id} position={[ed.lat, ed.lng]} icon={getBuildingIcon(ed)} />)}
+                        {/* Marcadores de edificios ocultos mientras se agrega/edita, para no chocar con el nuevo. */}
                         <UserLocationMarker />
                         <RecenterMap lat={edForm.lat} lng={edForm.lng} />
                         <LocationPicker position={edForm.lat && edForm.lng ? [edForm.lat, edForm.lng] : null} setPosition={p => setEdForm({ ...edForm, lat: p[0], lng: p[1] })} />
@@ -949,7 +977,7 @@ export const Infraestructura = () => {
                     <div className="w-full h-[200px] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden relative z-0">
                       <MapContainer center={espForm.lat !== null && espForm.lng !== null ? [espForm.lat, espForm.lng] : [baseLat, baseLng]} zoom={17} zoomControl={false} className="w-full h-full">
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                        {edificios.map(ed => <Marker key={ed.id} position={[ed.lat, ed.lng]} icon={getBuildingIcon(ed)} />)}
+                        {/* Marcadores de edificios ocultos mientras se agrega/edita, para no chocar con el nuevo. */}
                         <UserLocationMarker />
                         <RecenterMap lat={espForm.lat} lng={espForm.lng} />
                         <LocationPicker position={espForm.lat !== null && espForm.lng !== null ? [espForm.lat, espForm.lng] : null} setPosition={p => setEspForm({ ...espForm, lat: p[0], lng: p[1] })} />

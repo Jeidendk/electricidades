@@ -27,6 +27,7 @@ interface MapControlsProps {
   legend?: LegendItem[];
   actionLabel?: string;
   onAction?: () => void;
+  centerTitle?: string;
 }
 
 const LAYERS: { key: MapLayer; label: string }[] = [
@@ -36,7 +37,7 @@ const LAYERS: { key: MapLayer; label: string }[] = [
 ];
 
 // Controles unificados para los mapas (admin y estudiante).
-export const MapControls = ({ layer, onLayer, onZoomIn, onZoomOut, onCenter, onFullscreen, legend, actionLabel, onAction }: MapControlsProps) => (
+export const MapControls = ({ layer, onLayer, onZoomIn, onZoomOut, onCenter, onFullscreen, legend, actionLabel, onAction, centerTitle = 'Centrar' }: MapControlsProps) => (
   <>
     {/* Top derecha: capas + pantalla completa + acción */}
     <div className="absolute right-4 top-4 z-[1000] flex items-center gap-2 pointer-events-auto">
@@ -67,7 +68,7 @@ export const MapControls = ({ layer, onLayer, onZoomIn, onZoomOut, onCenter, onF
       <div className="w-full h-px bg-gray-100"></div>
       <button onClick={onZoomOut} title="Alejar" className="w-7 h-7 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"><Minus className="w-4 h-4" /></button>
       <div className="w-full h-px bg-gray-100"></div>
-      <button onClick={onCenter} title="Centrar" className="w-7 h-7 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"><Navigation className="w-4 h-4" /></button>
+      <button onClick={onCenter} title={centerTitle} className="w-7 h-7 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"><Navigation className="w-4 h-4" /></button>
     </div>
 
     {/* Abajo izquierda: leyenda */}
