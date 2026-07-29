@@ -254,8 +254,10 @@ export const Usuarios = () => {
       setIsSubmitting(false);
       if (error) {
         console.error('signInWithOtp error:', error);
-        const detail = (error as any)?.message || (error as any)?.error_description || (error as any)?.msg || JSON.stringify(error, Object.getOwnPropertyNames(error as any));
-        S.fire({ icon: 'error', title: 'No se pudo enviar la invitación', text: detail || 'Error desconocido', confirmButtonColor: '#B00020' });
+        const e = error as any;
+        const msg = e?.message || e?.error_description || e?.msg || '';
+        const detail = (msg && msg !== '{}') ? msg : `Error del servidor (status ${e?.status ?? '?'}, code ${e?.code ?? '?'}). Suele ser un fallo del trigger de la BD al crear la fila.`;
+        S.fire({ icon: 'error', title: 'No se pudo enviar la invitación', text: detail, confirmButtonColor: '#B00020' });
         return;
       }
       S.fire({
