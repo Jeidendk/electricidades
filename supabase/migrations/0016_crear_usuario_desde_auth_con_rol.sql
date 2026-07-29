@@ -1,16 +1,15 @@
 -- 0016_crear_usuario_desde_auth_con_rol.sql
 -- Crea (o completa) la fila public.usuarios automáticamente cuando se registra un
--- usuario en auth.users, tomando el ROL y los datos desde la metadata de Auth
--- (raw_user_meta_data). Antes el rol elegido por el admin no se aplicaba: todos
--- quedaban como Estudiante y a veces la fila ni se creaba.
+-- usuario en auth.users, tomando el ROL y los datos desde la metadata de Auth.
 --
--- La metadata la envía el cliente en signUp / signInWithOtp (options.data):
---   rol, nombre, departamento, codigo_institucional, facultad_nombre,
---   carrera_nombre, pao.
+-- IMPORTANTE: antes existía OTRO trigger en auth.users (creado desde el dashboard)
+-- que también insertaba la fila con rol por defecto (Estudiante). Con dos triggers
+-- insertando la misma id se producía `duplicate key ... usuarios_pkey` (500 al crear).
+-- Por eso esta migración elimina TODOS los triggers personalizados de auth.users y
+-- deja solo el nuestro, que además respeta el rol elegido y es a prueba de fallos.
 --
--- SECURITY DEFINER: corre con privilegios del dueño (postgres), así evita RLS.
--- El trigger de validación 0013 (BEFORE INSERT en usuarios) pasa porque la fila
--- de auth.users ya existe cuando este trigger AFTER INSERT se dispara.
+-- Metadata enviada por el cliente (signUp / signInWithOtp options.data):
+--   rol, nombre, departamento, codigo_institucional, facultad_nombre, carrera_nombre, pao.
 
 create or replace function public.handle_new_auth_user()
 returns trigger
@@ -22,7 +21,6 @@ declare
   v_rol_nombre text := coalesce(nullif(new.raw_user_meta_data->>'rol', ''), 'Estudiante');
   v_id_rol integer;
 begin
-  -- Resuelve el id del rol por nombre (case-insensitive); si no coincide, Estudiante.
   select id into v_id_rol from public.roles where lower(nombre) = lower(v_rol_nombre) limit 1;
   if v_id_rol is null then
     select id into v_id_rol from public.roles where lower(nombre) like '%estudiante%' limit 1;
@@ -54,13 +52,27 @@ begin
     pao = coalesce(public.usuarios.pao, excluded.pao);
 
   return new;
+exception when others then
+  raise warning 'handle_new_auth_user FALLO uid=% email=%: % (%)', new.id, new.email, sqlerrm, sqlstate;
+  return new;
 end;
 $$;
 
-drop trigger if exists on_auth_user_created on auth.users;
+-- Elimina cualquier trigger personalizado previo en auth.users (evita duplicados).
+do $$
+declare t record;
+begin
+  for t in
+    select tgname from pg_trigger
+    where tgrelid = 'auth.users'::regclass and not tgisinternal
+  loop
+    execute format('drop trigger if exists %I on auth.users', t.tgname);
+  end loop;
+end $$;
+
+-- Único trigger que gestiona la creación del perfil.
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row
-  execute function public.handle_new_auth_user();
+  for each row execute function public.handle_new_auth_user();
 
 notify pgrst, 'reload schema';
