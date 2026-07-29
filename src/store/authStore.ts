@@ -72,7 +72,7 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
     meta.pao != null &&
     meta.pao !== ''
   ) {
-    patch.pao = String(meta.pao);
+    patch.pao = Number(meta.pao);
   }
   await supabase.from('usuarios').update(patch).eq('id', userId);
 }

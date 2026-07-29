@@ -42,7 +42,7 @@ begin
     nullif(new.raw_user_meta_data->>'codigo_institucional', ''),
     nullif(new.raw_user_meta_data->>'facultad_nombre', ''),
     nullif(new.raw_user_meta_data->>'carrera_nombre', ''),
-    nullif(new.raw_user_meta_data->>'pao', '')
+    (nullif(new.raw_user_meta_data->>'pao', ''))::int
   )
   on conflict (id) do update set
     id_rol = excluded.id_rol,

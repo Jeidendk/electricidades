@@ -253,7 +253,9 @@ export const Usuarios = () => {
       });
       setIsSubmitting(false);
       if (error) {
-        S.fire({ icon: 'error', title: 'No se pudo enviar la invitación', text: error.message, confirmButtonColor: '#B00020' });
+        console.error('signInWithOtp error:', error);
+        const detail = (error as any)?.message || (error as any)?.error_description || (error as any)?.msg || JSON.stringify(error, Object.getOwnPropertyNames(error as any));
+        S.fire({ icon: 'error', title: 'No se pudo enviar la invitación', text: detail || 'Error desconocido', confirmButtonColor: '#B00020' });
         return;
       }
       S.fire({
