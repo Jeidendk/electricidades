@@ -193,6 +193,7 @@ export const AppRouter = () => {
             <Route path="asignaciones" element={<Asignaciones />} />
             <Route path="estructura-academica" element={<EstructuraAcademica />} />
             <Route path="academico" element={<Navigate to="/tecnico/estructura-academica" replace />} />
+            <Route path="usuarios" element={<Usuarios />} />
             <Route path="recursos" element={<Recursos />} />
             <Route path="formatos" element={<Formatos />} />
             <Route path="reportes" element={<Reportes />} />

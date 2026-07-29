@@ -8,6 +8,7 @@ import { SearchInput } from '../../../components/ui/SearchInput';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { useUsuariosStore } from '../../../store/usuariosStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
+import { useAuthStore } from '../../../store/authStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { uploadImage } from '../../../lib/upload';
 import { supabase } from '../../../lib/supabase';
@@ -22,6 +23,10 @@ export const Usuarios = () => {
   const carreras = useFacultadesStore(s => s.carreras);
   const fetchFacultades = useFacultadesStore(s => s.fetchAll);
   const [rolesDb, setRolesDb] = useState<{ id: number; nombre: string }[]>([]);
+
+  // Técnico: solo gestiona el catálogo de DOCENTES (no ve admin/estudiante/técnico).
+  const authUser = useAuthStore(s => s.user);
+  const soloDocentes = authUser?.role === 'tecnico';
 
   useEffect(() => {
     fetchUsuarios();
@@ -89,7 +94,7 @@ export const Usuarios = () => {
   const [sortAsc, setSortAsc] = useState(true);
 
   // Filters
-  const [filterRol, setFilterRol] = useState('Administrador');
+  const [filterRol, setFilterRol] = useState(soloDocentes ? 'Docente' : 'Administrador');
   const [filterEstado, setFilterEstado] = useState('');
 
   // Modals
@@ -459,9 +464,9 @@ export const Usuarios = () => {
             </div>
             <div className="flex flex-col">
               <h2 className="text-[28px] md:text-[34px] font-bold text-white tracking-tight leading-none mb-1.5">
-                Gestión de Usuarios y Docentes
+                {soloDocentes ? 'Gestión de Docentes' : 'Gestión de Usuarios y Docentes'}
               </h2>
-              <p className="text-[13px] text-gray-400 font-medium">Administración de cuentas y del catálogo docente.</p>
+              <p className="text-[13px] text-gray-400 font-medium">{soloDocentes ? 'Catálogo de docentes para horarios (varias carreras y materias).' : 'Administración de cuentas y del catálogo docente.'}</p>
             </div>
           </div>
           <div className="flex items-center gap-6 bg-[#212730] rounded-xl px-6 py-3 border border-white/5 shadow-inner hidden md:flex">
@@ -516,21 +521,23 @@ export const Usuarios = () => {
               placeholder="Buscar usuario o docente..."
               className="w-full sm:w-[260px] shrink-0"
             />
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {rolNombres.map(r => {
-                const active = filterRol === r;
-                return (
-                  <button
-                    key={r}
-                    onClick={() => { setFilterRol(active ? '' : r); setCurrentPage(1); }}
-                    className={`text-[12px] font-bold rounded-full py-2 px-4 border transition-all shadow-sm whitespace-nowrap ${active ? 'bg-[#0f172a] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'}`}
-                    title={active ? 'Quitar filtro' : `Ver solo ${r}`}
-                  >
-                    {r}
-                  </button>
-                );
-              })}
-            </div>
+            {!soloDocentes && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {rolNombres.map(r => {
+                  const active = filterRol === r;
+                  return (
+                    <button
+                      key={r}
+                      onClick={() => { setFilterRol(active ? '' : r); setCurrentPage(1); }}
+                      className={`text-[12px] font-bold rounded-full py-2 px-4 border transition-all shadow-sm whitespace-nowrap ${active ? 'bg-[#0f172a] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'}`}
+                      title={active ? 'Quitar filtro' : `Ver solo ${r}`}
+                    >
+                      {r}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <FilterDropdown
               label="Estado"
               value={filterEstado || 'todos'}
@@ -543,7 +550,7 @@ export const Usuarios = () => {
             />
             {(filterRol || filterEstado || searchQuery) && (
               <button
-                onClick={() => { setSearchQuery(''); setFilterRol(''); setFilterEstado(''); setCurrentPage(1); }}
+                onClick={() => { setSearchQuery(''); setFilterRol(soloDocentes ? 'Docente' : ''); setFilterEstado(''); setCurrentPage(1); }}
                 className="flex items-center gap-1.5 text-[12px] text-gray-500 font-medium hover:text-gray-700 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Limpiar filtros
@@ -560,8 +567,8 @@ export const Usuarios = () => {
             <button onClick={exportCsv} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
               <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
             </button>
-            <button onClick={() => { setFormValues(defaultFormValues); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
-              <Plus className="w-3.5 h-3.5" /> Nuevo registro
+            <button onClick={() => { setFormValues({ ...defaultFormValues, rol: soloDocentes ? 'Docente' : defaultFormValues.rol }); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
+              <Plus className="w-3.5 h-3.5" /> {soloDocentes ? 'Nuevo docente' : 'Nuevo registro'}
             </button>
           </div>
         </div>
@@ -613,7 +620,7 @@ export const Usuarios = () => {
                 icon={UsersIcon}
                 title={usuarios.length === 0 ? 'Sin usuarios ni docentes registrados' : 'Sin resultados con estos filtros'}
                 secondaryLabel={usuarios.length > 0 ? 'Limpiar filtros' : undefined}
-                onSecondary={usuarios.length > 0 ? () => { setSearchQuery(''); setFilterRol(''); setFilterEstado(''); setCurrentPage(1); } : undefined}
+                onSecondary={usuarios.length > 0 ? () => { setSearchQuery(''); setFilterRol(soloDocentes ? 'Docente' : ''); setFilterEstado(''); setCurrentPage(1); } : undefined}
                 className="py-12"
               />
             )}

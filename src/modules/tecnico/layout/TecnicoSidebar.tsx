@@ -135,6 +135,11 @@ export const TecnicoSidebar = () => {
             <GradCap className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">ESTRUC. ACAD.</span>}
           </NavLink>
 
+          {/* DOCENTES (técnicos solo gestionan el catálogo de docentes) */}
+          <NavLink to="/tecnico/usuarios" className={navLinkClass} title={collapsed ? 'DOCENTES' : ''}>
+            <UserCog className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">DOCENTES</span>}
+          </NavLink>
+
           {MOSTRAR_MODULOS_FUTUROS && (
             <>
               <div className="flex flex-col relative">
