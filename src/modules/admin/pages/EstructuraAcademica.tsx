@@ -3,9 +3,9 @@ import { useOutletContext } from 'react-router-dom';
 import {
   Search, Plus, Edit2, Trash2, GraduationCap, Building,
   X, BookOpen, Layers, Upload, Image as ImageIcon,
-  Check, FileText, FileCheck2, Library,
+  Check, FileCheck2, Library,
   ChevronRight, CalendarDays,
-  Eye, AlertCircle,
+  AlertCircle,
   // Iconos Seleccionables
   Cpu, FlaskConical, Briefcase, Stethoscope, Globe, Palette,
   Microscope, PenTool, Laptop, Zap, Database, Activity, Calculator,
@@ -19,7 +19,6 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { CrudModal } from '../../../components/ui/CrudModal';
 import { DataTable } from '../../../components/ui/DataTable';
 import { confirmDelete } from '../../../lib/confirm';
-import { uploadImage } from '../../../lib/upload';
 import { MateriaHorarioModal } from '../components/MateriaHorarioModal';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
@@ -275,20 +274,6 @@ export const EstructuraAcademica = () => {
     if (await confirmDelete({ title: `¿Eliminar "${m.nombre}"?` })) removeMateria(m.id);
   };
 
-  const handleUploadDoc = async (id: string, field: 'silaboUrl' | 'programaUrl', file?: File) => {
-    if (!file) return;
-    const S = (await import('sweetalert2')).default;
-    S.fire({ title: 'Subiendo documento…', allowOutsideClick: false, didOpen: () => S.showLoading() });
-    // Sube el PDF a Supabase Storage y guarda la URL pública real (no un blob temporal).
-    const url = await uploadImage(file, 'documentos');
-    if (!url) {
-      S.fire({ icon: 'error', title: 'No se pudo subir', text: 'Revisa el bucket de almacenamiento en Supabase.', confirmButtonColor: '#B00020' });
-      return;
-    }
-    const dbField = field === 'silaboUrl' ? 'silabo_url' : 'programa_url';
-    await updateMateria(id, { [dbField]: url });
-    S.fire({ icon: 'success', title: 'Documento subido', timer: 1200, showConfirmButton: false });
-  };
 
   // --- UI HELPERS ---
   const renderIconBox = (colorHex: string, customSvg: string | null, iconoName: string, FallbackIcon: any = Building, sizeClass: string = "w-9 h-9", iconSize: string = "w-4 h-4") => {
@@ -1235,11 +1220,8 @@ export const EstructuraAcademica = () => {
                 <p className="text-[11px] font-medium text-gray-400 mt-0.5">{currentMateria.codigo} · PAO {currentMateria.semestre} · {currentMateria.creditos} créditos</p>
               </div>
             </div>
-            <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Documentos</p>
-            <div className="flex flex-col gap-2 mb-5">
-              <DocRow editable={currentMateriaEditable} label="Sílabo" Icon={FileCheck2} url={currentMateria.silaboUrl} onUpload={(f) => handleUploadDoc(currentMateria.id, 'silaboUrl', f)} onRemove={() => updateMateria(currentMateria.id, { silabo_url: null })} />
-              <DocRow editable={currentMateriaEditable} label="Programa analítico" Icon={FileText} url={currentMateria.programaUrl} onUpload={(f) => handleUploadDoc(currentMateria.id, 'programaUrl', f)} onRemove={() => updateMateria(currentMateria.id, { programa_url: null })} />
-            </div>
+            {/* Sección "Documentos" (Sílabo / Programa analítico) oculta temporalmente
+                hasta definir el almacenamiento real de archivos. */}
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Recursos vinculados</p>
               {currentMateriaEditable && <button onClick={() => setShowRecursoPicker(v => !v)} className="text-[10px] font-bold text-[#0f172a] hover:text-black flex items-center gap-1"><Plus className="w-3 h-3" /> Vincular</button>}
@@ -1282,23 +1264,5 @@ export const EstructuraAcademica = () => {
     </div>
   );
 };
-
-function DocRow({ label, Icon, url, onUpload, onRemove, editable = true }: { label: string; Icon: React.ElementType; url: string | null; onUpload: (file?: File) => void; onRemove: () => void; editable?: boolean; }) {
-  const inputId = `doc-${label.replace(/\s+/g, '-').toLowerCase()}`;
-  const hasDoc = !!url;
-  return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${hasDoc ? 'bg-emerald-50/40 border-emerald-100' : 'bg-gray-50/60 border-gray-100'}`}>
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${hasDoc ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-4 h-4" /></div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[12px] font-bold text-gray-800">{label}</p>
-        <p className={`text-[10px] font-semibold ${hasDoc ? 'text-emerald-600' : 'text-gray-400'}`}>{hasDoc ? 'Cargado' : 'Sin documento'}</p>
-      </div>
-      {editable && <input id={inputId} type="file" accept="application/pdf" className="hidden" onChange={(e) => onUpload(e.target.files?.[0])} />}
-      {hasDoc && url !== '#' && <a href={url} target="_blank" rel="noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 shrink-0" title="Ver"><Eye className="w-3.5 h-3.5" /></a>}
-      {editable && <button onClick={() => document.getElementById(inputId)?.click()} className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 shrink-0" title="Subir PDF"><Upload className="w-3.5 h-3.5" /></button>}
-      {editable && hasDoc && <button onClick={onRemove} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 shrink-0" title="Quitar"><Trash2 className="w-3.5 h-3.5" /></button>}
-    </div>
-  );
-}
 
 export default EstructuraAcademica;
