@@ -19,6 +19,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { CrudModal } from '../../../components/ui/CrudModal';
 import { DataTable } from '../../../components/ui/DataTable';
 import { confirmDelete } from '../../../lib/confirm';
+import { uploadImage } from '../../../lib/upload';
 import { MateriaHorarioModal } from '../components/MateriaHorarioModal';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
@@ -276,9 +277,17 @@ export const EstructuraAcademica = () => {
 
   const handleUploadDoc = async (id: string, field: 'silaboUrl' | 'programaUrl', file?: File) => {
     if (!file) return;
-    const url = URL.createObjectURL(file);
+    const S = (await import('sweetalert2')).default;
+    S.fire({ title: 'Subiendo documento…', allowOutsideClick: false, didOpen: () => S.showLoading() });
+    // Sube el PDF a Supabase Storage y guarda la URL pública real (no un blob temporal).
+    const url = await uploadImage(file, 'documentos');
+    if (!url) {
+      S.fire({ icon: 'error', title: 'No se pudo subir', text: 'Revisa el bucket de almacenamiento en Supabase.', confirmButtonColor: '#B00020' });
+      return;
+    }
     const dbField = field === 'silaboUrl' ? 'silabo_url' : 'programa_url';
     await updateMateria(id, { [dbField]: url });
+    S.fire({ icon: 'success', title: 'Documento subido', timer: 1200, showConfirmButton: false });
   };
 
   // --- UI HELPERS ---
