@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { CalendarDays, Clock, DoorOpen, UserCheck,  ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Maximize2, RefreshCcw, FileText } from 'lucide-react';
@@ -64,6 +64,16 @@ export const Horarios = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterEdificio, setFilterEdificio] = useState('');
   const [filterAula, setFilterAula] = useState('');
+
+  // Por defecto abre en el PRIMER edificio (no "Todos"), como una pestaña de Excel.
+  // Solo una vez, al cargar los edificios; luego el admin puede cambiar o poner "Todos".
+  const didInitEdificio = useRef(false);
+  useEffect(() => {
+    if (!didInitEdificio.current && edificiosRaw.length > 0) {
+      setFilterEdificio(edificiosRaw[0].id);
+      didInitEdificio.current = true;
+    }
+  }, [edificiosRaw]);
 
   // Map state
   const mapLocations = useMemo(() => {
