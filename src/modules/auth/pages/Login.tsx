@@ -218,7 +218,7 @@ export const Login = () => {
       options: {
         data: payload,
         // A dónde lleva el enlace de confirmación del correo.
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${import.meta.env.VITE_SITE_URL || window.location.origin}/login`,
       },
     });
 

@@ -247,7 +247,7 @@ export const Usuarios = () => {
         email,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/set-password`,
+          emailRedirectTo: `${import.meta.env.VITE_SITE_URL || window.location.origin}/set-password`,
           data: meta,
         },
       });
