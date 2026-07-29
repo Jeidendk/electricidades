@@ -75,10 +75,19 @@ function MapClickPicker({ isPicking, onPick }: { isPicking: boolean; onPick: (p:
   return null;
 }
 
+// Pin SVG para el marcador que se coloca (evita el ícono PNG por defecto de Leaflet, que sale roto).
+const pickerIcon = L.divIcon({
+  className: 'bg-transparent border-none',
+  html: `<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 10.5 15 25 15 25s15-14.5 15-25C30 6.7 23.3 0 15 0z" fill="#B00020"/><circle cx="15" cy="15" r="5.5" fill="#ffffff"/></svg>`,
+  iconSize: [30, 40],
+  iconAnchor: [15, 40],
+  popupAnchor: [0, -38],
+});
+
 function LocationPicker({ position, setPosition }: { position: [number, number] | null; setPosition: (p: [number, number]) => void }) {
   const map = useMapEvents({ click(e) { setPosition([e.latlng.lat, e.latlng.lng]); } });
   useEffect(() => { setTimeout(() => map.invalidateSize(), 100); }, [map]);
-  return position ? <Marker position={position} /> : null;
+  return position ? <Marker position={position} icon={pickerIcon} /> : null;
 }
 
 const campusMarkerIcon = L.divIcon({
