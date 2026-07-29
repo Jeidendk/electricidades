@@ -4,7 +4,7 @@ import {
   Search, Plus, Edit2, Trash2, GraduationCap, Building,
   X, BookOpen, Layers, Upload, Image as ImageIcon,
   Check, FileCheck2, Library,
-  ChevronRight, CalendarDays,
+  ChevronRight,
   AlertCircle,
   // Iconos Seleccionables
   Cpu, FlaskConical, Briefcase, Stethoscope, Globe, Palette,
@@ -19,7 +19,6 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { CrudModal } from '../../../components/ui/CrudModal';
 import { DataTable } from '../../../components/ui/DataTable';
 import { confirmDelete } from '../../../lib/confirm';
-import { MateriaHorarioModal } from '../components/MateriaHorarioModal';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useRecursosStore } from '../../../store/recursosStore';
@@ -189,7 +188,6 @@ export const EstructuraAcademica = () => {
   // Detalle Materia Modal
   const [selectedMateriaId, setSelectedMateriaId] = useState<string | null>(null);
   const [showRecursoPicker, setShowRecursoPicker] = useState(false);
-  const [horarioMateria, setHorarioMateria] = useState<{ id: string; nombre: string; codigo?: string } | null>(null);
 
   // --- HANDLERS FACULTAD ---
   const handleSaveFacultad = async (e: React.FormEvent) => {
@@ -768,7 +766,6 @@ export const EstructuraAcademica = () => {
                             key: 'acciones', header: 'Acciones', width: '120px', align: 'right',
                             render: m => (
                               <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                                <button type="button" title="Horarios" onClick={(e) => { e.stopPropagation(); setHorarioMateria({ id: m.id, nombre: m.nombre, codigo: m.codigo }); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-indigo-400 hover:text-indigo-600 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm"><CalendarDays className="w-3.5 h-3.5" /></button>
                                 {puedeGestionarMateria(m) && (
                                   <>
                                     <button type="button" title="Editar" onClick={(e) => { e.stopPropagation(); setFormMateria({ nombre: m.nombre, codigo: m.codigo, semestre: m.semestre, creditos: m.creditos, idCarrera: m.idCarrera }); setEditingMateriaId(m.id); setIsAddingMateria(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-blue-400 hover:text-blue-600 border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all shadow-sm"><Edit2 className="w-3.5 h-3.5" /></button>
@@ -864,14 +861,6 @@ export const EstructuraAcademica = () => {
                                           {m.codigo}
                                         </span>
                                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <button
-                                            type="button"
-                                            title="Horarios"
-                                            onClick={(e) => { e.stopPropagation(); setHorarioMateria({ id: m.id, nombre: m.nombre, codigo: m.codigo }); }}
-                                            className="w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                          >
-                                            <CalendarDays className="w-3.5 h-3.5" />
-                                          </button>
                                           {puedeGestionarMateria(m) && (
                                             <>
                                               <button
@@ -1259,8 +1248,6 @@ export const EstructuraAcademica = () => {
         </div>
       )}
 
-      {/* Horario Materia Modal */}
-      <MateriaHorarioModal open={!!horarioMateria} materia={horarioMateria} onClose={() => setHorarioMateria(null)} />
     </div>
   );
 };
