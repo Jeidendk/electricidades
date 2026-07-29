@@ -390,6 +390,15 @@ export const Usuarios = () => {
   };
 
   const pageData = filteredData.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  // Columnas visibles según el rol filtrado (no todos los roles usan todos los campos).
+  // Sin filtro (o al ver todos) se muestran todas.
+  const showCarrera = !filterRol || filterRol === 'Estudiante' || filterRol === 'Tecnico';
+  const showPao = !filterRol || filterRol === 'Estudiante';
+  const showCodigo = !filterRol || filterRol === 'Estudiante';
+  const gridCols = ['40px', '1.4fr', '1fr', showCarrera ? '1.1fr' : null, showPao ? '0.6fr' : null, showCodigo ? '0.9fr' : null, '0.8fr', '1fr', '90px'].filter(Boolean).join(' ');
+  const tableMinW = 820 + (showCarrera ? 170 : 0) + (showPao ? 80 : 0) + (showCodigo ? 150 : 0);
+
   const toggleSelect = (id: string) =>
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const toggleSelectAll = () => {
@@ -507,12 +516,21 @@ export const Usuarios = () => {
               placeholder="Buscar usuario o docente..."
               className="w-full sm:w-[260px] shrink-0"
             />
-            <FilterDropdown
-              label="Rol"
-              value={filterRol || 'todos'}
-              options={[{ key: 'todos', label: 'Todos' }, ...rolNombres.map(r => ({ key: r, label: r }))]}
-              onChange={(k) => { setFilterRol(k === 'todos' ? '' : k); setCurrentPage(1); }}
-            />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {rolNombres.map(r => {
+                const active = filterRol === r;
+                return (
+                  <button
+                    key={r}
+                    onClick={() => { setFilterRol(active ? '' : r); setCurrentPage(1); }}
+                    className={`text-[12px] font-bold rounded-full py-2 px-4 border transition-all shadow-sm whitespace-nowrap ${active ? 'bg-[#0f172a] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'}`}
+                    title={active ? 'Quitar filtro' : `Ver solo ${r}`}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
             <FilterDropdown
               label="Estado"
               value={filterEstado || 'todos'}
@@ -550,21 +568,21 @@ export const Usuarios = () => {
 
         {/* TABLE */}
         <div className="w-full overflow-auto flex-1 flex flex-col min-h-0 relative custom-scrollbar border border-gray-100 rounded-xl">
-          <div className="min-w-[1320px] grid grid-cols-[40px_1.4fr_1fr_1.1fr_0.5fr_0.9fr_0.8fr_1fr_90px] gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3">
+          <div className="grid gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3" style={{ gridTemplateColumns: gridCols, minWidth: tableMinW }}>
             <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>USUARIO / DOCENTE <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / DEPARTAMENTO <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('codigo')}>CÓDIGO <ArrowUpDown className="w-3 h-3" /></div>
+            {showCarrera && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>}
+            {showPao && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>}
+            {showCodigo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('codigo')}>CÓDIGO <ArrowUpDown className="w-3 h-3" /></div>}
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('estado')}>ESTADO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('ultimaConexion')}>ÚLTIMA CONEXIÓN <ArrowUpDown className="w-3 h-3" /></div>
             <div className="text-right">ACCIONES</div>
           </div>
           
-          <div className="flex flex-col min-w-[1320px]">
+          <div className="flex flex-col" style={{ minWidth: tableMinW }}>
             {pageData.map((u, i) => (
-              <div key={u.id} className={`grid grid-cols-[40px_1.4fr_1fr_1.1fr_0.5fr_0.9fr_0.8fr_1fr_90px] gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ animationDelay: `${i * 30}ms` }}>
+              <div key={u.id} className={`grid gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ gridTemplateColumns: gridCols, animationDelay: `${i * 30}ms` }}>
                   <div className="flex items-center justify-center"><input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleSelect(u.id)} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
                   <div className="flex items-center gap-3 min-w-0">
                       <img src={u.avatar} className="w-9 h-9 rounded-full bg-gray-100 object-cover shrink-0" />
@@ -579,9 +597,9 @@ export const Usuarios = () => {
                       {getRolBadge(u.rol)}
                       <span className="text-[10px] font-semibold text-gray-500 truncate pl-1">{u.departamento}</span>
                   </div>
-                  <div className="min-w-0"><span className="text-[11px] font-semibold text-gray-700 truncate block" title={u.carrera}>{u.carrera || '—'}</span></div>
-                  <div className="min-w-0">{u.pao ? <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md w-max">PAO {u.pao}</span> : <span className="text-gray-300 text-[11px]">—</span>}</div>
-                  <div className="min-w-0"><span className="text-[11px] font-mono text-gray-500 truncate block">{u.codigo || '—'}</span></div>
+                  {showCarrera && <div className="min-w-0"><span className="text-[11px] font-semibold text-gray-700 truncate block" title={u.carrera}>{u.carrera || '—'}</span></div>}
+                  {showPao && <div className="min-w-0">{u.pao ? <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md w-max">PAO {u.pao}</span> : <span className="text-gray-300 text-[11px]">—</span>}</div>}
+                  {showCodigo && <div className="min-w-0"><span className="text-[11px] font-mono text-gray-500 truncate block">{u.codigo || '—'}</span></div>}
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
