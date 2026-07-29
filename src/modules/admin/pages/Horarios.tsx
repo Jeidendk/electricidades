@@ -75,6 +75,17 @@ export const Horarios = () => {
     }
   }, [edificiosRaw]);
 
+  // Sin "Todas": el aula por defecto es la PRIMERA del edificio seleccionado.
+  // Cubre la carga inicial y el cambio de edificio (que resetea el aula a '').
+  useEffect(() => {
+    if (filterEdificio && !filterAula && espaciosRaw.length > 0) {
+      const primera = [...espaciosRaw]
+        .filter((e: any) => e.id_edificio === filterEdificio)
+        .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre, 'es'))[0];
+      if (primera) setFilterAula(primera.id);
+    }
+  }, [filterEdificio, filterAula, espaciosRaw]);
+
   // Map state
   const mapLocations = useMemo(() => {
     const locs: any[] = [];

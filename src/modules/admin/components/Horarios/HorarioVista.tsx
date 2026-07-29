@@ -60,20 +60,16 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
     );
   };
 
-  const edificioOpts = [
-    { key: 'todos', label: 'Todos' },
-    ...[...edificios]
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-      .map(edificio => ({ key: edificio.id, label: edificio.nombre })),
-  ];
+  // Sin opción "Todos": siempre un edificio concreto (como una pestaña de Excel).
+  const edificioOpts = [...edificios]
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    .map(edificio => ({ key: edificio.id, label: edificio.nombre }));
 
-  const aulaOpts = [
-    { key: 'todos', label: 'Todas' },
-    ...espacios
-      .filter(espacio => !filterEdificio || espacio.id_edificio === filterEdificio)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-      .map(espacio => ({ key: espacio.id, label: espacio.nombre })),
-  ];
+  // Sin opción "Todas": aulas del edificio seleccionado; se muestra una a la vez.
+  const aulaOpts = espacios
+    .filter(espacio => !filterEdificio || espacio.id_edificio === filterEdificio)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    .map(espacio => ({ key: espacio.id, label: espacio.nombre }));
 
   const nombreEdificioFiltrado = edificios.find(edificio => edificio.id === filterEdificio)?.nombre;
   const nombreAulaFiltrada = espacios.find(espacio => espacio.id === filterAula)?.nombre;
@@ -92,15 +88,15 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
           />
           <FilterDropdown
             label="Edificio"
-            value={filterEdificio || 'todos'}
+            value={filterEdificio}
             options={edificioOpts}
-            onChange={(k) => { setFilterEdificio(k === 'todos' ? '' : k); setFilterAula(''); }}
+            onChange={(k) => { setFilterEdificio(k); setFilterAula(''); }}
           />
           <FilterDropdown
             label="Aula"
-            value={filterAula || 'todos'}
+            value={filterAula}
             options={aulaOpts}
-            onChange={(k) => setFilterAula(k === 'todos' ? '' : k)}
+            onChange={(k) => setFilterAula(k)}
           />
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -118,6 +114,11 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
         </div>
       </div>
 
+      {edificios.length === 0 && (
+        <div className="mb-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-100 text-[12px] font-semibold text-amber-700 shrink-0">
+          No hay edificios registrados. Crea uno en <b>Infraestructura</b> para poder asignar horarios por edificio y aula.
+        </div>
+      )}
       <div className="flex-1 overflow-auto custom-scrollbar border border-gray-100 rounded-[16px] shadow-sm bg-white">
         <table className="w-full min-w-[900px] border-collapse bg-white">
           <thead className="sticky top-0 z-10 bg-white">
