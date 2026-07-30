@@ -17,20 +17,25 @@ export const useExclusiveModal = (
 ) => {
   const isOpenRef = useRef(isOpen);
   const onCloseRef = useRef(onClose);
+  const idRef = useRef(id);
   isOpenRef.current = isOpen;
   onCloseRef.current = onClose;
+  idRef.current = id;
 
   useEffect(() => {
+    // El listener lee el id ACTUAL vía ref (no una copia capturada). Así, cuando el
+    // propio modal cambia de id al abrirse (p.ej. "Editar" → "Nueva"), no interpreta
+    // su propio evento de apertura como el de otro modal y no se cierra a sí mismo.
     const handleModalOpen = (event: Event) => {
       const openedModalId = (event as CustomEvent<ModalEventDetail>).detail?.id;
-      if (isOpenRef.current && openedModalId && openedModalId !== id) {
+      if (isOpenRef.current && openedModalId && openedModalId !== idRef.current) {
         onCloseRef.current();
       }
     };
 
     window.addEventListener(MODAL_OPEN_EVENT, handleModalOpen);
     return () => window.removeEventListener(MODAL_OPEN_EVENT, handleModalOpen);
-  }, [id]);
+  }, []);
 
   useLayoutEffect(() => {
     if (!isOpen) return;
