@@ -74,7 +74,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
           <tbody>
             <tr>
               <td width="200" align="left" valign="top" style={{ padding: 0 }}>
-                <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '150px', width: '150px', display: 'block', margin: 0 }} />
+                <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '115px', width: '175px', display: 'block', margin: 0 }} />
               </td>
               <td align="center" valign="middle" style={{ paddingBottom: '4px' }}>
                 <h1 style={{ fontSize: getHeader1Size(), fontWeight: '900', letterSpacing: '2px', color: '#0f172a', margin: '0 0 12px 0', textTransform: 'uppercase', fontFamily: getFontFamily(typography) }}>
