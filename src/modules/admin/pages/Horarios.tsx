@@ -16,6 +16,13 @@ import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
 import { horasFinDisponibles } from '../components/Horarios/horariosData';
 
+// Preferencias del formato de exportación (persisten entre sesiones para no
+// reconfigurar período, tipografía, orientación, etc. cada vez).
+const EXPORT_PREFS_KEY = 'horario-export-prefs';
+const loadExportPrefs = (): Record<string, any> => {
+  try { return JSON.parse(localStorage.getItem(EXPORT_PREFS_KEY) || '{}'); } catch { return {}; }
+};
+
 export const Horarios = () => {
   // === SUPABASE STORES ===
   const { clases: rawClases, fetchClases, addClase, updateClase, removeClase, removeAllClases } = useClasesStore();
@@ -137,16 +144,23 @@ export const Horarios = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportEdificio, setExportEdificio] = useState('');
   const [exportAula, setExportAula] = useState('');
-  const [exportPeriodo, setExportPeriodo] = useState('MARZO 2026 - SEPTIEMBRE 2026');
+  const [exportPeriodo, setExportPeriodo] = useState(() => loadExportPrefs().exportPeriodo ?? 'MARZO 2026 - SEPTIEMBRE 2026');
   const [pdfZoom, setPdfZoom] = useState(100);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>('vertical');
-  const [paperSize, setPaperSize] = useState<'A4' | 'Carta'>('A4');
-  const [includeFooter, setIncludeFooter] = useState(true);
-  const [documentFontSize, setDocumentFontSize] = useState<number>(11);
-  const [typography, setTypography] = useState<string>('Inter');
+  const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>(() => loadExportPrefs().orientation ?? 'vertical');
+  const [paperSize, setPaperSize] = useState<'A4' | 'Carta'>(() => loadExportPrefs().paperSize ?? 'A4');
+  const [includeFooter, setIncludeFooter] = useState<boolean>(() => loadExportPrefs().includeFooter ?? true);
+  const [documentFontSize, setDocumentFontSize] = useState<number>(() => loadExportPrefs().documentFontSize ?? 11);
+  const [typography, setTypography] = useState<string>(() => loadExportPrefs().typography ?? 'Inter');
   const [headerImg, setHeaderImg] = useState<string>('');
   const [footerImg, setFooterImg] = useState<string>('');
+
+  // Recuerda la configuración del formato entre sesiones.
+  useEffect(() => {
+    localStorage.setItem(EXPORT_PREFS_KEY, JSON.stringify({
+      exportPeriodo, orientation, paperSize, includeFooter, documentFontSize, typography,
+    }));
+  }, [exportPeriodo, orientation, paperSize, includeFooter, documentFontSize, typography]);
 
   const { currentUser } = useOutletContext<any>();
   const esTecnico =
