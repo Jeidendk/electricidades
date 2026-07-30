@@ -223,7 +223,16 @@ export const Horarios = () => {
       }
       const choqueDocente = otras.find(c => c.id_docente === formValues.idDocente && solapa(c));
       if (choqueDocente) {
-        Swal.fire('Docente ocupado', `Ese docente ya dicta "${choqueDocente.materias?.nombre || 'otra clase'}" el ${formValues.dia} en ese horario.`, 'warning');
+        const espChoque = (choqueDocente as any).espacios;
+        const aulaChoque = espChoque?.nombre || 'aula no especificada';
+        const edifChoque = edificiosRaw.find(e => e.id === espChoque?.id_edificio)?.nombre || 'edificio no especificado';
+        const hIni = (choqueDocente.hora_inicio || '').slice(0, 5);
+        const hFin = (choqueDocente.hora_fin || '').slice(0, 5);
+        Swal.fire(
+          'Docente ocupado',
+          `Ese docente ya dicta "${choqueDocente.materias?.nombre || 'otra clase'}" el ${formValues.dia} de ${hIni}–${hFin} en ${edifChoque} · ${aulaChoque}. Elige otra hora o docente.`,
+          'warning'
+        );
         return;
       }
 
