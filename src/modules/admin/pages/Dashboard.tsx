@@ -1,7 +1,7 @@
-import { 
-  Building2, MonitorPlay, FileText, PieChart as PieChartIcon, 
-  Monitor, BookOpen, User, Wrench, RefreshCw, ArrowUp, ArrowDown, 
-  Info, ArrowRight, CheckCircle, AlertCircle, AlertTriangle
+import {
+  Building2, MonitorPlay, FileText, PieChart as PieChartIcon,
+  Monitor, BookOpen, User, Wrench, RefreshCw, ArrowUp, ArrowDown,
+  Info, ArrowRight, CheckCircle, AlertCircle, AlertTriangle, LayoutGrid
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -19,7 +19,7 @@ const usoHorarioData = [
 ];
 
 const tiposSolicitudesData = [
-  { name: 'Reserva de espacios', value: 60, percentage: '50%', color: '#3B82F6' },
+  { name: 'Reserva de espacios', value: 60, percentage: '50%', color: '#b00000' },
   { name: 'Mantenimiento', value: 36, percentage: '30%', color: '#F59E0B' },
   { name: 'Préstamo de equipos', value: 24, percentage: '20%', color: '#10B981' },
 ];
@@ -113,14 +113,28 @@ export const Dashboard = () => {
   }, []);
 
   return (
-    <div className="p-3 md:p-4 lg:p-5 flex flex-col gap-3 lg:gap-4 bg-[#f8fafc] h-full overflow-hidden">
-      
+    <div className="p-3 md:p-4 lg:p-5 flex flex-col gap-3 lg:gap-4 bg-[#f4f7fb] h-full overflow-y-auto custom-scrollbar">
+
+      {/* HERO — mismo lenguaje visual que el resto de pantallas admin */}
+      <div className="w-full bg-espoch-hero relative flex items-center px-5 lg:px-7 py-4 rounded-2xl overflow-hidden shrink-0 shadow-sm">
+        <div className="absolute inset-0 bg-gradient-to-r from-espoch-hero via-espoch-hero/95 to-espoch-hero/80"></div>
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-12 h-12 shrink-0 rounded-[14px] bg-espoch-red flex items-center justify-center text-white shadow-lg">
+            <LayoutGrid className="w-6 h-6" strokeWidth={2} />
+          </div>
+          <div className="flex flex-col">
+            <h2 className="text-[22px] md:text-[26px] font-bold text-white tracking-tight leading-none mb-1">Panel de Control</h2>
+            <p className="text-[12px] text-gray-400 font-medium">Vista general del sistema de gestión de aulas y recursos.</p>
+          </div>
+        </div>
+      </div>
+
       {/* FILA 1: KPIs PRINCIPALES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0">
         {/* KPI 1 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 flex flex-col gap-2">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+            <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-espoch-red">
               <Building2 className="w-4 h-4" />
             </div>
             <span className="text-xs font-semibold text-gray-700">Edificios</span>
@@ -137,9 +151,9 @@ export const Dashboard = () => {
         </div>
         
         {/* KPI 2 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 flex flex-col gap-2">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+            <div className="w-8 h-8 rounded-lg bg-[#1a2b4b]/10 flex items-center justify-center text-[#1a2b4b]">
               <MonitorPlay className="w-4 h-4" />
             </div>
             <span className="text-xs font-semibold text-gray-700">Aulas activas</span>
@@ -156,7 +170,7 @@ export const Dashboard = () => {
         </div>
 
         {/* KPI 3 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 flex flex-col gap-2">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
               <FileText className="w-4 h-4" />
@@ -175,7 +189,7 @@ export const Dashboard = () => {
         </div>
 
         {/* KPI 4 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 flex flex-col gap-2">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
               <PieChartIcon className="w-4 h-4" />
@@ -193,7 +207,7 @@ export const Dashboard = () => {
       </div>
 
       {/* FILA 2: MÉTRICAS SECUNDARIAS */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm py-2.5 px-4 flex flex-col lg:flex-row items-center justify-between gap-3 shrink-0">
+      <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm py-2.5 px-4 flex flex-col lg:flex-row items-center justify-between gap-3 shrink-0">
         <div className="flex flex-wrap items-center gap-6 lg:gap-10 w-full lg:w-auto overflow-x-auto custom-scrollbar">
           <div className="flex items-center gap-2">
             <Monitor className="w-4 h-4 text-gray-400" />
@@ -247,7 +261,7 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 shrink-0">
         
         {/* Horas pico de uso */}
-        <div className="lg:col-span-3 bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col h-[180px]">
+        <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col h-[180px]">
           <div className="flex items-center justify-between mb-2">
              <div className="flex items-center gap-2">
                <h3 className="text-xs font-bold text-gray-800">Horas pico de uso</h3>
@@ -255,11 +269,11 @@ export const Dashboard = () => {
              </div>
              <div className="flex items-center gap-4">
                <div className="flex items-center gap-2 hidden sm:flex">
-                 <div className="w-3 h-1 bg-blue-600 rounded-full"></div>
+                 <div className="w-3 h-1 bg-espoch-red rounded-full"></div>
                  <span className="text-[9px] font-medium text-gray-600">Uso promedio</span>
                </div>
                <div className="flex items-center gap-2 hidden sm:flex">
-                 <div className="w-3 h-0 border-b border-dashed border-blue-400"></div>
+                 <div className="w-3 h-0 border-b border-dashed border-espoch-red/50"></div>
                  <span className="text-[9px] font-medium text-gray-600">Semanal</span>
                </div>
                <select className="text-[9px] font-medium border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 outline-none">
@@ -285,15 +299,15 @@ export const Dashboard = () => {
                   tick={{ fontSize: 9, fill: '#94a3b8' }} 
                 />
                 <RechartsTooltip content={<CustomTooltip />} />
-                <Line type="monotone" dataKey="uso" stroke="#2563eb" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
-                <Line type="monotone" dataKey="promedio" stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                <Line type="monotone" dataKey="uso" stroke="#b00000" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="promedio" stroke="#e08a8a" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Tipos de solicitudes */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col h-[180px]">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col h-[180px]">
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-xs font-bold text-gray-800">Tipos de solicitudes</h3>
             <Info className="w-3.5 h-3.5 text-gray-400" />
@@ -348,7 +362,7 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
         
         {/* Equipos más solicitados */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-xs font-bold text-gray-800">Equipos más solicitados</h3>
             <Info className="w-3.5 h-3.5 text-gray-400" />
@@ -359,7 +373,7 @@ export const Dashboard = () => {
                 <span className="text-[9px] font-medium text-gray-600 w-20 truncate">{item.name}</span>
                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-blue-600 rounded-full" 
+                    className="h-full bg-espoch-red rounded-full"
                     style={{ width: `${(item.value / item.max) * 100}%` }}
                   ></div>
                 </div>
@@ -370,7 +384,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Estado del inventario */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-xs font-bold text-gray-800">Estado del inventario</h3>
             <Info className="w-3.5 h-3.5 text-gray-400" />
@@ -394,13 +408,13 @@ export const Dashboard = () => {
         </div>
 
         {/* Alertas */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-bold text-gray-800">Alertas</h3>
               <Info className="w-3.5 h-3.5 text-gray-400" />
             </div>
-            <button className="text-[9px] font-medium text-blue-600 hover:underline flex items-center gap-0.5">
+            <button className="text-[9px] font-medium text-espoch-red hover:underline flex items-center gap-0.5">
               Ver todas <ArrowRight className="w-2.5 h-2.5" />
             </button>
           </div>
@@ -437,10 +451,10 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1 min-h-0">
         
         {/* Actividad Reciente */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col min-h-0">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-2 shrink-0">
             <h3 className="text-xs font-bold text-gray-800">Actividad reciente</h3>
-            <button className="text-[9px] font-medium text-blue-600 hover:underline flex items-center gap-0.5">
+            <button className="text-[9px] font-medium text-espoch-red hover:underline flex items-center gap-0.5">
               Ver todas <ArrowRight className="w-2.5 h-2.5" />
             </button>
           </div>
@@ -483,10 +497,10 @@ export const Dashboard = () => {
         </div>
 
         {/* Próximos mantenimientos */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col min-h-0">
+        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-2 shrink-0">
             <h3 className="text-xs font-bold text-gray-800">Próximos mantenimientos</h3>
-            <button className="text-[9px] font-medium text-blue-600 hover:underline flex items-center gap-0.5">
+            <button className="text-[9px] font-medium text-espoch-red hover:underline flex items-center gap-0.5">
               Ver todas <ArrowRight className="w-2.5 h-2.5" />
             </button>
           </div>
