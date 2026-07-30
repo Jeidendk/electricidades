@@ -63,8 +63,8 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
       <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: 'none', marginBottom: '5px' }}>
         <tbody>
           <tr>
-            <td width="200" align="left" valign="middle" style={{ paddingBottom: '10px', borderBottom: '2px solid #ef4444' }}>
-              <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" width="160" style={{ display: 'block' }} />
+            <td width="230" align="left" valign="top" style={{ padding: 0, borderBottom: '2px solid #ef4444' }}>
+              <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" width="220" style={{ display: 'block', margin: 0 }} />
             </td>
             <td align="center" valign="middle" style={{ paddingBottom: '10px', borderBottom: '2px solid #ef4444' }}>
               <p style={{ fontSize: getHeader1Size(), fontWeight: 'bold', margin: '0 0 5px 0', textTransform: 'uppercase', fontFamily: getFontFamily(typography) }}>
