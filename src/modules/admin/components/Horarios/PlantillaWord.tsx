@@ -1,5 +1,6 @@
 import React from 'react';
 import { diasFormales, horas, rangoIncluyeBloque } from './horariosData';
+import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
 interface PlantillaWordProps {
   pdfZoom: number;
@@ -63,15 +64,7 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
         <tbody>
           <tr>
             <td width="200" align="left" valign="middle" style={{ paddingBottom: '10px', borderBottom: '2px solid #ef4444' }}>
-              {headerImg ? (
-                <img src={headerImg} alt="Header" width="160" style={{ display: 'block' }} />
-              ) : (
-                <div style={{ width: '85px', height: '85px', backgroundColor: '#b00000', color: 'white', textAlign: 'center', border: '1px solid #991b1b' }}>
-                  <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: 'bold' }}>ESCU</div>
-                  <div style={{ fontSize: '12px', fontWeight: 'bold' }}>DO</div>
-                  <div style={{ fontSize: '9px', fontWeight: 'bold', marginTop: '4px' }}>ESPOCH</div>
-                </div>
-              )}
+              <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" width="160" style={{ display: 'block' }} />
             </td>
             <td align="center" valign="middle" style={{ paddingBottom: '10px', borderBottom: '2px solid #ef4444' }}>
               <p style={{ fontSize: getHeader1Size(), fontWeight: 'bold', margin: '0 0 5px 0', textTransform: 'uppercase', fontFamily: getFontFamily(typography) }}>

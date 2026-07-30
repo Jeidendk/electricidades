@@ -1,5 +1,6 @@
 import React from 'react';
 import { diasFormales, horas, rangoIncluyeBloque } from './horariosData';
+import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
 interface PlantillaPDFProps {
   pdfZoom: number;
@@ -73,15 +74,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
           <tbody>
             <tr>
               <td width="150" align="left" valign="middle" style={{ paddingBottom: '4px' }}>
-                {headerImg ? (
-                  <img src={headerImg} alt="Header Oficial" style={{ height: '100px', width: 'auto', display: 'block' }} />
-                ) : (
-                  <div style={{ width: '85px', height: '85px', backgroundColor: '#b00000', color: 'white', textAlign: 'center', position: 'relative', border: '1px solid #991b1b' }}>
-                    <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: '900', letterSpacing: '2px' }}>ESCU</div>
-                    <div style={{ fontSize: '12px', fontWeight: '900', letterSpacing: '4px', marginTop: '2px' }}>DO</div>
-                    <div style={{ fontSize: '9px', fontWeight: 'bold', marginTop: '4px' }}>ESPOCH</div>
-                  </div>
-                )}
+                <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '100px', width: 'auto', display: 'block' }} />
               </td>
               <td align="center" valign="middle" style={{ paddingBottom: '4px' }}>
                 <h1 style={{ fontSize: getHeader1Size(), fontWeight: '900', letterSpacing: '2px', color: '#0f172a', margin: '0 0 12px 0', textTransform: 'uppercase', fontFamily: getFontFamily(typography) }}>
