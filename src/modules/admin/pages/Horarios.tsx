@@ -250,6 +250,7 @@ export const Horarios = () => {
           });
         }
       }
+      await fetchClases(); // recarga con los datos relacionados (materia, docente, aula) para verlos en la grilla
       setIsModalOpen(false);
       Swal.fire('Éxito', 'Clase guardada correctamente', 'success');
     } catch (err: any) {
