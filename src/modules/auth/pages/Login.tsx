@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { Moon, Sun, GraduationCap, Zap, Mail, LogIn, HelpCircle, Calendar, ArrowLeft, UserPlus, ChevronDown, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Moon, Sun, GraduationCap, Zap, Mail, LogIn, HelpCircle, Calendar, ArrowLeft, UserPlus, ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
@@ -20,7 +20,7 @@ export const Login = () => {
   useEffect(() => { fetchFacultades(); }, [fetchFacultades]);
 
   // Una sola variable controla qué panel se muestra: 'login' | 'register' | 'mfa'
-  const [view, setView] = useState<'login' | 'register' | 'mfa'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'mfa' | 'forgot'>('login');
 
   const [mfaFactorId, setMfaFactorId] = useState('');
   const [mfaCode, setMfaCode] = useState('');
@@ -74,6 +74,8 @@ export const Login = () => {
   // Estados para autocompletado de correos
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [registerEmail, setRegisterEmail] = useState('');
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>, currentVal: string) => {
@@ -407,6 +409,12 @@ export const Login = () => {
                   </div>
                 </div>
 
+                <div className="flex justify-end -mt-1 mb-1">
+                  <button type="button" onClick={() => { setForgotEmail(loginEmail); setView('forgot'); }} className="text-[11px] font-semibold text-espoch-red dark:text-espoch-yellow hover:underline cursor-pointer bg-transparent border-none p-0 transition-colors">
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+
                 <button type="submit" className="w-full bg-espoch-red hover:bg-espoch-darkred transition-all text-white font-bold text-[12px] py-3.5 rounded-xl flex items-center justify-center relative shadow-[0_6px_15px_rgba(176,0,0,0.3)] hover:shadow-[0_8px_20px_rgba(176,0,0,0.4)] border-none cursor-pointer">
                   <span>INGRESAR AL SISTEMA</span>
                   <div className="absolute right-5 flex items-center justify-center">
@@ -547,6 +555,91 @@ export const Login = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {view === 'forgot' && (
+            <div key="forgot" className="p-5 sm:p-8 animate-fade-in">
+              <div className="flex flex-col items-center text-center gap-3 mb-5">
+                <div className="w-16 h-16 rounded-2xl bg-espoch-red/10 dark:bg-espoch-yellow/10 flex items-center justify-center shadow-inner">
+                  <KeyRound className="w-8 h-8 text-espoch-red dark:text-espoch-yellow" strokeWidth={1.5} />
+                </div>
+                <h2 className="text-[22px] sm:text-[26px] font-bold text-gray-900 dark:text-white tracking-tight transition-colors">Recuperar Contraseña</h2>
+                <p className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 font-normal leading-relaxed max-w-[340px] transition-colors">
+                  Ingresa tu correo institucional y te enviaremos un enlace para restablecer tu contraseña.
+                </p>
+              </div>
+
+              <div className="w-full h-px bg-gray-200 dark:bg-gray-600/60 mb-5 transition-colors"></div>
+
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1.5 flex items-center gap-1.5 uppercase tracking-wider transition-colors">
+                    <span className="text-espoch-red dark:text-espoch-yellow text-lg leading-none mt-[-2px]">&bull;</span> Correo Institucional
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      placeholder="Ej. usuario@espoch.edu.ec"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => handleEmailChange(e, setForgotEmail, forgotEmail)}
+                      className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white font-medium text-sm rounded-xl py-3 px-4 outline-none shadow-sm dark:shadow-inner focus:ring-2 focus:ring-espoch-red/50 dark:focus:ring-espoch-yellow/50 border border-gray-200 dark:border-transparent transition-all placeholder:font-normal placeholder:text-gray-400"
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400/80">
+                      <Mail className="w-4 h-4" strokeWidth={2} />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={forgotLoading || !forgotEmail.trim()}
+                  onClick={async () => {
+                    if (!forgotEmail.trim()) return;
+                    setForgotLoading(true);
+                    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+                      redirectTo: `${import.meta.env.VITE_SITE_URL || window.location.origin}/set-password`,
+                    });
+                    setForgotLoading(false);
+                    if (error) {
+                      Swal.fire({
+                        icon: 'error',
+                        title: 'No se pudo enviar',
+                        text: error.message.includes('rate limit')
+                          ? 'Demasiados intentos. Por favor intenta más tarde.'
+                          : error.message || 'Ocurrió un error al enviar el enlace.',
+                        confirmButtonColor: '#B00020',
+                      });
+                      return;
+                    }
+                    Swal.fire({
+                      icon: 'success',
+                      title: '¡Enlace enviado!',
+                      html: `Se envió un enlace de recuperación a <b>${forgotEmail.trim()}</b>.<br>Revisa tu bandeja de entrada y sigue las instrucciones.`,
+                      confirmButtonColor: '#B00020',
+                    }).then(() => {
+                      setView('login');
+                      setForgotEmail('');
+                    });
+                  }}
+                  className="w-full bg-espoch-red hover:bg-espoch-darkred disabled:opacity-50 disabled:cursor-not-allowed transition-all text-white font-bold text-[12px] py-3.5 rounded-xl flex items-center justify-center gap-2.5 shadow-[0_6px_15px_rgba(176,0,0,0.3)] hover:shadow-[0_8px_20px_rgba(176,0,0,0.4)] border-none cursor-pointer"
+                >
+                  {forgotLoading ? (
+                    <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  ) : (
+                    <Mail className="w-4 h-4" strokeWidth={2} />
+                  )}
+                  ENVIAR ENLACE DE RECUPERACIÓN
+                </button>
+
+                <button type="button" onClick={() => { setView('login'); setForgotEmail(''); }}
+                  className="group flex items-center justify-center gap-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:text-espoch-red dark:hover:text-espoch-yellow transition-colors cursor-pointer bg-transparent border-none mt-1"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 transition-transform duration-300 group-hover:-translate-x-1" strokeWidth={2.5} />
+                  Volver al inicio de sesión
+                </button>
+              </div>
             </div>
           )}
 

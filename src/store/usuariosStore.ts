@@ -91,8 +91,18 @@ export const useUsuariosStore = create<UsuariosState>()((set) => ({
 
   removeUsuario: async (id) => {
     try {
+      // 1. Primero eliminar de la tabla pública (si hay FK constraints, falla aquí
+      //    sin haber tocado auth — el usuario queda intacto)
       const { error } = await supabase.from('usuarios').delete().eq('id', id);
       if (error) throw error;
+
+      // 2. Solo si la fila pública se borró, eliminar de auth.users
+      const { error: authError } = await supabase.rpc('delete_user_auth', { user_id: id });
+      if (authError) {
+        console.error('Error eliminando usuario de auth:', authError);
+        // La fila pública ya se borró; el auth huérfano no afecta la app
+      }
+
       set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
     } catch (err: any) {
       notifyStoreError('Error removing usuario:', err);
