@@ -1,8 +1,7 @@
-import React from 'react';
-import { Download, Plus, BookOpen, FileText, User, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { Download, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers } from 'lucide-react';
 import { dias, horas, availableIcons, rangoIncluyeBloque } from './horariosData';
 import { SearchInput } from '../../../../components/ui/SearchInput';
-import { FilterDropdown } from '../../../../components/ui/FilterDropdown';
 
 interface HorarioVistaProps {
   searchQuery: string;
@@ -53,26 +52,36 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   canFormatAll,
 }) => {
   const getClaseEnCasilla = (dia: string, hora: string) => {
-    return clases.find(c => c.dia === dia && rangoIncluyeBloque(c.hora, hora) &&
-      (filterEdificio === '' || c.edificio === filterEdificio) &&
-      (filterAula === '' || c.idEspacio === filterAula) &&
-      (searchQuery === '' || c.materia.toLowerCase().includes(searchQuery.toLowerCase()) || c.docente.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const q = searchQuery.trim().toLowerCase();
+    return clases.find(c => c.dia === dia && rangoIncluyeBloque(c.hora, hora) && (
+      // Al buscar por clase/docente se IGNORA el filtro de edificio/aula: así se ve
+      // dónde dicta ese docente (o materia) en todas sus aulas. Sin búsqueda, filtra por ubicación.
+      q
+        ? (c.materia.toLowerCase().includes(q) || c.docente.toLowerCase().includes(q))
+        : ((filterEdificio === '' || c.edificio === filterEdificio) && (filterAula === '' || c.idEspacio === filterAula))
+    ));
   };
-
-  // Sin opción "Todos": siempre un edificio concreto (como una pestaña de Excel).
-  const edificioOpts = [...edificios]
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-    .map(edificio => ({ key: edificio.id, label: edificio.nombre }));
-
-  // Sin opción "Todas": aulas del edificio seleccionado; se muestra una a la vez.
-  const aulaOpts = espacios
-    .filter(espacio => !filterEdificio || espacio.id_edificio === filterEdificio)
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-    .map(espacio => ({ key: espacio.id, label: espacio.nombre }));
 
   const nombreEdificioFiltrado = edificios.find(edificio => edificio.id === filterEdificio)?.nombre;
   const nombreAulaFiltrada = espacios.find(espacio => espacio.id === filterAula)?.nombre;
+  const pisoActual = espacios.find(espacio => espacio.id === filterAula)?.piso;
+
+  // Al buscar (clase/docente) se ignora el filtro de ubicación: la grilla muestra dónde dicta
+  // en varios edificios/pisos/aulas. Los chips se colapsan a un guion y las tarjetas muestran
+  // edificio + piso para que el docente pueda ubicar/imprimir cada clase.
+  const searchActive = searchQuery.trim() !== '';
+  const nombreEdificioDeClase = (c: any) => edificios.find(e => e.id === c.edificio)?.nombre;
+  const pisoDeClase = (c: any) => espacios.find(e => e.id === c.idEspacio)?.piso;
+
+  // Panel "Ubicaciones" — maestro/detalle: Edificios (izq) → Pisos y aulas (der).
+  const [navOpen, setNavOpen] = useState(false);
+  const [navSearch, setNavSearch] = useState('');
+  const [openPiso, setOpenPiso] = useState<string | null>(null);
+  const edificiosNav = [...edificios].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const [navEd, setNavEd] = useState<string>('');
+  const openNav = () => { setNavEd(filterEdificio || edificiosNav[0]?.id || ''); setOpenPiso(null); setNavSearch(''); setNavOpen(true); };
+  const togglePiso = (key: string) => setOpenPiso(p => (p === key ? null : key));
+  const selectAula = (edId: string, aulaId: string) => { setFilterEdificio(edId); setFilterAula(aulaId); setNavOpen(false); };
 
   return (
     <div className="absolute inset-0 bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-4 md:p-5 flex flex-col overflow-hidden animate-fade-in">
@@ -80,24 +89,30 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
 
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 gap-4 shrink-0 w-full relative z-[60]">
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => (navOpen ? setNavOpen(false) : openNav())}
+            title="Ubicaciones (edificios, pisos y aulas)"
+            className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center transition-colors ${navOpen ? 'bg-[#0f172a] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'}`}
+          >
+            <Building2 className="w-4 h-4" />
+          </button>
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Buscar clase, docente..."
             className="w-full sm:w-[220px] shrink-0"
           />
-          <FilterDropdown
-            label="Edificio"
-            value={filterEdificio}
-            options={edificioOpts}
-            onChange={(k) => { setFilterEdificio(k); setFilterAula(''); }}
-          />
-          <FilterDropdown
-            label="Aula"
-            value={filterAula}
-            options={aulaOpts}
-            onChange={(k) => setFilterAula(k)}
-          />
+          {/* Selección actual (se cambia desde el panel Ubicaciones). Al buscar docente/clase se
+              colapsan a un guion: indica que la grilla traza sus clases en varios edificios/pisos/aulas. */}
+          {searchActive ? (
+            <span title="Buscando en todos los edificios, pisos y aulas" className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-500 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap"><Search className="w-3.5 h-3.5 text-gray-400 shrink-0" /> —</span>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap max-w-[180px]"><Building2 className="w-3.5 h-3.5 text-gray-500 shrink-0" /> <span className="truncate">{nombreEdificioFiltrado || 'Sin edificio'}</span></span>
+              <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap"><Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" /> {pisoActual != null ? `Piso ${pisoActual}` : 'Sin piso'}</span>
+              <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap max-w-[160px]"><DoorOpen className="w-3.5 h-3.5 text-gray-500 shrink-0" /> <span className="truncate">{nombreAulaFiltrada || 'Sin aula'}</span></span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {canFormatAll && (
@@ -119,20 +134,21 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
           No hay edificios registrados. Crea uno en <b>Infraestructura</b> para poder asignar horarios por edificio y aula.
         </div>
       )}
-      <div className="flex-1 overflow-auto custom-scrollbar border border-gray-100 rounded-[16px] shadow-sm bg-white">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
+      <div className="absolute inset-0 overflow-auto custom-scrollbar border border-gray-100 rounded-[16px] shadow-sm bg-white">
         <table className="w-full min-w-[900px] border-collapse bg-white">
           <thead className="sticky top-0 z-10 bg-white">
             <tr>
-              <th className="w-24 p-3 border border-gray-100 text-center text-[10px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-50/50">HORA</th>
+              <th className="w-24 p-3 border border-gray-200 text-center text-[10px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-50/50">HORA</th>
               {dias.map(d => (
-                <th key={d} className="p-3 border border-gray-100 text-center text-[11px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-50/50 backdrop-blur-sm">{d}</th>
+                <th key={d} className="p-3 border border-gray-200 text-center text-[11px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-50/50 backdrop-blur-sm">{d}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {horas.map(hora => (
               <tr key={hora} className="group">
-                <td className="w-24 p-2 text-center border border-gray-100 bg-white text-[10px] font-semibold text-gray-700 group-hover:bg-gray-50/50 transition-colors">{hora}</td>
+                <td className="w-24 p-2 text-center border border-gray-200 bg-white text-[10px] font-semibold text-gray-700 group-hover:bg-gray-50/50 transition-colors">{hora}</td>
                 {dias.map(dia => {
                   const clase = getClaseEnCasilla(dia, hora);
                   let bgStyle = {};
@@ -164,7 +180,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                   }
                   
                   return (
-                    <td key={`${dia}-${hora}`} className="p-0 border border-gray-100 relative w-[calc(100%/6)] h-[132px] group/cell hover:bg-gray-50/50 transition-colors">
+                    <td key={`${dia}-${hora}`} className="p-0 border border-gray-200 relative w-[calc(100%/6)] h-[132px] group/cell hover:bg-gray-50/50 transition-colors">
                       {clase ? (
                         <div className="w-full h-full p-2.5 flex items-center justify-center relative z-10">
                           <div 
@@ -206,6 +222,12 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                               </div>
                             )}
                             <div className="pl-[24px] flex flex-col gap-1">
+                              {searchActive && nombreEdificioDeClase(clase) && (
+                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Building2 className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {nombreEdificioDeClase(clase)}</span>
+                              )}
+                              {searchActive && pisoDeClase(clase) != null && (
+                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Layers className="w-[12px] h-[12px] text-gray-400 shrink-0"/> Piso {pisoDeClase(clase)}</span>
+                              )}
                               <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><BookOpen className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.aula}</span>
                               <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><User className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.docente}</span>
                             </div>
@@ -236,6 +258,75 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* PANEL UBICACIONES — maestro/detalle, overlay sobre la tabla (cierra al hacer clic fuera) */}
+      {navOpen && <div className="absolute inset-0 z-[30] bg-transparent" onClick={() => setNavOpen(false)} />}
+      <div className={`absolute inset-y-0 left-0 z-[40] w-[560px] max-w-[92%] flex flex-col transition-transform duration-300 pointer-events-none ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="px-3 pt-3 pb-2 shrink-0 pointer-events-auto">
+          <div className="relative w-[250px] max-w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input value={navSearch} onChange={e => setNavSearch(e.target.value)} placeholder="Buscar edificio, piso o aula..." className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-[12.5px] text-gray-700 outline-none shadow-sm focus:bg-white focus:border-espoch-red/40 focus:ring-2 focus:ring-espoch-red/10 transition-colors" />
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 flex items-start gap-3 px-3 pb-3 pointer-events-none">
+          {/* Izquierda: Edificios (tarjeta propia, se acopla al contenido) */}
+          <div className="w-[250px] shrink-0 max-h-full overflow-y-auto custom-scrollbar border border-gray-200 rounded-2xl bg-white p-1.5 flex flex-col gap-0.5 pointer-events-auto">
+            <div className="px-2 py-1 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1"><Building2 className="w-3 h-3" /> Edificios</div>
+            {edificiosNav
+              .filter(ed => { const q = navSearch.toLowerCase(); return !q || ed.nombre.toLowerCase().includes(q) || espacios.some(e => e.id_edificio === ed.id && e.nombre.toLowerCase().includes(q)); })
+              .map(ed => {
+                const total = espacios.filter(e => e.id_edificio === ed.id).length;
+                const activo = navEd === ed.id;
+                return (
+                  <button key={ed.id} onClick={() => { setNavEd(ed.id); setOpenPiso(null); }} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-[11px] font-bold transition-colors border ${activo ? 'bg-espoch-red/10 text-espoch-red border-espoch-red/20' : 'text-gray-700 hover:bg-gray-50 border-transparent'}`}>
+                    <Building2 className={`w-3.5 h-3.5 shrink-0 ${activo ? 'text-espoch-red' : 'text-gray-400'}`} />
+                    <span className="truncate flex-1">{ed.nombre}</span>
+                    <span className={`text-[9px] font-bold rounded-full px-1.5 shrink-0 ${activo ? 'bg-espoch-red/15 text-espoch-red' : 'bg-gray-100 text-gray-400'}`}>{total}</span>
+                  </button>
+                );
+              })}
+            {edificiosNav.length === 0 && <span className="text-[12px] text-gray-400 px-2 py-3">No hay edificios.</span>}
+          </div>
+          {/* Derecha: Pisos y aulas (tarjeta propia, se acopla al contenido) */}
+          <div className="w-[230px] shrink-0 max-h-full overflow-y-auto custom-scrollbar border border-gray-200 rounded-2xl bg-white p-1.5 flex flex-col gap-1 pointer-events-auto">
+            <div className="px-2 py-1 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1"><Layers className="w-3 h-3" /> Pisos y aulas</div>
+            {(() => {
+              const q = navSearch.toLowerCase();
+              const aulasEd = espacios.filter(e => e.id_edificio === navEd && (!q || e.nombre.toLowerCase().includes(q)));
+              if (!navEd) return <span className="text-[12px] text-gray-400 px-2 py-3">Elige un edificio.</span>;
+              const pisos = [...new Set(aulasEd.map(a => a.piso ?? 1))].sort((x, y) => x - y);
+              if (pisos.length === 0) return <span className="text-[12px] text-gray-400 px-2 py-3">Sin aulas.</span>;
+              return pisos.map(piso => {
+                const pisoKey = `${navEd}::${piso}`;
+                const aulasPiso = aulasEd.filter(a => (a.piso ?? 1) === piso).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+                const abierto = openPiso === pisoKey || !!navSearch;
+                return (
+                  <div key={pisoKey} className="border border-gray-100 rounded-xl overflow-hidden">
+                    <button onClick={() => togglePiso(pisoKey)} className={`w-full flex items-center gap-1.5 px-3 py-2 text-[12px] font-bold transition-colors ${abierto ? 'bg-espoch-red/5 text-espoch-red' : 'text-gray-700 hover:bg-gray-50'}`}>
+                      <ChevronRight className={`w-3.5 h-3.5 transition-transform ${abierto ? 'rotate-90' : ''}`} />
+                      <span className="flex-1 text-left">Piso {piso}</span>
+                      <span className="text-[10px] font-bold bg-gray-100 text-gray-500 rounded-full px-1.5">{aulasPiso.length}</span>
+                    </button>
+                    {abierto && (
+                      <div className="p-1.5 flex flex-col gap-0.5 border-t border-gray-100">
+                        {aulasPiso.map(a => {
+                          const activo = filterAula === a.id;
+                          return (
+                            <div key={a.id} onClick={() => selectAula(navEd, a.id)} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer text-[12px] ${activo ? 'bg-espoch-red/10 text-espoch-red font-bold' : 'text-gray-700 hover:bg-gray-50'}`}>
+                              <DoorOpen className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{a.nombre}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between shrink-0 bg-white p-3 rounded-xl border border-gray-100 gap-4">
