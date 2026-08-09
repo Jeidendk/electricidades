@@ -11,6 +11,7 @@ import { useEdificiosStore } from '../../../store/edificiosStore';
 import { uploadImage } from '../../../lib/upload';
 import { CATEGORIAS, type CategoriaInventario, type InventarioItem } from '../data/inventarioData';
 import { PageHero } from '../../../components/ui/PageHero';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -288,6 +289,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
           icon={MonitorSpeaker}
           title="Inventario"
           subtitle="Equipos, herramientas, mobiliario y tecnología."
+          backgroundImage={HERO_BG.inventario}
           stats={[
             { Icon: Package, value: kpis.total, label: 'Total' },
             { Icon: CheckCircle, value: kpis.buenos, label: 'Buen Estado' },

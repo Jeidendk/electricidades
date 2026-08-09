@@ -8,6 +8,7 @@ import { useUsuariosStore } from '../../../store/usuariosStore';
 import type { EstadoOT, PrioridadOT } from '../data/mantenimientoData';
 import { hoy } from '../../../lib/utils';
 import { PageHero } from '../../../components/ui/PageHero';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -181,6 +182,7 @@ export const Mantenimiento = ({ embedded = false }: { embedded?: boolean } = {})
           icon={Wrench}
           title="Mantenimiento"
           subtitle="Órdenes de trabajo y reparación de recursos."
+          backgroundImage={HERO_BG.mantenimiento}
           stats={[
             { Icon: Wrench, value: kpis.total, label: 'Total' },
             { Icon: Clock, value: kpis.pendientes, label: 'Pendientes' },

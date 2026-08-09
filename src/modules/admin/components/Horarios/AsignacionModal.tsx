@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Plus, BookOpen, Clock } from 'lucide-react';
 import { calcularDuracion, dias, horasSeleccionables } from './horariosData';
 import { useMateriasStore } from '../../../../store/materiasStore';
@@ -8,6 +8,21 @@ import { useEdificiosStore } from '../../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../../store/espaciosStore';
 import { SearchableSelect } from '../../../../components/ui/SearchableSelect';
 import { useExclusiveModal } from '../../../../hooks/useExclusiveModal';
+
+/** Valor del select de piso para los espacios que no tienen piso registrado. */
+const PISO_SIN_ASIGNAR = 'sin-piso';
+
+const clavePiso = (espacio: any): string =>
+  espacio.piso == null || espacio.piso === '' ? PISO_SIN_ASIGNAR : String(espacio.piso);
+
+const etiquetaPiso = (clave: string) => (clave === PISO_SIN_ASIGNAR ? 'Sin piso' : `Piso ${clave}`);
+
+/** Ordena los pisos por número y deja al final los espacios sin piso. */
+const compararPisos = (a: string, b: string) => {
+  if (a === PISO_SIN_ASIGNAR) return 1;
+  if (b === PISO_SIN_ASIGNAR) return -1;
+  return Number(a) - Number(b);
+};
 
 interface AsignacionModalProps {
   isModalOpen?: boolean;
@@ -58,6 +73,48 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
     }
     return filtrados;
   }, [formValues.idEdificio, formValues.tipoEspacio, espacios]);
+
+  // El piso no se guarda en la clase: solo acota la lista de aulas para no buscar
+  // entre todas las del edificio. Vacío = mostrar las aulas de todos los pisos.
+  // Arranca en el piso del aula ya asignada (al editar o al precargar desde los filtros).
+  const [pisoElegido, setPisoElegido] = useState(() => {
+    const espacioInicial = espacios.find(e => e.id === formValues.idEspacio);
+    return espacioInicial ? clavePiso(espacioInicial) : '';
+  });
+
+  const pisosDisponibles = useMemo(() => {
+    const pisos = [...new Set(espaciosFiltrados.map(clavePiso))];
+    return pisos.sort(compararPisos);
+  }, [espaciosFiltrados]);
+
+  const espaciosDelPiso = useMemo(
+    () => (pisoElegido ? espaciosFiltrados.filter(e => clavePiso(e) === pisoElegido) : espaciosFiltrados),
+    [espaciosFiltrados, pisoElegido],
+  );
+
+  // Corrige el piso solo cuando quedó incoherente; nunca cuando el usuario eligió "Todos los pisos".
+  useEffect(() => {
+    const espacioActual = espaciosFiltrados.find(e => e.id === formValues.idEspacio);
+
+    // El aula seleccionada no pertenece al piso que se está mostrando: sigue al piso del aula.
+    if (espacioActual && pisoElegido && clavePiso(espacioActual) !== pisoElegido) {
+      setPisoElegido(clavePiso(espacioActual));
+      return;
+    }
+
+    // El piso dejó de existir porque cambió el edificio o el tipo de espacio.
+    if (pisoElegido && !pisosDisponibles.includes(pisoElegido)) setPisoElegido('');
+  }, [formValues.idEspacio, espaciosFiltrados, pisosDisponibles, pisoElegido]);
+
+  const handleCambioPiso = (nuevoPiso: string) => {
+    setPisoElegido(nuevoPiso);
+
+    // Si el aula ya elegida no está en ese piso, se limpia para no guardar una combinación incoherente.
+    const espacioActual = espaciosFiltrados.find(e => e.id === formValues.idEspacio);
+    if (nuevoPiso && espacioActual && clavePiso(espacioActual) !== nuevoPiso) {
+      setFormValues({ ...formValues, idEspacio: '' });
+    }
+  };
 
   const opcionesMateria = useMemo(
     () =>
@@ -189,12 +246,25 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
                   </div>
               </div>
               
-              <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Aula / Laboratorio</label>
-                  <select required value={formValues.idEspacio} onChange={e => setFormValues({...formValues, idEspacio: e.target.value})} disabled={!formValues.idEdificio || isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
-                      <option value="">Seleccione un espacio</option>
-                      {espaciosFiltrados.map(esp => <option key={esp.id} value={esp.id}>{esp.nombre} (Piso {esp.piso})</option>)}
-                  </select>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Piso</label>
+                      <select value={pisoElegido} onChange={e => handleCambioPiso(e.target.value)} disabled={!formValues.idEdificio || isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
+                          <option value="">Todos los pisos</option>
+                          {pisosDisponibles.map(piso => <option key={piso} value={piso}>{etiquetaPiso(piso)}</option>)}
+                      </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Aula / Laboratorio</label>
+                      <select required value={formValues.idEspacio} onChange={e => setFormValues({...formValues, idEspacio: e.target.value})} disabled={!formValues.idEdificio || isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
+                          <option value="">{espaciosDelPiso.length === 0 ? 'No hay espacios en este piso' : 'Seleccione un espacio'}</option>
+                          {espaciosDelPiso.map(esp => (
+                            <option key={esp.id} value={esp.id}>
+                              {pisoElegido ? esp.nombre : `${esp.nombre} (${etiquetaPiso(clavePiso(esp))})`}
+                            </option>
+                          ))}
+                      </select>
+                  </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

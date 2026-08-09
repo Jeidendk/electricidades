@@ -13,8 +13,12 @@ interface ClasesState {
   error: string | null;
   fetchClases: () => Promise<void>;
   addClase: (data: ClaseInsert) => Promise<void>;
+  /** Inserta varias clases de una sola vez (importación). Devuelve cuántas se insertaron. */
+  addClases: (data: ClaseInsert[]) => Promise<number>;
   updateClase: (id: string, patch: ClaseUpdate) => Promise<void>;
   removeClase: (id: string) => Promise<void>;
+  /** Borra las clases de un aula. Devuelve cuántas filas se eliminaron realmente. */
+  removeClasesByEspacio: (idEspacio: string) => Promise<number>;
   removeAllClases: () => Promise<void>;
 }
 
@@ -51,6 +55,19 @@ export const useClasesStore = create<ClasesState>()((set) => ({
     }
   },
 
+  addClases: async (payloads) => {
+    if (payloads.length === 0) return 0;
+    try {
+      const { data, error } = await supabase.from('clases').insert(payloads).select('id');
+      if (error) throw error;
+      await useClasesStore.getState().fetchClases();
+      return data?.length ?? 0;
+    } catch (err: any) {
+      notifyStoreError('Error importing clases:', err);
+      throw err;
+    }
+  },
+
   updateClase: async (id, patch) => {
     try {
       const { data, error } = await supabase
@@ -77,6 +94,26 @@ export const useClasesStore = create<ClasesState>()((set) => ({
       if (!data) throw new Error('No tienes permiso para eliminar una clase creada por otro usuario.');
       set((s) => ({ clases: s.clases.filter((c) => c.id !== id) }));
     } catch (err: any) { notifyStoreError('Error removing clase:', err); throw err; }
+  },
+
+  removeClasesByEspacio: async (idEspacio) => {
+    try {
+      // .select() devuelve solo las filas realmente borradas: con RLS puede eliminarse
+      // menos de lo esperado, y quien llama necesita saberlo para avisar al usuario.
+      const { data, error } = await supabase
+        .from('clases')
+        .delete()
+        .eq('id_espacio', idEspacio)
+        .select('id');
+      if (error) throw error;
+
+      const idsEliminados = new Set((data || []).map((fila) => fila.id));
+      set((s) => ({ clases: s.clases.filter((c) => !idsEliminados.has(c.id)) }));
+      return idsEliminados.size;
+    } catch (err: any) {
+      notifyStoreError('Error removing clases by espacio:', err);
+      throw err;
+    }
   },
 
   removeAllClases: async () => {

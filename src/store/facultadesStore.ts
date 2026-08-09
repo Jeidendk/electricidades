@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { debeRecargar, type OpcionesFetch } from '../lib/frescura';
 import type { Database } from '../lib/database.types';
 import { notifyStoreError } from '../lib/notifyError';
 
@@ -16,7 +17,9 @@ interface FacultadesState {
   carreras: CarreraRow[];
   loading: boolean;
   error: string | null;
-  fetchAll: () => Promise<void>;
+  /** Momento de la última carga correcta; null si nunca se cargó. */
+  ultimaCarga: number | null;
+  fetchAll: (opciones?: OpcionesFetch) => Promise<void>;
   // Facultades
   addFacultad: (data: FacultadInsert) => Promise<void>;
   updateFacultad: (id: string, patch: FacultadUpdate) => Promise<void>;
@@ -27,13 +30,16 @@ interface FacultadesState {
   removeCarrera: (id: string) => Promise<void>;
 }
 
-export const useFacultadesStore = create<FacultadesState>()((set) => ({
+export const useFacultadesStore = create<FacultadesState>()((set, get) => ({
   facultades: [],
   carreras: [],
   loading: false,
   error: null,
+  ultimaCarga: null,
 
-  fetchAll: async () => {
+  fetchAll: async (opciones) => {
+    if (!debeRecargar(get().ultimaCarga, opciones)) return;
+
     set({ loading: true, error: null });
     try {
       const [facResult, carResult] = await Promise.all([
@@ -42,7 +48,7 @@ export const useFacultadesStore = create<FacultadesState>()((set) => ({
       ]);
       if (facResult.error) throw facResult.error;
       if (carResult.error) throw carResult.error;
-      set({ facultades: facResult.data || [], carreras: carResult.data || [] });
+      set({ facultades: facResult.data || [], carreras: carResult.data || [], ultimaCarga: Date.now() });
     } catch (err: any) {
       set({ error: err.message });
     } finally {

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
     LayoutGrid, FileText, MonitorSpeaker, ChevronLeft,
-    GraduationCap, LogOut, ChevronDown, Building2,
+    GraduationCap, ChevronDown, Building2,
     Users, BarChart2, Clock, Library, Landmark, Inbox
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
@@ -13,7 +13,6 @@ export const AdminSidebar = () => {
   const setMobileOpen = useSidebarStore(s => s.setMobileOpen);
   const [recursosOpen, setRecursosOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const currentPage = location.pathname;
 
   // Cierra el drawer móvil al cambiar de página.
@@ -45,10 +44,6 @@ export const AdminSidebar = () => {
   const toggleSubmenu = (menu: 'recursos') => {
     if (collapsed) setCollapsed(false);
     setRecursosOpen(menu === 'recursos' ? !recursosOpen : false);
-  };
-
-  const handleLogout = () => {
-    navigate('/login');
   };
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) => 
@@ -189,17 +184,7 @@ export const AdminSidebar = () => {
           </div>
         )}
 
-        {/* Logout */}
-        <div className="mx-4 py-5 flex items-center justify-center border-t border-gray-800 shrink-0">
-          <button 
-            onClick={handleLogout}
-            title={collapsed ? "CERRAR SESIÓN" : ""}
-            className={`flex items-center justify-start gap-3 text-gray-400 hover:text-white transition-colors text-xs font-bold tracking-widest w-full px-2 py-2 rounded-lg ${collapsed ? 'justify-center px-0' : ''}`}
-          >
-            <LogOut className="w-5 h-5 shrink-0" />
-            {!collapsed && <span className="whitespace-nowrap">CERRAR SESIÓN</span>}
-          </button>
-        </div>
+        {/* El cierre de sesión vive solo en el menú de usuario del topbar. */}
       </aside>
       </div>
     </>

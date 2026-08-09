@@ -6,6 +6,7 @@ import { useSolicitudesEquipoAdminStore } from '../../../store/solicitudesEquipo
 import { esAtrasado, type Prestamo } from '../data/prestamosData';
 import { hoy } from '../../../lib/utils';
 import { PageHero } from '../../../components/ui/PageHero';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -40,7 +41,7 @@ export const Prestamos = ({ embedded = false }: { embedded?: boolean } = {}) => 
   const handleAprobarSolicitud = async (sol: typeof solicitudes[number]) => {
     try {
       await aprobarSolicitud(sol);
-      await fetchPrestamos();
+      await fetchPrestamos({ forzar: true }); // se acaba de crear el préstamo: hay que releerlo
       import('sweetalert2').then(S => S.default.fire({ icon: 'success', title: 'Préstamo creado', text: `Solicitud ${sol.numero} aprobada.`, timer: 1800, showConfirmButton: false }));
     } catch (err: any) {
       import('sweetalert2').then(S => S.default.fire('Error', 'No se pudo aprobar: ' + (err?.message || ''), 'error'));
@@ -182,6 +183,7 @@ export const Prestamos = ({ embedded = false }: { embedded?: boolean } = {}) => 
           icon={ArrowLeftRight}
           title="Préstamos"
           subtitle="Entregas, devoluciones y atrasos de equipos."
+          backgroundImage={HERO_BG.prestamos}
           stats={[
             { Icon: Package, value: kpis.total, label: 'Total' },
             { Icon: Clock, value: kpis.activos, label: 'Activos' },

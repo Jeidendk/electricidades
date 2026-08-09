@@ -103,13 +103,14 @@ export const TecnicoSidebar = () => {
         </button>
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar">
+          {/* DASHBOARD — pantalla de inicio del técnico */}
+          <NavLink to="/tecnico/dashboard" className={navLinkClass} title={collapsed ? 'DASHBOARD' : ''}>
+            <LayoutGrid className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">DASHBOARD</span>}
+          </NavLink>
+
           {/* Módulos conservados para habilitarlos progresivamente. */}
           {MOSTRAR_MODULOS_FUTUROS && (
             <>
-              <NavLink to="/tecnico/dashboard" className={navLinkClass} title={collapsed ? 'DASHBOARD' : ''}>
-                <LayoutGrid className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">DASHBOARD</span>}
-              </NavLink>
-
               <div className="flex flex-col relative">
                 <button onClick={() => toggleSubmenu('tramites')} className={sectionBtnClass(isTramitesSection)} title={collapsed ? 'TRÁMITES' : ''}>
                   <div className="flex items-center gap-4"><Inbox className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap">TRÁMITES</span>}</div>

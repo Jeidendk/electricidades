@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { debeRecargar, type OpcionesFetch } from '../lib/frescura';
 import type { Database } from '../lib/database.types';
 import { notifyStoreError } from '../lib/notifyError';
 
@@ -11,23 +12,28 @@ interface EspaciosState {
   items: EspacioRow[];
   loading: boolean;
   error: string | null;
-  fetchEspacios: () => Promise<void>;
+  /** Momento de la última carga correcta; null si nunca se cargó. */
+  ultimaCarga: number | null;
+  fetchEspacios: (opciones?: OpcionesFetch) => Promise<void>;
   addEspacio: (data: EspacioInsert) => Promise<void>;
   updateEspacio: (id: string, patch: EspacioUpdate) => Promise<void>;
   removeEspacio: (id: string) => Promise<void>;
 }
 
-export const useEspaciosStore = create<EspaciosState>((set) => ({
+export const useEspaciosStore = create<EspaciosState>((set, get) => ({
   items: [],
   loading: false,
   error: null,
+  ultimaCarga: null,
 
-  fetchEspacios: async () => {
+  fetchEspacios: async (opciones) => {
+    if (!debeRecargar(get().ultimaCarga, opciones)) return;
+
     set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.from('espacios').select('*');
       if (error) throw error;
-      set({ items: data || [] });
+      set({ items: data || [], ultimaCarga: Date.now() });
     } catch (err: any) {
       set({ error: err.message });
     } finally {

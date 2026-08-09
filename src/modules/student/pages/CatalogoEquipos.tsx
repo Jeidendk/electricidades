@@ -6,6 +6,7 @@ import { FirmaModal } from '../components/FirmaModal';
 import { generarPDFComprobante } from '../../../utils/pdfGenerator';
 import { supabase } from '../../../lib/supabase';
 import { useAuthStore } from '../../../store/authStore';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 
 export const CatalogoEquipos = () => {
   const { cart, cartOpen, setCartOpen, addToCart, updateQty, removeFromCart, clearCart } = useCartStore();
@@ -189,6 +190,10 @@ export const CatalogoEquipos = () => {
         
         {/* HERO SECTION — consistente con el banner admin (PageHero) */}
         <div className="w-full min-h-[120px] bg-espoch-hero relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-5 border-b border-gray-800">
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-[0.25]"
+            style={{ backgroundImage: `url('${HERO_BG.asignaciones}')` }}
+          ></div>
           <div className="absolute inset-0 bg-gradient-to-r from-espoch-hero via-espoch-hero/95 to-espoch-hero/80"></div>
 
           <div className="relative z-10 w-full flex justify-between items-center flex-wrap gap-4">

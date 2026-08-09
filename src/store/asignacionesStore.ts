@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { debeRecargar, type OpcionesFetch } from '../lib/frescura';
 import type { Database } from '../lib/database.types';
 import Swal from 'sweetalert2';
 
@@ -12,18 +13,23 @@ interface AsignacionesState {
   asignaciones: Record<string, string>; // Mantiene el formato local de clave-valor
   loading: boolean;
   error: string | null;
-  fetchAsignaciones: () => Promise<void>;
+  /** Momento de la última carga correcta; null si nunca se cargó. */
+  ultimaCarga: number | null;
+  fetchAsignaciones: (opciones?: OpcionesFetch) => Promise<void>;
   assign: (key: string, tecnicoId: string, idEspacio: string) => Promise<void>;
   assignMany: (keys: { key: string; idEspacio: string }[], tecnicoId: string) => Promise<void>;
   unassign: (key: string) => Promise<void>;
 }
 
-export const useAsignacionesStore = create<AsignacionesState>((set) => ({
+export const useAsignacionesStore = create<AsignacionesState>((set, get) => ({
   asignaciones: {},
   loading: false,
   error: null,
+  ultimaCarga: null,
 
-  fetchAsignaciones: async () => {
+  fetchAsignaciones: async (opciones) => {
+    if (!debeRecargar(get().ultimaCarga, opciones)) return;
+
     set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.from('asignaciones').select('*');
@@ -38,7 +44,7 @@ export const useAsignacionesStore = create<AsignacionesState>((set) => ({
            newAsignaciones[a.descripcion] = a.id_tecnico;
         }
       });
-      set({ asignaciones: newAsignaciones });
+      set({ asignaciones: newAsignaciones, ultimaCarga: Date.now() });
     } catch (err: any) {
       set({ error: err.message });
     } finally {

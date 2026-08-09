@@ -3,7 +3,7 @@ import {
   LayoutGrid, Bell, Settings, ChevronDown,
   FileText, Package, Wrench, Users,
   GraduationCap, BookMarked, BarChart2, Building2, CalendarDays,
-  BookOpen, Inbox, ShieldCheck, User, LogOut, Eye, Menu
+  BookOpen, Inbox, ShieldCheck, KeyRound, User, LogOut, Eye, Menu
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
@@ -12,6 +12,7 @@ import { useSidebarStore } from '../../../store/sidebarStore';
 import { Avatar } from '../../../components/ui/Avatar';
 import { ConfigModal } from '../../../components/ui/ConfigModal';
 import { ProfileModal } from '../../../components/ui/ProfileModal';
+import { CambiarPasswordModal } from '../../../components/ui/CambiarPasswordModal';
 import { MfaSetupModal } from '../../auth/components/MfaSetupModal';
 interface RouteConfig {
   icon: React.ElementType;
@@ -108,6 +109,7 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const notificaciones = useUiPrefsStore(s => s.notificaciones);
   const authUser = useAuthStore(s => s.user);
   const isAdmin = authUser?.role === 'admin';
@@ -121,7 +123,7 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
   const switchView = (view: 'admin' | 'tecnico' | 'student') => {
     setShowUserDropdown(false);
     if (view === currentView) return;
-    navigate(view === 'admin' ? '/admin' : view === 'tecnico' ? '/tecnico/horarios' : '/student/catalog');
+    navigate(view === 'admin' ? '/admin' : view === 'tecnico' ? '/tecnico/dashboard' : '/student/catalog');
   };
 
   const handleLogout = async () => {
@@ -208,6 +210,13 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
                     <ShieldCheck className="w-4 h-4 text-gray-400" />
                     <span className="text-[12px] font-semibold">Seguridad (2FA)</span>
                   </button>
+                  <button
+                    onClick={() => { setPasswordModalOpen(true); setShowUserDropdown(false); }}
+                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg"
+                  >
+                    <KeyRound className="w-4 h-4 text-gray-400" />
+                    <span className="text-[12px] font-semibold">Cambiar contraseña</span>
+                  </button>
                   {/* Configuración (el modo oscuro vive dentro de Configuración; sin duplicar toggle) */}
                   <button
                     onClick={() => { setConfigOpen(true); setShowUserDropdown(false); }}
@@ -258,6 +267,7 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
       {/* MODAL DE SEGURIDAD MFA */}
       <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
       <MfaSetupModal isOpen={mfaModalOpen} onClose={() => setMfaModalOpen(false)} />
+      <CambiarPasswordModal isOpen={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
       {/* MODAL DE CONFIGURACIÓN */}
       <ConfigModal isOpen={configOpen} onClose={() => setConfigOpen(false)} />
     </>

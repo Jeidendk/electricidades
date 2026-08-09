@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { PageHero } from '../../../components/ui/PageHero';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { ViewToggle } from '../../../components/ui/ViewToggle';
 import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { CrudModal } from '../../../components/ui/CrudModal';
 import { DataTable } from '../../../components/ui/DataTable';
 import { confirmDelete } from '../../../lib/confirm';
+import { normalizarTexto } from '../../../lib/texto';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useRecursosStore } from '../../../store/recursosStore';
@@ -72,13 +74,13 @@ export const EstructuraAcademica = () => {
   const { recursosMap, fetchByMaterias, toggleRecurso } = useMateriaRecursosStore();
   const { currentUser } = useOutletContext<any>();
   const esTecnico = currentUser?.role === 'tecnico';
-  const carreraTecnico = useMemo(
-    () => carreras.find(c =>
-      (c.nombre || '').trim().toLocaleLowerCase('es') ===
-      (currentUser?.carreraNombre || '').trim().toLocaleLowerCase('es'),
-    ),
-    [carreras, currentUser?.carreraNombre],
-  );
+  // Se compara normalizado (sin tildes ni mayúsculas): "Electrónica" y "Electronica" son la misma
+  // carrera. Con igualdad exacta, un acento distinto dejaba al técnico sin carrera resuelta.
+  const carreraTecnico = useMemo(() => {
+    const buscada = normalizarTexto(currentUser?.carreraNombre);
+    if (!buscada) return undefined;
+    return carreras.find(c => normalizarTexto(c.nombre) === buscada);
+  }, [carreras, currentUser?.carreraNombre]);
 
   useEffect(() => {
     fetchFacultades();
@@ -120,10 +122,14 @@ export const EstructuraAcademica = () => {
   };
 
   const selectFacultad = (id: string) => {
-    if (esTecnico && carreraTecnico) {
-      selectCarrera(carreraTecnico.id_facultad, carreraTecnico.id);
+    // El técnico nunca abre la vista de facultad (es la del admin: alta y baja de carreras).
+    // La condición depende SOLO del rol: si dependiera de `carreraTecnico`, mientras las carreras
+    // aún se cargan el técnico caería en la rama del admin y vería esa pantalla unos instantes.
+    if (esTecnico) {
+      if (carreraTecnico) selectCarrera(carreraTecnico.id_facultad, carreraTecnico.id);
       return;
     }
+
     setSelectedFacultadId(id);
     setSelectedCarreraId(null);
     if (!expandedFacultades.includes(id)) {
@@ -296,6 +302,25 @@ export const EstructuraAcademica = () => {
   const selectedFacultad = mappedFacultades.find(f => f.id === selectedFacultadId);
   const selectedCarrera = mappedCarreras.find(c => c.id === selectedCarreraId);
 
+  /**
+   * Subtítulo del banner de la carrera. Antes decía "FIE > 9 PAO": siglas sin contexto y un
+   * separador que se leía como navegación. Ahora nombra la facultad y describe la malla,
+   * omitiendo las partes que no existan en vez de dejar restos como "> 9 PAO".
+   */
+  const subtituloCarrera = useMemo(() => {
+    if (!selectedCarrera) return '';
+
+    const paos = selectedCarrera.semestres;
+    const partes = [
+      selectedFacultad?.nombre || selectedFacultad?.siglas,
+      paos ? `Malla de ${paos} ${paos === 1 ? 'PAO' : 'PAOs'}` : null,
+      selectedCarrera.director ? `Dir. ${selectedCarrera.director}` : null,
+    ].filter(Boolean);
+
+    return partes.join(' · ');
+  }, [selectedCarrera, selectedFacultad]);
+
+
   const carreraMaterias = useMemo(() => materias.filter(m => m.idCarrera === selectedCarreraId), [materias, selectedCarreraId]);
   const allSemestres = useMemo(() => Array.from(new Set(carreraMaterias.map(m => m.semestre))).sort((a, b) => a - b), [carreraMaterias]);
 
@@ -382,14 +407,15 @@ export const EstructuraAcademica = () => {
         <PageHero
           icon={availableIcons[selectedCarrera.icono] || BookOpen}
           title={selectedCarrera.nombre}
-          subtitle={`${selectedFacultad?.siglas || ''} > ${selectedCarrera.semestres} PAO`}
+          subtitle={subtituloCarrera}
           stats={[
             { Icon: BookOpen, value: selectedCarrera.semestres, label: 'PAOs' },
             { Icon: Layers, value: kpis.materias, label: 'Materias' },
             { Icon: FileCheck2, value: kpis.silabos, label: 'Sílabos' }
           ]}
+          backgroundImage={HERO_BG.aula}
         />
-      ) : selectedFacultad ? (
+      ) : selectedFacultad && !esTecnico ? (
         <PageHero
           icon={availableIcons[selectedFacultad.icono] || Building}
           title={selectedFacultad.nombre}
@@ -399,12 +425,14 @@ export const EstructuraAcademica = () => {
             { Icon: Layers, value: facultadKpis.materias, label: 'Materias' },
             { Icon: FileCheck2, value: facultadKpis.silabos, label: 'Sílabos' }
           ]}
+          backgroundImage={HERO_BG.estructuraAcademica}
         />
       ) : (
         <PageHero
           icon={Building}
           title="Estructura Académica"
           subtitle="Gestión de facultades, carreras y mallas curriculares."
+          backgroundImage={HERO_BG.estructuraAcademica}
         />
       )}
 
@@ -521,7 +549,8 @@ export const EstructuraAcademica = () => {
         <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in relative">
 
           {/* MODO FACULTAD */}
-          {selectedFacultad && !selectedCarreraId && (
+          {/* Vista de facultad: solo administración. El técnico trabaja dentro de su carrera. */}
+          {selectedFacultad && !selectedCarreraId && !esTecnico && (
             <div className="flex flex-col h-full overflow-hidden bg-white">
               <div className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar bg-white">
                 {/* CARD IDENTIDAD FACULTAD: datos y acciones propias de la facultad */}
@@ -680,7 +709,11 @@ export const EstructuraAcademica = () => {
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm mx-6 mt-6 mb-4 px-5 py-3 flex items-center justify-between gap-4 flex-wrap shrink-0">
                   <div className="flex items-center gap-4 flex-wrap">
                     <nav className="flex items-center gap-1.5 text-[12px] font-bold" aria-label="Breadcrumb">
-                      <button onClick={() => setSelectedCarreraId(null)} className="text-gray-500 hover:text-indigo-600 transition-colors" title={`Volver a ${selectedFacultad?.nombre || 'la facultad'}`}>{selectedFacultad?.siglas || 'Facultad'}</button>
+                      {esTecnico ? (
+                        <span className="text-gray-500" title={selectedFacultad?.nombre}>{selectedFacultad?.siglas || 'Facultad'}</span>
+                      ) : (
+                        <button onClick={() => setSelectedCarreraId(null)} className="text-gray-500 hover:text-indigo-600 transition-colors" title={`Volver a ${selectedFacultad?.nombre || 'la facultad'}`}>{selectedFacultad?.siglas || 'Facultad'}</button>
+                      )}
                       <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
                       <span className="text-gray-900 truncate max-w-[180px]">{selectedCarrera.nombre}</span>
                     </nav>

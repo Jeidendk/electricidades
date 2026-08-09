@@ -1,11 +1,12 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { GraduationCap, Bell, ShoppingCart, ChevronDown, User, Settings, LogOut, ShieldCheck, Eye, Wrench, Users } from 'lucide-react';
+import { GraduationCap, Bell, ShoppingCart, ChevronDown, User, Settings, LogOut, ShieldCheck, KeyRound, Eye, Wrench, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '../../../store/cartStore';
 import { ThemeToggle } from '../../../components/ui/ThemeToggle';
 import { Avatar } from '../../../components/ui/Avatar';
 import { ConfigModal } from '../../../components/ui/ConfigModal';
 import { ProfileModal } from '../../../components/ui/ProfileModal';
+import { CambiarPasswordModal } from '../../../components/ui/CambiarPasswordModal';
 import { useAuthStore } from '../../../store/authStore';
 import { useEffect } from 'react';
 import { useInventarioStore } from '../../../store/inventarioStore';
@@ -19,6 +20,7 @@ export const StudentLayout = () => {
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const cartTotal = useCartStore(state => state.cartTotal());
   const cartOpen = useCartStore(state => state.cartOpen);
   const setCartOpen = useCartStore(state => state.setCartOpen);
@@ -152,6 +154,13 @@ export const StudentLayout = () => {
                         Seguridad (2FA)
                       </button>
                       <button
+                        onClick={() => { setPasswordModalOpen(true); setProfileOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-[13px] text-gray-700 font-semibold hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors"
+                      >
+                        <KeyRound className="w-4 h-4 text-gray-400" />
+                        Cambiar contraseña
+                      </button>
+                      <button
                         onClick={() => { setConfigOpen(true); setProfileOpen(false); }}
                         className="w-full text-left px-3 py-2 text-[13px] text-gray-700 font-semibold hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors"
                       >
@@ -168,7 +177,7 @@ export const StudentLayout = () => {
                           <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Eye className="w-3 h-3" /> Ver como</span>
                         </div>
                         <div className="px-1.5 pb-1 flex gap-1">
-                          {([['/admin', 'Admin', Users], ['/tecnico/horarios', 'Técnico', Wrench], ['/student/catalog', 'Estudiante', GraduationCap]] as const).map(([path, label, Icon]) => (
+                          {([['/admin', 'Admin', Users], ['/tecnico/dashboard', 'Técnico', Wrench], ['/student/catalog', 'Estudiante', GraduationCap]] as const).map(([path, label, Icon]) => (
                             <button
                               key={path}
                               onClick={() => { setProfileOpen(false); navigate(path); }}
@@ -224,6 +233,7 @@ export const StudentLayout = () => {
       {/* MODAL DE SEGURIDAD MFA */}
       <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
       <MfaSetupModal isOpen={mfaModalOpen} onClose={() => setMfaModalOpen(false)} />
+      <CambiarPasswordModal isOpen={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
       {/* MODAL DE CONFIGURACIÓN */}
       <ConfigModal isOpen={configOpen} onClose={() => setConfigOpen(false)} />
     </div>

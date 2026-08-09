@@ -1,12 +1,12 @@
 import {
   Building2, MonitorPlay, FileText, PieChart as PieChartIcon,
-  Monitor, BookOpen, User, Wrench, RefreshCw, ArrowUp, ArrowDown,
   Info, ArrowRight, CheckCircle, AlertCircle, AlertTriangle, LayoutGrid
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 
 const usoHorarioData = [
   { time: '00:00', uso: 10, promedio: 20 },
@@ -58,204 +58,92 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import { PageHero, type HeroStat } from '../../../components/ui/PageHero';
 
 export const Dashboard = () => {
-  const [counts, setCounts] = useState({
-    edificios: 0,
-    aulasActivas: 0,
-    solicitudesPendientes: 0,
+  // `null` = no se pudo obtener. Se distingue de 0 para no mostrar un dato falso como si fuera real.
+  const [counts, setCounts] = useState<{
+    edificios: number | null;
+    aulasActivas: number | null;
+    solicitudesPendientes: number | null;
+    ocupacionTasa: number;
+  }>({
+    edificios: null,
+    aulasActivas: null,
+    solicitudesPendientes: null,
     ocupacionTasa: 78, // Mocked for now or can be computed
-    equipos: 0,
-    prestamos: 0,
-    usuariosHoy: 0,
-    mantenimientoPct: 14 // 100 - operativo
   });
 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchMetrics() {
-      try {
-        const [
-          { count: edificiosCount },
-          { count: espaciosCount },
-          { count: solicitudesCount },
-          { count: equiposCount },
-          { count: prestamosCount },
-          { count: usuariosCount }
-        ] = await Promise.all([
-          supabase.from('edificios').select('*', { count: 'exact', head: true }),
-          supabase.from('espacios').select('*', { count: 'exact', head: true }).eq('estado', 'operativo'),
-          supabase.from('solicitudes').select('*', { count: 'exact', head: true }).eq('estado', 'Pendiente'),
-          supabase.from('catalogo_equipos').select('*', { count: 'exact', head: true }),
-          supabase.from('prestamos').select('*', { count: 'exact', head: true }),
-          supabase.from('usuarios').select('*', { count: 'exact', head: true })
-        ]);
-
-        setCounts({
-          edificios: edificiosCount || 0,
-          aulasActivas: espaciosCount || 0,
-          solicitudesPendientes: solicitudesCount || 0,
-          ocupacionTasa: 78,
-          equipos: equiposCount || 0,
-          prestamos: prestamosCount || 0,
-          usuariosHoy: usuariosCount || 0,
-          mantenimientoPct: 14
-        });
-      } catch (error) {
-        console.error("Error fetching metrics:", error);
-      } finally {
-        setLoading(false);
+    /** Devuelve el conteo, o null si la consulta falló: así un error no se muestra como "0". */
+    const contar = ({ count, error }: { count: number | null; error: { message: string } | null }, que: string) => {
+      if (error) {
+        console.error(`No se pudo contar ${que}:`, error.message);
+        return null;
       }
+      return count ?? 0;
+    };
+
+    const sumarDisponibles = (...valores: (number | null)[]) =>
+      valores.every(v => v === null) ? null : valores.reduce<number>((total, v) => total + (v ?? 0), 0);
+
+    async function fetchMetrics() {
+      const [edificios, espaciosOperativos, tramitesPendientes, equiposPendientes] = await Promise.all([
+        supabase.from('edificios').select('*', { count: 'exact', head: true }),
+        // "Activas" = todo espacio que no esté fuera de servicio (enum: disponible | ocupada | mantenimiento).
+        supabase.from('espacios').select('*', { count: 'exact', head: true }).neq('estado', 'mantenimiento'),
+        // Pendientes de atender, sumando los dos tipos de solicitud que maneja el admin.
+        supabase.from('solicitudes_admin').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+        supabase.from('solicitudes_equipo').select('*', { count: 'exact', head: true }).eq('estado', 'Pendiente'),
+      ]);
+
+      setCounts({
+        edificios: contar(edificios, 'los edificios'),
+        aulasActivas: contar(espaciosOperativos, 'los espacios activos'),
+        solicitudesPendientes: sumarDisponibles(
+          contar(tramitesPendientes, 'los trámites pendientes'),
+          contar(equiposPendientes, 'las solicitudes de equipos pendientes'),
+        ),
+        ocupacionTasa: 78,
+      });
+      setLoading(false);
     }
+
     fetchMetrics();
   }, []);
 
+  /** "..." mientras carga y "—" si el dato no se pudo obtener; nunca un 0 inventado. */
+  const mostrarConteo = (valor: number | null) => (loading ? '...' : valor === null ? '—' : valor);
+
+  const { currentUser } = useOutletContext<any>();
+  const nombreUsuario = String(currentUser?.nombre || '').trim();
+  const tituloBienvenida = nombreUsuario ? `Bienvenido, ${nombreUsuario}` : 'Panel de Control';
+
+  // Las variaciones "vs. ayer" son valores de maqueta: todavía no se calculan contra datos reales.
+  const heroStats: HeroStat[] = [
+    { Icon: Building2, value: mostrarConteo(counts.edificios), label: 'Edificios', trend: { label: '11% vs. ayer', direction: 'up' } },
+    { Icon: MonitorPlay, value: mostrarConteo(counts.aulasActivas), label: 'Aulas activas', trend: { label: '3% vs. ayer', direction: 'up' } },
+    { Icon: FileText, value: mostrarConteo(counts.solicitudesPendientes), label: 'Solicitudes pendientes', trend: { label: '5% vs. ayer', direction: 'down' } },
+    { Icon: PieChartIcon, value: `${counts.ocupacionTasa}%`, label: 'Tasa de ocupación', trend: { label: '4% vs. ayer', direction: 'up' } },
+  ];
+
   return (
-    <div className="p-3 md:p-4 lg:p-5 flex flex-col gap-3 lg:gap-4 bg-[#f4f7fb] h-full overflow-y-auto custom-scrollbar">
+    <div className="flex flex-col h-full bg-[#f4f7fb] overflow-hidden">
 
-      {/* HERO — mismo lenguaje visual que el resto de pantallas admin */}
-      <div className="w-full bg-espoch-hero relative flex items-center px-5 lg:px-7 py-4 rounded-2xl overflow-hidden shrink-0 shadow-sm">
-        <div className="absolute inset-0 bg-gradient-to-r from-espoch-hero via-espoch-hero/95 to-espoch-hero/80"></div>
-        <div className="relative z-10 flex items-center gap-4">
-          <div className="w-12 h-12 shrink-0 rounded-[14px] bg-espoch-red flex items-center justify-center text-white shadow-lg">
-            <LayoutGrid className="w-6 h-6" strokeWidth={2} />
-          </div>
-          <div className="flex flex-col">
-            <h2 className="text-[22px] md:text-[26px] font-bold text-white tracking-tight leading-none mb-1">Panel de Control</h2>
-            <p className="text-[12px] text-gray-400 font-medium">Vista general del sistema de gestión de aulas y recursos.</p>
-          </div>
-        </div>
-      </div>
+      {/* Banner a todo el ancho, igual que el resto de pantallas admin. */}
+      <PageHero
+        icon={LayoutGrid}
+        title={tituloBienvenida}
+        subtitle="Resumen general del sistema de gestión de aulas y recursos."
+        stats={heroStats}
+        backgroundImage={HERO_BG.dashboard}
+      />
 
-      {/* FILA 1: KPIs PRINCIPALES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0">
-        {/* KPI 1 */}
-        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-espoch-red">
-              <Building2 className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-semibold text-gray-700">Edificios</span>
-          </div>
-          <div className="flex items-end justify-between mt-0.5">
-            <span className="text-2xl font-bold text-gray-900 leading-none">
-              {loading ? '...' : counts.edificios}
-            </span>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-green-600">
-              <ArrowUp className="w-2.5 h-2.5" />
-              <span>+11% vs. ayer</span>
-            </div>
-          </div>
-        </div>
-        
-        {/* KPI 2 */}
-        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#1a2b4b]/10 flex items-center justify-center text-[#1a2b4b]">
-              <MonitorPlay className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-semibold text-gray-700">Aulas activas</span>
-          </div>
-          <div className="flex items-end justify-between mt-0.5">
-            <span className="text-2xl font-bold text-gray-900 leading-none">
-              {loading ? '...' : counts.aulasActivas}
-            </span>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-green-600">
-              <ArrowUp className="w-2.5 h-2.5" />
-              <span>+3% vs. ayer</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3 */}
-        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
-              <FileText className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-semibold text-gray-700">Solicitudes pendientes</span>
-          </div>
-          <div className="flex items-end justify-between mt-0.5">
-            <span className="text-2xl font-bold text-gray-900 leading-none">
-              {loading ? '...' : counts.solicitudesPendientes}
-            </span>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-red-500">
-              <ArrowDown className="w-2.5 h-2.5" />
-              <span>-5% vs. ayer</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 4 */}
-        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-3.5 flex flex-col gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
-              <PieChartIcon className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-semibold text-gray-700">Tasa de ocupación</span>
-          </div>
-          <div className="flex items-end justify-between mt-0.5">
-            <span className="text-2xl font-bold text-gray-900 leading-none">{counts.ocupacionTasa}%</span>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-green-600">
-              <ArrowUp className="w-2.5 h-2.5" />
-              <span>+4% vs. ayer</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* FILA 2: MÉTRICAS SECUNDARIAS */}
-      <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm py-2.5 px-4 flex flex-col lg:flex-row items-center justify-between gap-3 shrink-0">
-        <div className="flex flex-wrap items-center gap-6 lg:gap-10 w-full lg:w-auto overflow-x-auto custom-scrollbar">
-          <div className="flex items-center gap-2">
-            <Monitor className="w-4 h-4 text-gray-400" />
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 font-medium">Equipos</span>
-              <span className="text-sm font-bold text-gray-900 leading-none">
-                {loading ? '...' : counts.equipos}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-gray-400" />
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 font-medium">Préstamos</span>
-              <span className="text-sm font-bold text-gray-900 leading-none">
-                {loading ? '...' : counts.prestamos}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-gray-400" />
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 font-medium">Usuarios</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold text-gray-900 leading-none">
-                  {loading ? '...' : counts.usuariosHoy}
-                </span>
-                <span className="text-[9px] font-bold text-green-500">+12%</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Wrench className="w-4 h-4 text-gray-400" />
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 font-medium">Mantenimiento</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold text-gray-900 leading-none">86%</span>
-                <span className="text-[9px] font-bold text-green-500">+5%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-1.5 text-[9px] text-gray-400 font-medium shrink-0">
-          <span>Actualizado hace 5 min</span>
-          <RefreshCw className="w-3 h-3" />
-        </div>
-      </div>
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-4 lg:p-5 flex flex-col gap-3 lg:gap-4">
 
       {/* FILA 3: GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 shrink-0">
@@ -539,6 +427,8 @@ export const Dashboard = () => {
             </table>
           </div>
         </div>
+
+      </div>
 
       </div>
 

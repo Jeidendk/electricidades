@@ -229,7 +229,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
       return false;
     }
     
-    await fetchEspacios();
+    await fetchEspacios({ forzar: true }); // acaba de escribirse: no sirve la copia en caché
     Swal.close();
     return true;
   };

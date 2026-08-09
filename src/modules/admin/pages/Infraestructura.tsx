@@ -10,6 +10,7 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Popup } from 're
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { PageHero } from '../../../components/ui/PageHero';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { ViewToggle } from '../../../components/ui/ViewToggle';
 import { DataTable } from '../../../components/ui/DataTable';
 import { EstadoBadge } from '../../../components/ui/EstadoBadge';
@@ -475,6 +476,7 @@ export const Infraestructura = () => {
         icon={Building2}
         title="Infraestructura"
         subtitle="Edificios, aulas y laboratorios del campus."
+        backgroundImage={HERO_BG.infraestructura}
         stats={[
           { Icon: Building2, value: kpis.edificios, label: 'Edificios' },
           { Icon: Microscope, value: kpis.espacios, label: 'Espacios' },

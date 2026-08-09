@@ -6,6 +6,9 @@ import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { supabase } from '../../../lib/supabase';
+import {
+  consultarBloqueo, limpiarIntentos, mensajeBloqueo, mensajeIntentosRestantes, registrarIntentoFallido,
+} from '../../../lib/bloqueoLogin';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -100,7 +103,19 @@ export const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Antifuerza bruta: si la cuenta está bloqueada no se intenta autenticar siquiera.
+    const bloqueoPrevio = await consultarBloqueo(loginEmail);
+    if (bloqueoPrevio.bloqueado) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cuenta bloqueada temporalmente',
+        text: mensajeBloqueo(bloqueoPrevio),
+        confirmButtonColor: '#B00020',
+      });
+      return;
+    }
+
     Swal.fire({
       title: 'Iniciando sesión...',
       text: 'Por favor, espere',
@@ -109,7 +124,7 @@ export const Login = () => {
     });
 
     const res = await login(loginEmail, loginPassword);
-    
+
     // Si requiere MFA, mostrar la pantalla de verificación
     if (!res.success && res.requiresMfa) {
       Swal.close();
@@ -120,14 +135,24 @@ export const Login = () => {
     }
 
     if (!res.success) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error de Autenticación',
-        text: res.message,
-        confirmButtonColor: '#B00020'
-      });
+      const estado = await registrarIntentoFallido(loginEmail);
+      Swal.fire(estado.bloqueado
+        ? {
+            icon: 'warning',
+            title: 'Cuenta bloqueada temporalmente',
+            text: mensajeBloqueo(estado),
+            confirmButtonColor: '#B00020',
+          }
+        : {
+            icon: 'error',
+            title: 'Error de Autenticación',
+            text: `${res.message} ${mensajeIntentosRestantes(estado)}`,
+            confirmButtonColor: '#B00020',
+          });
       return;
     }
+
+    await limpiarIntentos();
 
     Swal.fire({
       icon: 'success',
@@ -140,7 +165,7 @@ export const Login = () => {
     }).then(() => {
       const userState = useAuthStore.getState().user;
       if (userState?.role === 'admin') navigate('/admin');
-      else if (userState?.role === 'tecnico') navigate('/tecnico/horarios');
+      else if (userState?.role === 'tecnico') navigate('/tecnico/dashboard');
       else navigate('/student');
     });
   };
@@ -160,6 +185,8 @@ export const Login = () => {
       return;
     }
 
+    await limpiarIntentos();
+
     Swal.fire({
       icon: 'success',
       title: '¡Verificación Exitosa!',
@@ -171,7 +198,7 @@ export const Login = () => {
     }).then(() => {
       const userState = useAuthStore.getState().user;
       if (userState?.role === 'admin') navigate('/admin');
-      else if (userState?.role === 'tecnico') navigate('/tecnico/horarios');
+      else if (userState?.role === 'tecnico') navigate('/tecnico/dashboard');
       else navigate('/student');
     });
   };

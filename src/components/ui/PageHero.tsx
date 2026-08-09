@@ -1,9 +1,12 @@
 import { Fragment } from 'react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 
 export interface HeroStat {
   Icon: React.ElementType;
   value: React.ReactNode;
   label: string;
+  /** Variación respecto al periodo anterior. Se dibuja bajo el valor; opcional. */
+  trend?: { label: string; direction: 'up' | 'down' };
 }
 
 interface PageHeroProps {
@@ -13,11 +16,19 @@ interface PageHeroProps {
   stats?: HeroStat[];
   children?: React.ReactNode;
   actions?: React.ReactNode;
+  /** Imagen temática de fondo (ver HERO_BG en heroBackgrounds.ts). Opcional. */
+  backgroundImage?: string;
 }
 
 // Header estándar de las páginas admin: banner oscuro + título + KPI strip.
-export const PageHero = ({ icon: Icon, title, subtitle, stats, children, actions }: PageHeroProps) => (
+export const PageHero = ({ icon: Icon, title, subtitle, stats, children, actions, backgroundImage }: PageHeroProps) => (
   <div className="w-full min-h-[120px] bg-espoch-hero relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-5 border-b border-gray-800">
+    {backgroundImage && (
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-[0.25]"
+        style={{ backgroundImage: `url('${backgroundImage}')` }}
+      ></div>
+    )}
     <div className="absolute inset-0 bg-gradient-to-r from-espoch-hero via-espoch-hero/95 to-espoch-hero/80"></div>
 
     <div className="relative z-10 w-full flex justify-between items-center flex-wrap gap-4">
@@ -48,6 +59,14 @@ export const PageHero = ({ icon: Icon, title, subtitle, stats, children, actions
                   <div className="flex flex-col">
                     <span className="text-[15px] font-bold text-white leading-tight">{s.value}</span>
                     <span className="text-[10px] font-medium text-gray-400 leading-none">{s.label}</span>
+                    {s.trend && (
+                      <span className={`mt-1 flex items-center gap-1 text-[10px] font-bold leading-none ${s.trend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {s.trend.direction === 'up'
+                          ? <ArrowUp className="w-2.5 h-2.5" />
+                          : <ArrowDown className="w-2.5 h-2.5" />}
+                        {s.trend.label}
+                      </span>
+                    )}
                   </div>
                 </div>
               </Fragment>

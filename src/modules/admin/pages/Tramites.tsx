@@ -4,6 +4,7 @@ import {
   Inbox, FileText, ArrowLeftRight, Layers, Clock, CheckCircle, XCircle, Package, AlertTriangle,
 } from 'lucide-react';
 import { PageHero, type HeroStat } from '../../../components/ui/PageHero';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
 import { usePrestamosStore } from '../../../store/prestamosStore';
 import { hoy } from '../../../lib/utils';
@@ -58,7 +59,7 @@ export const Tramites = () => {
 
   return (
     <div className="flex flex-col h-full bg-[#f4f7fb]">
-      <PageHero icon={Inbox} title="Trámites" subtitle={active.subtitle} stats={heroStats}>
+      <PageHero icon={Inbox} title="Trámites" subtitle={active.subtitle} stats={heroStats} backgroundImage={HERO_BG.tramites}>
         {/* Conmutador integrado al hero (patrón de Horarios): sin fila extra vacía */}
         <div className="flex items-center bg-espoch-herocard/80 rounded-xl p-1 border border-white/5 shadow-inner">
           {TABS.map(t => (

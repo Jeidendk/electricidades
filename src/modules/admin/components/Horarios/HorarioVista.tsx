@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers } from 'lucide-react';
+import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers } from 'lucide-react';
 import { dias, horas, availableIcons, rangoIncluyeBloque } from './horariosData';
 import { SearchInput } from '../../../../components/ui/SearchInput';
 
@@ -23,6 +23,11 @@ interface HorarioVistaProps {
   setSelectedClaseId: (val: string | null) => void;
   handleFormatAll: () => void;
   canFormatAll: boolean;
+  handleImportar: () => void;
+  handleBorrarClasesDelAula: () => void;
+  canBorrarAula: boolean;
+  /** Cuántas clases tiene el aula filtrada: en 0 no se ofrece borrar (evita un borrado vacío). */
+  clasesEnAulaSeleccionada: number;
 }
 
 const hexToRgba = (hex: string, opacity: number) => {
@@ -50,6 +55,10 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   setSelectedClaseId,
   handleFormatAll,
   canFormatAll,
+  handleImportar,
+  handleBorrarClasesDelAula,
+  canBorrarAula,
+  clasesEnAulaSeleccionada,
 }) => {
   const getClaseEnCasilla = (dia: string, hora: string) => {
     const q = searchQuery.trim().toLowerCase();
@@ -65,6 +74,9 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   const nombreEdificioFiltrado = edificios.find(edificio => edificio.id === filterEdificio)?.nombre;
   const nombreAulaFiltrada = espacios.find(espacio => espacio.id === filterAula)?.nombre;
   const pisoActual = espacios.find(espacio => espacio.id === filterAula)?.piso;
+
+  // Sin aula seleccionada o sin clases no hay nada que borrar: el botón queda inactivo.
+  const puedeBorrarAulaActual = filterAula !== '' && clasesEnAulaSeleccionada > 0;
 
   // Al buscar (clase/docente) se ignora el filtro de ubicación: la grilla muestra dónde dicta
   // en varios edificios/pisos/aulas. Los chips se colapsan a un guion y las tarjetas muestran
@@ -114,12 +126,34 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
             </>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           {canFormatAll && (
             <button onClick={handleFormatAll} className="text-gray-600 hover:text-red-700 hover:bg-red-50 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all">
               <FileText className="w-3.5 h-3.5" /> Formatear todos
             </button>
           )}
+          {canBorrarAula && (
+            <button
+              onClick={handleBorrarClasesDelAula}
+              disabled={!puedeBorrarAulaActual}
+              title={
+                !filterAula
+                  ? 'Selecciona un aula para borrar su horario'
+                  : clasesEnAulaSeleccionada === 0
+                    ? `${nombreAulaFiltrada || 'Esta aula'} no tiene clases que borrar`
+                    : `Borrar las ${clasesEnAulaSeleccionada} clases de ${nombreAulaFiltrada}`
+              }
+              className="text-red-700 bg-white border border-red-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all hover:bg-red-50 hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Borrar aula
+              {clasesEnAulaSeleccionada > 0 && (
+                <span className="bg-red-50 text-red-700 rounded-full px-1.5 py-0.5 text-[10px] font-extrabold leading-none">{clasesEnAulaSeleccionada}</span>
+              )}
+            </button>
+          )}
+          <button onClick={handleImportar} title="Importar horario desde Excel o CSV" className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
+            <Upload className="w-3.5 h-3.5" /> Importar
+          </button>
           <button onClick={() => { setIsExportModalOpen(true); if (nombreEdificioFiltrado) setExportEdificio(nombreEdificioFiltrado); if (nombreAulaFiltrada) setExportAula(nombreAulaFiltrada); }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> Exportar
           </button>

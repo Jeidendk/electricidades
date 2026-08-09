@@ -4,7 +4,8 @@ import { CalendarDays, ChevronRight, ChevronLeft, BookOpen, User, Clock, Info, F
 import { dias, horas } from '../../admin/components/Horarios/horariosData';
 import { studentInfo, materiaColors } from '../data/studentSchedule';
 import { useAuthStore } from '../../../store/authStore';
-import { useHorarioEstudianteStore } from '../../../store/horarioEstudianteStore';
+import { useHorarioEstudianteStore, type HorarioEstudianteItem } from '../../../store/horarioEstudianteStore';
+import Swal from 'sweetalert2';
 
 const hexToRgba = (hex: string, opacity: number) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -106,6 +107,33 @@ export const HorariosEstudiante = () => {
 
   // Get classes for a specific day
   const getClasesForDay = (dia: string) => clases.filter(c => c.dia === dia);
+
+  /** Pide confirmación antes de salir del horario y abrir el mapa en ese espacio. */
+  const confirmarIrAlAula = async (aula: string, tipo: HorarioEstudianteItem['tipo']) => {
+    if (!aula || aula === 'Sin aula') {
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin aula asignada',
+        text: 'Esta clase todavía no tiene un espacio asignado, así que no se puede ubicar en el mapa.',
+        confirmButtonColor: '#B00020',
+      });
+      return;
+    }
+
+    const esLaboratorio = tipo === 'laboratorio';
+    const confirmacion = await Swal.fire({
+      icon: 'question',
+      title: `¿Ir a ${aula}?`,
+      text: `Te llevamos al mapa para ubicar ${esLaboratorio ? 'este laboratorio' : 'esta aula'}.`,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, ver en el mapa',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#B00020',
+      cancelButtonColor: '#64748b',
+    });
+
+    if (confirmacion.isConfirmed) navigate(`/student/map?aula=${encodeURIComponent(aula)}`);
+  };
 
   // Donut chart by materia
   const DonutChart = () => {
@@ -479,9 +507,14 @@ export const HorariosEstudiante = () => {
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 ml-5">
-                                  <span className="text-[10px] font-semibold text-gray-600 flex items-center gap-1 truncate">
-                                    <BookOpen className="w-3 h-3 text-gray-400 shrink-0" /> {clase.aula}
-                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); confirmarIrAlAula(clase.aula, clase.tipo); }}
+                                    title={`Ver ${clase.aula} en el mapa`}
+                                    className="text-[10px] font-semibold text-gray-600 flex items-center gap-1 truncate rounded-md px-1 -ml-1 hover:bg-white hover:text-espoch-red hover:underline transition-colors"
+                                  >
+                                    <MapPin className="w-3 h-3 text-gray-400 shrink-0" /> {clase.aula}
+                                  </button>
                                   <span
                                     className="text-[8px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
                                     style={{ backgroundColor: hexToRgba(color, 0.12), color }}
@@ -498,7 +531,7 @@ export const HorariosEstudiante = () => {
                               </div>
                               {/* Hover: Go to map button */}
                               <button
-                                onClick={(e) => { e.stopPropagation(); navigate(`/student/map?aula=${encodeURIComponent(clase.aula)}`); }}
+                                onClick={(e) => { e.stopPropagation(); confirmarIrAlAula(clase.aula, clase.tipo); }}
                                 className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md hover:scale-110 bg-white border border-gray-200 text-gray-500 hover:text-espoch-red hover:border-espoch-red/30"
                                 title={`Ver ${clase.aula} en el mapa`}
                               >

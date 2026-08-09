@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
+import { aNumeroOpcional, normalizarTexto } from '../lib/texto';
 
 export type Rol = 'admin' | 'tecnico' | 'student';
 
@@ -143,18 +144,22 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
   let pao: number | undefined;
   if (rolFuncional === 'student') {
     if (carreraNombre) {
-      const { data: carreraData } = await supabase
-        .from('carreras')
-        .select('id')
-        .eq('nombre', carreraNombre)
-        .limit(1)
-        .maybeSingle();
-      carreraId = carreraData?.id || meta.carrera_id || undefined;
+      // El perfil guarda el NOMBRE de la carrera, no su id. Se compara normalizado porque una
+      // tilde o una mayúscula de diferencia dejaría al estudiante sin horario.
+      const { data: carrerasData } = await supabase.from('carreras').select('id, nombre');
+      const buscada = normalizarTexto(carreraNombre);
+      const carreraEncontrada = (carrerasData || []).find(c => normalizarTexto(c.nombre) === buscada);
+
+      carreraId = carreraEncontrada?.id || meta.carrera_id || undefined;
+      if (!carreraEncontrada && !meta.carrera_id) {
+        console.warn(`No hay ninguna carrera registrada que coincida con "${carreraNombre}"; el horario automático quedará vacío.`);
+      }
     } else {
       carreraId = meta.carrera_id || undefined;
     }
-    const paoPerfil = data.pao != null && data.pao !== '' ? data.pao : meta.pao;
-    pao = paoPerfil != null && paoPerfil !== '' ? Number(paoPerfil) : undefined;
+
+    // El PAO se guarda como texto y puede venir como "5" o "5to".
+    pao = aNumeroOpcional(data.pao ?? meta.pao);
   }
 
   return {

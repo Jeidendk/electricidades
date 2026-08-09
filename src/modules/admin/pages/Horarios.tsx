@@ -5,6 +5,8 @@ import { CalendarDays, Clock, DoorOpen, UserCheck,  ZoomIn, ZoomOut, ChevronLeft
 import { HorarioVista } from '../components/Horarios/HorarioVista';
 import { MapaEspacios } from '../components/Horarios/MapaEspacios';
 import { AsignacionModal } from '../components/Horarios/AsignacionModal';
+import { ImportarHorarioModal } from '../components/Horarios/ImportarHorarioModal';
+import type { ClaseImportable } from '../components/Horarios/importarHorario';
 import { ExportSidebar } from '../components/Horarios/ExportSidebar';
 import { PlantillaPDF } from '../components/Horarios/PlantillaPDF';
 import { PlantillaWord } from '../components/Horarios/PlantillaWord';
@@ -25,13 +27,13 @@ const loadExportPrefs = (): Record<string, any> => {
 
 export const Horarios = () => {
   // === SUPABASE STORES ===
-  const { clases: rawClases, fetchClases, addClase, updateClase, removeClase, removeAllClases } = useClasesStore();
+  const { clases: rawClases, fetchClases, addClase, addClases, updateClase, removeClase, removeClasesByEspacio, removeAllClases } = useClasesStore();
   const { items: espaciosRaw, fetchEspacios } = useEspaciosStore();
   const { carreras, fetchAll: fetchFacultades } = useFacultadesStore();
 
   const { items: edificiosRaw, fetchEdificios } = useEdificiosStore();
-  const { fetchMaterias } = useMateriasStore();
-  const { fetchDocentes } = useDocentesStore();
+  const { materias, fetchMaterias } = useMateriasStore();
+  const { docentes: docentesRegistrados, fetchDocentes } = useDocentesStore();
   
   useEffect(() => {
     fetchClases();
@@ -139,6 +141,7 @@ export const Horarios = () => {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedClaseId, setSelectedClaseId] = useState<string | null>(null);
   const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' });
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Export State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -260,6 +263,13 @@ export const Horarios = () => {
         }
       }
       await fetchClases(); // recarga con los datos relacionados (materia, docente, aula) para verlos en la grilla
+
+      // La grilla muestra un aula a la vez. Si en el modal se eligió un aula distinta de la
+      // filtrada, la clase recién guardada quedaría fuera de la vista y parecería no haberse
+      // creado: se mueven los filtros al aula donde realmente quedó.
+      if (formValues.idEdificio) setFilterEdificio(formValues.idEdificio);
+      if (formValues.idEspacio) setFilterAula(formValues.idEspacio);
+
       setIsModalOpen(false);
       Swal.fire('Éxito', 'Clase guardada correctamente', 'success');
     } catch (err: any) {
@@ -305,6 +315,83 @@ export const Horarios = () => {
           .catch(() => Swal.fire('Error', 'No se pudieron eliminar las clases.', 'error'));
       }
     });
+  };
+
+  // ── Borrado por aula ──────────────────────────────────────────────────────
+  // Solo actúa sobre el aula seleccionada en los filtros y nunca se lanza "en vacío":
+  // sin aula o sin clases, el botón está deshabilitado y aquí se corta igual.
+  const aulaSeleccionada = espaciosRaw.find((espacio: any) => espacio.id === filterAula);
+  const clasesDelAula = (rawClases as any[]).filter((c) => c.id_espacio === filterAula);
+
+  const handleBorrarClasesDelAula = async () => {
+    if (esTecnico) {
+      Swal.fire('Acción no permitida', 'Solo un administrador puede borrar el horario completo de un aula.', 'warning');
+      return;
+    }
+    if (!aulaSeleccionada) {
+      Swal.fire('Selecciona un aula', 'Elige un aula en el panel de Ubicaciones antes de borrar su horario.', 'info');
+      return;
+    }
+    if (clasesDelAula.length === 0) {
+      Swal.fire('Nada que borrar', `El aula ${aulaSeleccionada.nombre} no tiene clases registradas.`, 'info');
+      return;
+    }
+
+    const nombreEdificio = edificiosRaw.find((e: any) => e.id === aulaSeleccionada.id_edificio)?.nombre || 'edificio sin nombre';
+    const cantidad = clasesDelAula.length;
+
+    const confirmacion = await Swal.fire({
+      title: `¿Borrar el horario de ${aulaSeleccionada.nombre}?`,
+      html: `Se eliminarán <b>${cantidad}</b> ${cantidad === 1 ? 'clase' : 'clases'} de <b>${nombreEdificio} · ${aulaSeleccionada.nombre}</b>.<br>Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: `Sí, borrar ${cantidad === 1 ? 'la clase' : `las ${cantidad} clases`}`,
+      cancelButtonText: 'Cancelar',
+    });
+    if (!confirmacion.isConfirmed) return;
+
+    try {
+      const eliminadas = await removeClasesByEspacio(aulaSeleccionada.id);
+      await fetchClases();
+
+      if (eliminadas < cantidad) {
+        Swal.fire(
+          'Borrado parcial',
+          `Se eliminaron ${eliminadas} de ${cantidad} clases. Las restantes pertenecen a otro usuario y no tienes permiso para borrarlas.`,
+          'warning',
+        );
+        return;
+      }
+      Swal.fire('Horario borrado', `Se eliminaron ${eliminadas} ${eliminadas === 1 ? 'clase' : 'clases'} de ${aulaSeleccionada.nombre}.`, 'success');
+    } catch (err: any) {
+      Swal.fire('No se pudo borrar', err?.message || 'Error desconocido al borrar el horario del aula.', 'error');
+    }
+  };
+
+  // ── Importación desde Excel/CSV ───────────────────────────────────────────
+  const handleImportarClases = async (importables: ClaseImportable[]): Promise<number> => {
+    try {
+      const marcaTiempo = Date.now();
+      const insertadas = await addClases(
+        importables.map((clase, indice) => ({
+          id: `CLA${marcaTiempo}-${indice}`,
+          id_materia: clase.idMateria,
+          id_docente: clase.idDocente,
+          id_espacio: clase.idEspacio,
+          dia: clase.dia,
+          hora_inicio: `${clase.horaInicio}:00`,
+          hora_fin: `${clase.horaFin}:00`,
+          creado_por: currentUser?.id || null,
+        })),
+      );
+      Swal.fire('Horario importado', `Se registraron ${insertadas} ${insertadas === 1 ? 'clase' : 'clases'}.`, 'success');
+      return insertadas;
+    } catch (err: any) {
+      Swal.fire('No se pudo importar', err?.message || 'Error desconocido al importar el horario.', 'error');
+      throw err;
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -501,6 +588,10 @@ export const Horarios = () => {
                   setSelectedClaseId={setSelectedClaseId}
                   handleFormatAll={handleFormatAll}
                   canFormatAll={!esTecnico}
+                  handleImportar={() => setIsImportOpen(true)}
+                  handleBorrarClasesDelAula={handleBorrarClasesDelAula}
+                  canBorrarAula={!esTecnico}
+                  clasesEnAulaSeleccionada={clasesDelAula.length}
                 />
               )}
               {activeTab === 'mapa' && (
@@ -616,6 +707,22 @@ export const Horarios = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {isImportOpen && (
+          <ImportarHorarioModal
+            onClose={() => setIsImportOpen(false)}
+            nombreAulaPorDefecto={aulaSeleccionada?.nombre || ''}
+            catalogos={{
+              materias,
+              docentes: docentesRegistrados,
+              espacios: espaciosRaw,
+              edificios: edificiosRaw,
+              clasesExistentes: rawClases,
+              idEspacioPorDefecto: filterAula,
+            }}
+            onImportar={handleImportarClases}
+          />
         )}
 
         {isModalOpen && (

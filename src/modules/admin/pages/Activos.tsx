@@ -5,6 +5,7 @@ import {
   CheckCircle, AlertTriangle, XOctagon, Clock, Loader, User,
 } from 'lucide-react';
 import { PageHero, type HeroStat } from '../../../components/ui/PageHero';
+import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { useMantenimientoStore } from '../../../store/mantenimientoStore';
 import { useAsignacionesStore, resKey } from '../../../store/asignacionesStore';
@@ -78,7 +79,7 @@ export const Activos = () => {
 
   return (
     <div className="flex flex-col h-full bg-[#f4f7fb]">
-      <PageHero icon={Package} title="Activos" subtitle={active.subtitle} stats={heroStats}>
+      <PageHero icon={Package} title="Activos" subtitle={active.subtitle} stats={heroStats} backgroundImage={HERO_BG.activos}>
         {/* Conmutador integrado al hero (patrón de Horarios): sin fila extra vacía */}
         <div className="flex items-center bg-espoch-herocard/80 rounded-xl p-1 border border-white/5 shadow-inner">
           {TABS.map(t => (

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { debeRecargar, type OpcionesFetch } from '../lib/frescura';
 import type { Database } from '../lib/database.types';
 import { notifyStoreError } from '../lib/notifyError';
 
@@ -11,25 +12,35 @@ interface MateriasState {
   materias: MateriaRow[];
   loading: boolean;
   error: string | null;
-  fetchMaterias: (idCarrera?: string) => Promise<void>;
+  /** Momento de la última carga correcta; null si nunca se cargó. */
+  ultimaCarga: number | null;
+  /** Carrera con la que se cargó la lista actual ('' = todas): si cambia, hay que releer. */
+  carreraCargada: string;
+  fetchMaterias: (idCarrera?: string, opciones?: OpcionesFetch) => Promise<void>;
   addMateria: (data: MateriaInsert) => Promise<void>;
   updateMateria: (id: string, patch: MateriaUpdate) => Promise<void>;
   removeMateria: (id: string) => Promise<void>;
 }
 
-export const useMateriasStore = create<MateriasState>()((set) => ({
+export const useMateriasStore = create<MateriasState>()((set, get) => ({
   materias: [],
   loading: false,
   error: null,
+  ultimaCarga: null,
+  carreraCargada: '',
 
-  fetchMaterias: async (idCarrera?: string) => {
+  fetchMaterias: async (idCarrera, opciones) => {
+    const carrera = idCarrera || '';
+    // La caché solo vale si se pide exactamente el mismo filtro que ya está cargado.
+    if (get().carreraCargada === carrera && !debeRecargar(get().ultimaCarga, opciones)) return;
+
     set({ loading: true, error: null });
     try {
       let query = supabase.from('materias').select('*').order('semestre').order('nombre');
-      if (idCarrera) query = query.eq('id_carrera', idCarrera);
+      if (carrera) query = query.eq('id_carrera', carrera);
       const { data, error } = await query;
       if (error) throw error;
-      set({ materias: data || [] });
+      set({ materias: data || [], ultimaCarga: Date.now(), carreraCargada: carrera });
     } catch (err: any) {
       set({ error: err.message });
     } finally {

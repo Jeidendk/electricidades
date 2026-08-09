@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { debeRecargar, type OpcionesFetch } from '../lib/frescura';
 import type { Database } from '../lib/database.types';
 import { notifyStoreError } from '../lib/notifyError';
 
@@ -11,18 +12,23 @@ interface EdificiosState {
   items: EdificioRow[];
   loading: boolean;
   error: string | null;
-  fetchEdificios: () => Promise<void>;
+  /** Momento de la última carga correcta; null si nunca se cargó. */
+  ultimaCarga: number | null;
+  fetchEdificios: (opciones?: OpcionesFetch) => Promise<void>;
   addEdificio: (data: EdificioInsert) => Promise<void>;
   updateEdificio: (id: string, patch: EdificioUpdate) => Promise<void>;
   removeEdificio: (id: string) => Promise<void>;
 }
 
-export const useEdificiosStore = create<EdificiosState>()((set) => ({
+export const useEdificiosStore = create<EdificiosState>()((set, get) => ({
   items: [],
   loading: false,
   error: null,
+  ultimaCarga: null,
 
-  fetchEdificios: async () => {
+  fetchEdificios: async (opciones) => {
+    if (!debeRecargar(get().ultimaCarga, opciones)) return;
+
     set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.from('edificios').select(`
@@ -30,7 +36,7 @@ export const useEdificiosStore = create<EdificiosState>()((set) => ({
         espacios ( id, nombre, piso, tipo, capacidad, estado )
       `);
       if (error) throw error;
-      set({ items: data || [] });
+      set({ items: data || [], ultimaCarga: Date.now() });
     } catch (err: any) {
       set({ error: err.message });
     } finally {

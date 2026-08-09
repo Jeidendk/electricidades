@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { debeRecargar, type OpcionesFetch } from '../lib/frescura';
 import type { Database } from '../lib/database.types';
 import { notifyStoreError } from '../lib/notifyError';
 
@@ -11,23 +12,28 @@ interface RecursosState {
   recursos: RecursoRow[];
   loading: boolean;
   error: string | null;
-  fetchRecursos: () => Promise<void>;
+  /** Momento de la última carga correcta; null si nunca se cargó. */
+  ultimaCarga: number | null;
+  fetchRecursos: (opciones?: OpcionesFetch) => Promise<void>;
   addRecurso: (data: RecursoInsert) => Promise<void>;
   updateRecurso: (id: number, patch: RecursoUpdate) => Promise<void>;
   removeRecurso: (id: number) => Promise<void>;
 }
 
-export const useRecursosStore = create<RecursosState>((set) => ({
+export const useRecursosStore = create<RecursosState>((set, get) => ({
   recursos: [],
   loading: false,
   error: null,
+  ultimaCarga: null,
 
-  fetchRecursos: async () => {
+  fetchRecursos: async (opciones) => {
+    if (!debeRecargar(get().ultimaCarga, opciones)) return;
+
     set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.from('recursos').select('*');
       if (error) throw error;
-      set({ recursos: data || [] });
+      set({ recursos: data || [], ultimaCarga: Date.now() });
     } catch (err: any) {
       set({ error: err.message });
     } finally {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { debeRecargar, type OpcionesFetch } from '../lib/frescura';
 import type { Database } from '../lib/database.types';
 import { notifyStoreError } from '../lib/notifyError';
 
@@ -11,23 +12,28 @@ interface MantenimientoState {
   ordenes: OrdenRow[];
   loading: boolean;
   error: string | null;
-  fetchOrdenes: () => Promise<void>;
+  /** Momento de la última carga correcta; null si nunca se cargó. */
+  ultimaCarga: number | null;
+  fetchOrdenes: (opciones?: OpcionesFetch) => Promise<void>;
   addOrden: (data: OrdenInsert) => Promise<void>;
   updateOrden: (id: string, patch: OrdenUpdate) => Promise<void>;
   removeOrden: (id: string) => Promise<void>;
 }
 
-export const useMantenimientoStore = create<MantenimientoState>((set) => ({
+export const useMantenimientoStore = create<MantenimientoState>((set, get) => ({
   ordenes: [],
   loading: false,
   error: null,
+  ultimaCarga: null,
 
-  fetchOrdenes: async () => {
+  fetchOrdenes: async (opciones) => {
+    if (!debeRecargar(get().ultimaCarga, opciones)) return;
+
     set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.from('ordenes_mantenimiento').select('*');
       if (error) throw error;
-      set({ ordenes: data || [] });
+      set({ ordenes: data || [], ultimaCarga: Date.now() });
     } catch (err: any) {
       set({ error: err.message });
     } finally {
