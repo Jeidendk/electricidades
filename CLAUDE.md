@@ -71,6 +71,13 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Fix: cambiar la contraseña no desbloqueaba la cuenta.** Tras superar el límite de intentos,
+  el usuario recuperaba su contraseña por correo (`/set-password`) pero la fila de
+  `intentos_login` seguía con `bloqueado_hasta` a futuro, así que al volver al login
+  `consultarBloqueo` (`Login.tsx:108`) lo rechazaba con la contraseña nueva y correcta.
+  `SetPassword.tsx` ahora llama a `limpiarIntentos()` **antes** de `signOut()` (la función SQL
+  toma el correo del token, así que necesita la sesión del enlace de recuperación). No abre un
+  bypass: exige acceso al buzón, el mismo requisito que tomar la cuenta entera.
 - **Caché de frescura en los stores** (`src/lib/frescura.ts`, TTL 60 s): layouts y páginas pedían los
   mismos datos en cada montaje (los logs mostraban `inventario`, `espacios` y `recursos` 4 veces en
   11 s). Aplicado a inventario, espacios, recursos, préstamos, mantenimiento, asignaciones, edificios

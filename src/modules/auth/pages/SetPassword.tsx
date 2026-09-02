@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Eye, EyeOff, GraduationCap, Zap, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { limpiarIntentos } from '../../../lib/bloqueoLogin';
 
 // Pantalla a la que llega el usuario invitado tras hacer clic en el enlace de un solo uso
 // enviado a su correo. La sesión ya viene establecida por el enlace mágico de Supabase;
@@ -45,6 +46,10 @@ export const SetPassword = () => {
       Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: error.message, confirmButtonColor: '#B00020' });
       return;
     }
+    // Quien llega aquí probó tener acceso al correo y acaba de fijar una contraseña nueva:
+    // el bloqueo por intentos fallidos deja de tener sentido. Se limpia ANTES de cerrar la
+    // sesión porque la función toma el correo del token (requiere sesión activa).
+    await limpiarIntentos();
     await supabase.auth.signOut();
     Swal.fire({
       icon: 'success',
