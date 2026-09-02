@@ -903,7 +903,7 @@ export const Infraestructura = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Pisos</label>
                       <input required type="number" min="1" value={edForm.pisos} onChange={e => setEdForm({ ...edForm, pisos: parseInt(e.target.value) || 0 })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-red focus:bg-white font-bold transition-all" />
@@ -1002,7 +1002,7 @@ export const Infraestructura = () => {
                   </div>
                 </div>
                 <div className="flex flex-col gap-5 flex-1">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre</label>
                       <input required value={espForm.nombre} onChange={e => setEspForm({ ...espForm, nombre: e.target.value })} placeholder="Lab. de Electrónica" className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all" />
@@ -1015,7 +1015,7 @@ export const Infraestructura = () => {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Piso</label>
                       <input required type="number" min="1" value={espForm.piso} onChange={e => setEspForm({ ...espForm, piso: parseInt(e.target.value) || 1 })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all" />
@@ -1029,7 +1029,7 @@ export const Infraestructura = () => {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Capacidad</label>
                       <input required type="number" min="1" value={espForm.capacidad} onChange={e => setEspForm({ ...espForm, capacidad: parseInt(e.target.value) || 30 })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all" />

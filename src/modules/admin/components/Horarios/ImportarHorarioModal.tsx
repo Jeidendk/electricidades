@@ -157,7 +157,7 @@ export const ImportarHorarioModal: React.FC<ImportarHorarioModalProps> = ({
 
           {(estado === 'revision' || estado === 'importando') && resultado && (
             <>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
                   <div className="flex items-center gap-2 text-emerald-700">
                     <CheckCircle2 className="w-4 h-4" />

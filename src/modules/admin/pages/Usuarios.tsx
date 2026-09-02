@@ -788,7 +788,7 @@ export const Usuarios = () => {
 
                   {/* Facultad + Carrera — al crear o editar Estudiante/Técnico. */}
                   {(formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
                             <select value={formValues.facultadId} onChange={e => setFormValues({...formValues, facultadId: e.target.value, carreraId: '', pao: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
@@ -808,7 +808,7 @@ export const Usuarios = () => {
 
                   {/* Código + PAO — al crear o editar un Estudiante. */}
                   {formValues.rol === 'Estudiante' && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Código Institucional</label>
                             <input value={formValues.codigo} onChange={e => setFormValues({...formValues, codigo: e.target.value})} placeholder="Ej. 123456" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />

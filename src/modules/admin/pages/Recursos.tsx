@@ -147,7 +147,7 @@ export const Recursos = () => {
                 <p className="text-[11px] text-gray-500 text-center max-w-sm">Sube un PDF, instalador o enlace. Los metadatos (título, autor, formato) se detectarán y completarán automáticamente.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="flex flex-col gap-2">
                   <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo de Recurso</label>
                   <select 
@@ -167,7 +167,7 @@ export const Recursos = () => {
 
               {newRecurso.tipo === 'libro' ? (
                 <>
-                  <div className="grid grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="flex flex-col gap-2">
                       <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Autor(es)</label>
                       <input type="text" value={newRecurso.autor} onChange={e => setNewRecurso({...newRecurso, autor: e.target.value})} className="bg-white text-[13px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:ring-2 focus:ring-espoch-yellow/20 font-semibold transition-all shadow-sm" placeholder="Ej: Kurose, Ross" />
@@ -183,7 +183,7 @@ export const Recursos = () => {
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="flex flex-col gap-2">
                       <label className="text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Área / Tipo App</label>
                       <input type="text" value={newRecurso.tipoApp} onChange={e => setNewRecurso({...newRecurso, tipoApp: e.target.value})} className="bg-white text-[13px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:ring-2 focus:ring-espoch-yellow/20 font-semibold transition-all shadow-sm" placeholder="Ej: Simulación" />

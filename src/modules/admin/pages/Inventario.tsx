@@ -539,7 +539,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
                     }} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nombre del Ítem</label>
                     <input required value={formValues.nombre} onChange={e => setFormValues({...formValues, nombre: e.target.value})} placeholder="Ej: Módulo PLC..." className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium" />
@@ -592,7 +592,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
                     )}
                   </div>
                 )}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Categoría</label>
                     <select value={formValues.categoria} onChange={e => setFormValues({...formValues, categoria: e.target.value as CategoriaInventario})} className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium appearance-none cursor-pointer">

@@ -658,7 +658,7 @@ export const Formatos = () => {
                         <div className="flex items-center gap-2"><User className="w-4 h-4 text-gray-500" /> 2. Datos del Estudiante</div>
                         <ChevronDown className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" />
                       </summary>
-                      <div className="p-4 border-t border-gray-100 grid grid-cols-2 gap-4 bg-gray-50/50">
+                      <div className="p-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50">
                         <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-bold text-gray-600">Nombres y apellidos *</label>
                           <input name="nombresApellidos" value={genValues.nombresApellidos} onChange={handleGenChange} className="text-xs p-2.5 border border-gray-200 rounded-lg outline-none focus:border-blue-400 bg-white" />
@@ -714,7 +714,7 @@ export const Formatos = () => {
                         <div className="flex items-center gap-2"><PenTool className="w-4 h-4 text-gray-500" /> 4. Firma del Estudiante</div>
                         <ChevronDown className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" />
                       </summary>
-                      <div className="p-4 border-t border-gray-100 grid grid-cols-2 gap-4 bg-gray-50/50">
+                      <div className="p-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50">
                         <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-bold text-gray-600">Nombre para la firma *</label>
                           <input name="nombreFirma" value={genValues.nombreFirma} onChange={handleGenChange} className="text-xs p-2.5 border border-gray-200 rounded-lg outline-none focus:border-blue-400 bg-white" />

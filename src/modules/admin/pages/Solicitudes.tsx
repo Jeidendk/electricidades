@@ -496,7 +496,7 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
                   setModalType(null);
                 }} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Asunto</label><input name="asunto" required placeholder="Ej: Solicitud de uso de laboratorio" className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium" /></div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tipo de Solicitud</label>
                       <select name="tipo" className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium appearance-none cursor-pointer">
                         <option value="Uso de laboratorio">Uso de laboratorio</option>

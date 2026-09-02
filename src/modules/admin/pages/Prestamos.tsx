@@ -375,7 +375,7 @@ export const Prestamos = ({ embedded = false }: { embedded?: boolean } = {}) => 
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cantidad</label>
                   <input required type="number" min={1} value={form.cantidad} onChange={e => setForm({ ...form, cantidad: Number(e.target.value) })} className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium" />

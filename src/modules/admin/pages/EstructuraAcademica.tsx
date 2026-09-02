@@ -1031,7 +1031,7 @@ export const EstructuraAcademica = () => {
         </>}
       >
         <form id="facultadForm" onSubmit={handleSaveFacultad} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-gray-600 ml-1">Siglas <span className="text-red-500">*</span></label>
               <input type="text" required value={formFacultad.siglas} onChange={e => setFormFacultad({ ...formFacultad, siglas: e.target.value })} className="w-full bg-white border border-gray-200 text-sm text-gray-800 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium" placeholder="Ej: FIE" />
@@ -1071,7 +1071,7 @@ export const EstructuraAcademica = () => {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 block mb-2">Ícono o Logotipo SVG</label>
-                <div className="grid grid-cols-7 gap-2 mb-3">
+                <div className="grid grid-cols-5 sm:grid-cols-7 gap-2 mb-3">
                   {Object.keys(availableIcons).map(iconName => {
                     const IconCmp = availableIcons[iconName];
                     const isSelected = formFacultad.icono === iconName && !formFacultad.customSvg;
@@ -1123,7 +1123,7 @@ export const EstructuraAcademica = () => {
             <label className="text-[11px] font-bold text-gray-600 ml-1">Nombre de la Carrera <span className="text-red-500">*</span></label>
             <input type="text" required value={formCarrera.nombre} onChange={e => setFormCarrera({ ...formCarrera, nombre: e.target.value })} className="w-full bg-white border border-gray-200 text-sm text-gray-800 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium" placeholder="Ej: Ingeniería de Software" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-gray-600 ml-1">N° PAO</label>
               <input type="number" min={1} max={12} value={formCarrera.semestres} onChange={e => setFormCarrera({ ...formCarrera, semestres: parseInt(e.target.value) || 9 })} className="w-full bg-white border border-gray-200 text-sm text-gray-800 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium" />
@@ -1161,7 +1161,7 @@ export const EstructuraAcademica = () => {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 block mb-2">Ícono o Logotipo (SVG, PNG)</label>
-                <div className="grid grid-cols-7 gap-2 mb-3">
+                <div className="grid grid-cols-5 sm:grid-cols-7 gap-2 mb-3">
                   {Object.keys(availableIcons).map(iconName => {
                     const IconCmp = availableIcons[iconName];
                     const isSelected = formCarrera.icono === iconName && !formCarrera.customSvg;
