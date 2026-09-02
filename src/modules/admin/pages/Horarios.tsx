@@ -624,8 +624,8 @@ export const Horarios = () => {
               />
 
               <div className="flex-1 flex flex-col h-full bg-[#f1f3f4] rounded-[20px] overflow-hidden border border-gray-200/50 min-h-[600px] lg:min-h-0">
-                <div className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 shrink-0 shadow-sm z-10">
-                  <div className="flex items-center gap-4 bg-gray-50/50 p-1.5 border border-gray-100 rounded-xl">
+                <div className="min-h-16 border-b border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3 px-4 py-2 shrink-0 shadow-sm z-10">
+                  <div className="hidden xl:flex items-center gap-4 bg-gray-50/50 p-1.5 border border-gray-100 rounded-xl">
                     <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600"><CalendarDays className="w-3.5 h-3.5" /></div>
                     <div className="flex flex-col justify-center">
                       <span className="text-[9px] font-bold text-gray-700">Última generación</span>
@@ -637,7 +637,7 @@ export const Horarios = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
+                  <div className="flex flex-wrap items-center gap-3 xl:gap-6">
                     <div className="flex items-center gap-1 bg-white rounded-md border border-gray-200 p-0.5 shadow-sm">
                       <button onClick={() => setPdfZoom(z => Math.max(z - 10, 50))} className="p-1 hover:bg-gray-100 rounded text-gray-500"><ZoomOut className="w-3.5 h-3.5"/></button>
                       <span className="text-[11px] font-extrabold text-gray-700 w-20 text-center select-none">Zoom {pdfZoom}%</span>
