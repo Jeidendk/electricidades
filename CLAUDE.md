@@ -71,6 +71,15 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Responsive de admin, lote 1 (solo clases, sin tocar lógica).** Los modales CRUD tenían
+  `grid-cols-2`/`-3` fijos sin breakpoint → ahora `grid-cols-1 md:grid-cols-2`; de `md` en
+  adelante se ve idéntico. En Horarios, la barra de la vista previa de exportación era una fila
+  rígida (`h-16`, sin `flex-wrap`) dentro de un `overflow-hidden`: los botones PDF/DOCX quedaban
+  recortados e inalcanzables en pantallas angostas. Pendiente del resto: `src/components/ui/*`
+  no tiene ni un prefijo responsive, 1216 tamaños de fuente en px fijos, y los 2 cambios que sí
+  alteran comportamiento (quitar `overflow-x-hidden` de `AdminLayout.tsx:42`, `h-screen`→`h-dvh`).
+  **UI muerta detectada, no tocada**: los botones de página anterior/siguiente de esa misma barra
+  (`Horarios.tsx:648-650`) no tienen `onClick` y el contador siempre dice "1 / 1".
 - **Fix: cambiar la contraseña no desbloqueaba la cuenta.** Tras superar el límite de intentos,
   el usuario recuperaba su contraseña por correo (`/set-password`) pero la fila de
   `intentos_login` seguía con `bloqueado_hasta` a futuro, así que al volver al login
