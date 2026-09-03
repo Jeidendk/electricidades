@@ -71,6 +71,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Docentes: título académico y nombre partido (migración 0021, HAY QUE EJECUTARLA ANTES de
+  desplegar).** `usuarios` gana `titulo`, `apellidos` y `nombres`. **`nombre` se conserva** como
+  el nombre completo canónico —lo leen los horarios, los avatares y el chequeo de duplicados—
+  y ahora se **compone** como `NOMBRES APELLIDOS` (`componerNombreCompleto`). El formulario de
+  docente pasa de un input a tres: Título (select de `TITULOS_ACADEMICOS`), Nombres y Apellidos,
+  estos dos en **mayúsculas automáticas al teclear**; el resto de roles conserva su input único.
+  El título viaja hasta la grilla, el PDF, el Word y el desplegable de docentes vía
+  `nombreConTitulo()` en `src/modules/admin/data/docentesData.ts`. **El backfill INVIERTE los
+  nombres guardados** (hoy están como `APELLIDOS NOMBRES`) y solo actúa sobre los de
+  **exactamente 4 términos**, donde el reparto 2+2 no es ambiguo; con 3 o 5 no se puede saber si
+  sobra un apellido o falta un nombre, así que se dejan intactos y la migración termina con un
+  `select` que los lista para corregirlos a mano.
 - **Jornada extendida hasta las 19:00** (antes 17:00) y paralelo como select 1-4. El rango
   horario ya no está escrito con números sueltos: `HORA_INICIO_JORNADA`/`HORA_FIN_JORNADA` en
   `horariosData.ts` gobiernan la grilla, los selectores del formulario y las plantillas de

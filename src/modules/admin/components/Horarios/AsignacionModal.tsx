@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Plus, BookOpen, Clock } from 'lucide-react';
 import { calcularDuracion, dias, diaCanonico, paralelos, horasSeleccionables } from './horariosData';
+import { nombreConTitulo } from '../../data/docentesData';
 import { useMateriasStore } from '../../../../store/materiasStore';
 import { useDocentesStore } from '../../../../store/docentesStore';
 import { useFacultadesStore } from '../../../../store/facultadesStore';
@@ -134,7 +135,7 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
         )
         .map((docente) => ({
           value: docente.id,
-          label: docente.nombre,
+          label: nombreConTitulo(docente.titulo, docente.nombre),
         })),
     [docentes, formValues.idDocente],
   );

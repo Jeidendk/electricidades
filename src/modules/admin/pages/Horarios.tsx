@@ -16,7 +16,8 @@ import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
-import { horasFinDisponibles } from '../components/Horarios/horariosData';
+import { horasFinDisponibles, PARALELO_POR_DEFECTO } from '../components/Horarios/horariosData';
+import { nombreConTitulo } from '../data/docentesData';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 
@@ -53,7 +54,7 @@ export const Horarios = () => {
     return {
       id: c.id,
       materia: c.materias?.nombre || 'Sin materia',
-      docente: c.docentes?.nombre || 'Sin docente',
+      docente: nombreConTitulo(c.docentes?.titulo, c.docentes?.nombre) || 'Sin docente',
       aula: c.espacios?.nombre || 'Sin aula',
       edificio: c.espacios?.id_edificio || '',
       tipoEspacio: c.espacios?.tipo || 'Académica',
@@ -156,7 +157,7 @@ export const Horarios = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedClaseId, setSelectedClaseId] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', paralelo: '', dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' });
+  const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', paralelo: PARALELO_POR_DEFECTO, dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' });
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Export State

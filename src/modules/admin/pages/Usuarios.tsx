@@ -11,6 +11,7 @@ import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useAuthStore } from '../../../store/authStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { uploadImage } from '../../../lib/upload';
+import { TITULOS_ACADEMICOS, componerNombreCompleto, enMayusculas } from '../data/docentesData';
 import { supabase } from '../../../lib/supabase';
 import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 
@@ -57,6 +58,9 @@ export const Usuarios = () => {
       id: u.id,
       tipoRegistro: esDocente ? 'docente' as const : 'usuario' as const,
       nombre: u.nombre,
+      titulo: u.titulo || '',
+      apellidos: u.apellidos || '',
+      nombres: u.nombres || '',
       email: esDocente ? '' : u.email || '',
       rol,
       estado: u.estado,
@@ -106,6 +110,7 @@ export const Usuarios = () => {
   const defaultFormValues = {
     nombre: '', email: '', rol: 'Estudiante', departamento: 'FIE', estado: 'activo', avatar_url: '', fotoFile: null as File | null,
     codigo: '', facultadId: '', carreraId: '', pao: '',
+    titulo: '', apellidos: '', nombres: '',
   };
   const [formValues, setFormValues] = useState(defaultFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,10 +152,18 @@ export const Usuarios = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Los docentes capturan apellidos y nombres por separado; `nombre` se compone a partir de
+    // ellos para conservar un único nombre completo canónico (el que leen horarios y avatares).
+    const guardandoDocente = formValues.rol === 'Docente';
+    const nombreAGuardar = guardandoDocente
+      ? componerNombreCompleto(formValues.nombres, formValues.apellidos)
+      : formValues.nombre.trim();
+
     if (modalType === 'create') {
       const S = (await import('sweetalert2')).default;
       if (formValues.rol === 'Docente') {
-        const nombre = formValues.nombre.trim();
+        const nombre = nombreAGuardar;
         const duplicado = items.find(
           (usuario: any) => usuario.nombre.trim().toLocaleLowerCase('es') === nombre.toLocaleLowerCase('es'),
         );
@@ -193,6 +206,9 @@ export const Usuarios = () => {
           await addUsuario({
             id,
             nombre,
+            titulo: formValues.titulo || null,
+            apellidos: formValues.apellidos.trim() || null,
+            nombres: formValues.nombres.trim() || null,
             email: null,
             id_rol: rolDocente.id,
             estado: formValues.estado,
@@ -237,7 +253,7 @@ export const Usuarios = () => {
       // Técnico: facultad+carrera. Admin: nada académico.
       const fac: any = facultades.find((f: any) => f.id === formValues.facultadId);
       const car: any = carreras.find((c: any) => c.id === formValues.carreraId);
-      const meta: Record<string, any> = { nombre: formValues.nombre.trim(), rol: formValues.rol };
+      const meta: Record<string, any> = { nombre: nombreAGuardar, rol: formValues.rol };
       if (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') {
         if (fac) { meta.facultad_nombre = fac.siglas || fac.nombre; meta.departamento = fac.siglas || fac.nombre; }
         if (car) meta.carrera_nombre = car.nombre;
@@ -281,7 +297,10 @@ export const Usuarios = () => {
           const facultad: any = facultades.find((item: any) => item.id === formValues.facultadId);
           const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
           await updateUsuario(selectedUser.id, {
-            nombre: formValues.nombre.trim(),
+            nombre: nombreAGuardar,
+            titulo: formValues.titulo || null,
+            apellidos: formValues.apellidos.trim() || null,
+            nombres: formValues.nombres.trim() || null,
             departamento: nombreFacultad,
             facultad_nombre: nombreFacultad,
             estado: formValues.estado,
@@ -324,7 +343,7 @@ export const Usuarios = () => {
           formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico';
 
         const patch: any = {
-          nombre: formValues.nombre.trim(),
+          nombre: nombreAGuardar,
           estado: formValues.estado as any,
           departamento: tieneAsignacionAcademica ? nombreFacultad : '',
           facultad_nombre: tieneAsignacionAcademica ? nombreFacultad || null : null,
@@ -610,7 +629,7 @@ export const Usuarios = () => {
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
-                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, titulo: u.titulo || '', apellidos: u.apellidos || '', nombres: u.nombres || '', email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
               </div>
@@ -704,10 +723,37 @@ export const Usuarios = () => {
                         </div>
                     </div>
                   )}
-                  <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre Completo</label>
-                      <input required value={formValues.nombre} onChange={e => setFormValues({...formValues, nombre: e.target.value})} placeholder="Ej. Juan Pérez" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
-                  </div>
+                  {esDocenteForm ? (
+                    /* Dos campos rotulados en vez de uno: es lo que evita que cada persona
+                       escriba el nombre en un orden distinto. Se pasan a mayúsculas al teclear. */
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-[130px_1fr] gap-4">
+                          <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Título</label>
+                              <select value={formValues.titulo} onChange={e => setFormValues({...formValues, titulo: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
+                                  <option value="">Sin título</option>
+                                  {TITULOS_ACADEMICOS.map(titulo => <option key={titulo} value={titulo}>{titulo}</option>)}
+                              </select>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombres</label>
+                              <input required value={formValues.nombres} onChange={e => setFormValues({...formValues, nombres: enMayusculas(e.target.value)})} placeholder="Ej. ORLANDO DAVID" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                          </div>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Apellidos</label>
+                          <input required value={formValues.apellidos} onChange={e => setFormValues({...formValues, apellidos: enMayusculas(e.target.value)})} placeholder="Ej. MAZON MORENO" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                          <p className="text-[10px] font-medium text-gray-400">
+                            Se guardará como <b>{componerNombreCompleto(formValues.nombres, formValues.apellidos) || 'NOMBRES APELLIDOS'}</b>.
+                          </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre Completo</label>
+                        <input required value={formValues.nombre} onChange={e => setFormValues({...formValues, nombre: e.target.value})} placeholder="Ej. Juan Pérez" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                    </div>
+                  )}
                   {!esDocenteForm && (
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Correo Electrónico</label>

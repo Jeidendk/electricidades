@@ -4,6 +4,9 @@ export const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
 export const paralelos = [1, 2, 3, 4];
 
+/** Paralelo con el que arranca una clase nueva. */
+export const PARALELO_POR_DEFECTO = String(paralelos[0]);
+
 /**
  * Línea "PAO 7 · PARALELO 1" del encabezado de una clase. Omite la parte que falte:
  * las clases cargadas antes de la migración 0020 no tienen paralelo, y no se inventa uno.

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 export interface Docente {
   id: string;
   nombre: string;
+  titulo: string | null;
   estado: string;
   facultad_nombre: string | null;
 }
@@ -25,7 +26,7 @@ export const useDocentesStore = create<DocentesState>()((set) => ({
     try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nombre, estado, facultad_nombre, roles!inner(nombre)')
+        .select('id, nombre, titulo, estado, facultad_nombre, roles!inner(nombre)')
         .eq('roles.nombre', 'Docente')
         .order('nombre');
       if (error) throw error;
@@ -33,6 +34,7 @@ export const useDocentesStore = create<DocentesState>()((set) => ({
         docentes: ((data as any[]) || []).map((usuario) => ({
           id: usuario.id,
           nombre: usuario.nombre,
+          titulo: usuario.titulo || null,
           estado: usuario.estado,
           facultad_nombre: usuario.facultad_nombre || null,
         })),
