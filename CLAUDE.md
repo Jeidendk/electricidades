@@ -71,6 +71,16 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Paralelo por bloque de clase (migración 0020, HAY QUE EJECUTARLA).** `clases.paralelo`
+  smallint nullable, `check (paralelo is null or paralelo >= 1)`, sin tope: la cantidad de
+  paralelos cambia cada periodo. Va en `clases` y no en `materias` porque no se sabe de antemano
+  cuántos habrá. Nullable a propósito: las clases ya cargadas no tienen uno y no se inventa.
+  La celda de la grilla, el PDF y el Word muestran ahora **materia / PAO N · PARALELO N /
+  carrera / docente** — antes solo materia y "DOCENTE: X". El texto sale de
+  `etiquetaPaoParalelo()` en `horariosData.ts`, uno solo para los tres, y omite la parte que
+  falte. El PAO viene de `materias.semestre` (se agregó al `select` de `clasesStore`) y la
+  carrera de `carreras.nombre`. El importador de Excel acepta una columna `paralelo` opcional
+  (alias: `par`, `grupo`), validada como entero ≥ 1.
 - **Horarios recuerda la última ubicación abierta.** `filterEdificio`/`filterAula` eran `useState`
   en memoria y un efecto que siempre elegía el primer edificio y la primera aula, así que
   recargar o cambiar de pestaña devolvía al usuario al inicio. Ahora se guardan en

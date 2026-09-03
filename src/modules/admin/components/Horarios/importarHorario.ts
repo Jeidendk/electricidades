@@ -8,12 +8,14 @@ import { dias, horasFinDisponibles, horasSeleccionables } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 
 /** Columnas que reconoce el importador; el orden de la plantilla es este. */
-export const COLUMNAS_PLANTILLA = ['materia', 'docente', 'dia', 'hora_inicio', 'hora_fin', 'aula', 'edificio'] as const;
+export const COLUMNAS_PLANTILLA = ['materia', 'paralelo', 'docente', 'dia', 'hora_inicio', 'hora_fin', 'aula', 'edificio'] as const;
 
 /** Fila del archivo ya normalizada a texto, antes de validar. */
 export interface FilaCruda {
   numeroFila: number;
   materia: string;
+  /** Texto crudo; se valida al convertir. Vacío = sin paralelo asignado. */
+  paralelo: string;
   docente: string;
   dia: string;
   horaInicio: string;
@@ -28,6 +30,7 @@ export interface ClaseImportable {
   idMateria: string;
   idDocente: string;
   idEspacio: string;
+  paralelo: number | null;
   dia: string;
   horaInicio: string;
   horaFin: string;
@@ -72,6 +75,7 @@ const normalizar = (valor: unknown): string =>
 
 const ALIAS_COLUMNAS: Record<string, keyof Omit<FilaCruda, 'numeroFila'>> = {
   'materia': 'materia', 'asignatura': 'materia', 'codigo materia': 'materia',
+  'paralelo': 'paralelo', 'par': 'paralelo', 'grupo': 'paralelo',
   'docente': 'docente', 'profesor': 'docente', 'nombre docente': 'docente',
   'dia': 'dia',
   'hora inicio': 'horaInicio', 'hora_inicio': 'horaInicio', 'horainicio': 'horaInicio', 'inicio': 'horaInicio',
@@ -114,7 +118,7 @@ const textoDeCelda = (valor: any): string => {
 };
 
 const filaVacia = (numeroFila: number): FilaCruda => ({
-  numeroFila, materia: '', docente: '', dia: '', horaInicio: '', horaFin: '', aula: '', edificio: '',
+  numeroFila, materia: '', paralelo: '', docente: '', dia: '', horaInicio: '', horaFin: '', aula: '', edificio: '',
 });
 
 /** Une celdas de encabezado con los campos de FilaCruda. Devuelve índice de columna → campo. */
@@ -298,6 +302,12 @@ export const validarFilas = (filas: FilaCruda[], catalogos: CatalogosImportacion
       continue;
     }
 
+    const paralelo = fila.paralelo.trim() === '' ? null : Number(fila.paralelo);
+    if (paralelo !== null && (!Number.isInteger(paralelo) || paralelo < 1)) {
+      rechazar(fila, `Paralelo "${fila.paralelo}" no válido. Use un número entero desde 1, o déjelo vacío.`);
+      continue;
+    }
+
     const dia = DIA_CANONICO[normalizar(fila.dia)];
     if (!dia) {
       rechazar(fila, `Día "${fila.dia}" no válido. Use: ${dias.join(', ')}.`);
@@ -363,6 +373,7 @@ export const validarFilas = (filas: FilaCruda[], catalogos: CatalogosImportacion
       idMateria: materia.id,
       idDocente: docente.id,
       idEspacio: espacio.id,
+      paralelo,
       dia,
       horaInicio: fila.horaInicio,
       horaFin: fila.horaFin,

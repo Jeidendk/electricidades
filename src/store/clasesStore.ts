@@ -32,7 +32,7 @@ export const useClasesStore = create<ClasesState>()((set) => ({
     try {
       const { data, error } = await supabase
         .from('clases')
-        .select('*, materias(nombre, codigo, id_carrera), espacios(nombre, id_edificio, tipo), docentes:usuarios!clases_id_docente_fkey(nombre)')
+        .select('*, materias(nombre, codigo, id_carrera, semestre), espacios(nombre, id_edificio, tipo), docentes:usuarios!clases_id_docente_fkey(nombre)')
         .order('dia')
         .order('hora_inicio');
       if (error) throw error;

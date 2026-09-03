@@ -432,6 +432,7 @@ export interface Database {
           id_materia: string
           id_docente: string
           id_espacio: string | null
+          paralelo: number | null
           dia: string
           hora_inicio: string
           hora_fin: string
@@ -446,6 +447,7 @@ export interface Database {
           id_materia: string
           id_docente: string
           id_espacio?: string | null
+          paralelo?: number | null
           dia: string
           hora_inicio: string
           hora_fin: string
@@ -459,6 +461,7 @@ export interface Database {
           id_materia?: string
           id_docente?: string
           id_espacio?: string | null
+          paralelo?: number | null
           dia?: string
           hora_inicio?: string
           hora_fin?: string

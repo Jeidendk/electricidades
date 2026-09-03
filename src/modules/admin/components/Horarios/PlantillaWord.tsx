@@ -1,5 +1,5 @@
 import React from 'react';
-import { diasFormales, horas, rangoIncluyeBloque } from './horariosData';
+import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
@@ -128,8 +128,18 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
                         <div style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: getTitleSize(), marginBottom: '3px' }}>
                           {claseExport.materia}
                         </div>
+                        {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo) && (
+                          <div style={{ textTransform: 'uppercase', fontSize: getSubSize() }}>
+                            {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo)}
+                          </div>
+                        )}
+                        {claseExport.carrera && (
+                          <div style={{ textTransform: 'uppercase', fontSize: getSubSize() }}>
+                            {claseExport.carrera}
+                          </div>
+                        )}
                         <div style={{ textTransform: 'uppercase', fontSize: getSubSize() }}>
-                          DOCENTE: {(claseExport.docente || '').replace('Ing. ', '').replace('Dr. ', '')}
+                          {claseExport.docente}
                         </div>
                       </div>
                     ) : null}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers } from 'lucide-react';
-import { dias, horas, availableIcons, rangoIncluyeBloque } from './horariosData';
+import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash } from 'lucide-react';
+import { dias, horas, availableIcons, rangoIncluyeBloque, etiquetaPaoParalelo } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import { SearchInput } from '../../../../components/ui/SearchInput';
 
@@ -158,7 +158,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
           <button onClick={() => { setIsExportModalOpen(true); if (nombreEdificioFiltrado) setExportEdificio(nombreEdificioFiltrado); if (nombreAulaFiltrada) setExportAula(nombreAulaFiltrada); }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> Exportar
           </button>
-          <button onClick={() => { setModalMode('create'); setFormValues({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: filterEdificio, tipoEspacio: espacios.find(e => e.id === filterAula)?.tipo || '', idEspacio: filterAula, dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' }); setIsModalOpen(true); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-[12px] px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all border border-gray-800">
+          <button onClick={() => { setModalMode('create'); setFormValues({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: filterEdificio, tipoEspacio: espacios.find(e => e.id === filterAula)?.tipo || '', idEspacio: filterAula, paralelo: '', dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' }); setIsModalOpen(true); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-[12px] px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all border border-gray-800">
             <Plus className="w-3.5 h-3.5" /> Nueva Clase
           </button>
         </div>
@@ -229,6 +229,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                                 tipoEspacio: clase.tipoEspacio,
                                 idEdificio: clase.edificio, 
                                 idEspacio: clase.idEspacio, 
+                                paralelo: clase.paralelo != null ? String(clase.paralelo) : '',
                                 dia: clase.dia, 
                                 horaInicio: clase.horaInicio,
                                 horaFin: clase.horaFin,
@@ -264,6 +265,9 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                                 <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Layers className="w-[12px] h-[12px] text-gray-400 shrink-0"/> Piso {pisoDeClase(clase)}</span>
                               )}
                               <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><BookOpen className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.aula}</span>
+                              {etiquetaPaoParalelo(clase.pao, clase.paralelo) && (
+                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Hash className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {etiquetaPaoParalelo(clase.pao, clase.paralelo)}</span>
+                              )}
                               <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><User className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.docente}</span>
                             </div>
                           </div>
@@ -275,7 +279,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                               setModalMode('create');
                               setFormValues({
                                 idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: filterEdificio, tipoEspacio: espacios.find(e => e.id === filterAula)?.tipo || '',
-                                idEspacio: filterAula, dia: dia, horaInicio: hora.split(' - ')[0], horaFin: hora.split(' - ')[1],
+                                idEspacio: filterAula, paralelo: '', dia: dia, horaInicio: hora.split(' - ')[0], horaFin: hora.split(' - ')[1],
                               });
                               setIsModalOpen(true);
                             }}

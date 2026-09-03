@@ -1,5 +1,5 @@
 import React from 'react';
-import { diasFormales, horas, rangoIncluyeBloque } from './horariosData';
+import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
@@ -136,8 +136,18 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
                             <span className="font-black uppercase leading-tight text-[#0f172a]" style={{ fontSize: getTitleSize() }}>
                               {claseExport.materia}
                             </span>
+                            {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo) && (
+                              <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
+                                {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo)}
+                              </span>
+                            )}
+                            {claseExport.carrera && (
+                              <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
+                                {claseExport.carrera}
+                              </span>
+                            )}
                             <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
-                              DOCENTE: {(claseExport.docente || '').replace('Ing. ', '').replace('Dr. ', '')}
+                              {claseExport.docente}
                             </span>
                           </div>
                         ) : null}

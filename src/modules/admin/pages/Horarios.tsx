@@ -59,6 +59,9 @@ export const Horarios = () => {
       tipoEspacio: c.espacios?.tipo || 'Académica',
       idFacultad: carreraObj ? carreraObj.id_facultad : '',
       idCarrera: idCarrera,
+      carrera: carreraObj?.nombre || '',
+      pao: c.materias?.semestre ?? null,
+      paralelo: c.paralelo ?? null,
       idMateria: c.id_materia || '',
       idDocente: c.id_docente || '',
       idEspacio: c.id_espacio || '',
@@ -153,7 +156,7 @@ export const Horarios = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedClaseId, setSelectedClaseId] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' });
+  const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', paralelo: '', dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' });
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Export State
@@ -258,6 +261,7 @@ export const Horarios = () => {
           id_materia: formValues.idMateria,
           id_docente: formValues.idDocente,
           id_espacio: formValues.idEspacio,
+          paralelo: formValues.paralelo ? Number(formValues.paralelo) : null,
           dia: formValues.dia,
           hora_inicio: nuevoIni,
           hora_fin: nuevoFin,
@@ -269,6 +273,7 @@ export const Horarios = () => {
             id_materia: formValues.idMateria || undefined,
             id_docente: formValues.idDocente || undefined,
             id_espacio: formValues.idEspacio || undefined,
+            paralelo: formValues.paralelo ? Number(formValues.paralelo) : null,
             dia: formValues.dia,
             hora_inicio: nuevoIni,
             hora_fin: nuevoFin,
@@ -393,6 +398,7 @@ export const Horarios = () => {
           id_materia: clase.idMateria,
           id_docente: clase.idDocente,
           id_espacio: clase.idEspacio,
+          paralelo: clase.paralelo,
           dia: clase.dia,
           hora_inicio: `${clase.horaInicio}:00`,
           hora_fin: `${clase.horaFin}:00`,

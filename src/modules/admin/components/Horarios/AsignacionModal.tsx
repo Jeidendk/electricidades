@@ -192,19 +192,37 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
                   </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                  <label htmlFor="asignacion-materia" className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Materia</label>
-                  <SearchableSelect
-                    id="asignacion-materia"
-                    required
-                    value={formValues.idMateria}
-                    options={opcionesMateria}
-                    onChange={(idMateria) => setFormValues({...formValues, idMateria})}
-                    placeholder="Seleccione o busque una materia"
-                    searchPlaceholder="Buscar por materia o código..."
-                    emptyMessage="No hay materias que coincidan con la búsqueda"
-                    disabled={!formValues.idCarrera || isReadOnly}
-                  />
+              {/* Materia y paralelo van juntos: una misma materia se dicta en varios paralelos. */}
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px] gap-4">
+                  <div className="flex flex-col gap-1.5">
+                      <label htmlFor="asignacion-materia" className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Materia</label>
+                      <SearchableSelect
+                        id="asignacion-materia"
+                        required
+                        value={formValues.idMateria}
+                        options={opcionesMateria}
+                        onChange={(idMateria) => setFormValues({...formValues, idMateria})}
+                        placeholder="Seleccione o busque una materia"
+                        searchPlaceholder="Buscar por materia o código..."
+                        emptyMessage="No hay materias que coincidan con la búsqueda"
+                        disabled={!formValues.idCarrera || isReadOnly}
+                      />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                      <label htmlFor="asignacion-paralelo" className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Paralelo</label>
+                      <input
+                        id="asignacion-paralelo"
+                        type="number"
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        value={formValues.paralelo}
+                        onChange={e => setFormValues({...formValues, paralelo: e.target.value})}
+                        disabled={isReadOnly}
+                        placeholder="1"
+                        className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium w-full transition-all disabled:opacity-60"
+                      />
+                  </div>
               </div>
               
               <div className="flex flex-col gap-1.5">

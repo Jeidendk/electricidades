@@ -3,6 +3,19 @@ import { Cpu, FlaskConical, Briefcase, Zap, Laptop, Wifi, Stethoscope, Globe, Pa
 export const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
 /**
+ * Línea "PAO 7 · PARALELO 1" del encabezado de una clase. Omite la parte que falte:
+ * las clases cargadas antes de la migración 0020 no tienen paralelo, y no se inventa uno.
+ * Devuelve cadena vacía si no hay ninguno de los dos, para no dibujar una línea suelta.
+ */
+export const etiquetaPaoParalelo = (
+  pao?: number | null,
+  paralelo?: number | null,
+): string => [
+  pao != null ? `PAO ${pao}` : null,
+  paralelo != null ? `PARALELO ${paralelo}` : null,
+].filter(Boolean).join(' · ');
+
+/**
  * Formas canónicas del enum `dia_semana` (migración 0019: ya llevan tilde).
  */
 const DIA_CANONICO: Record<string, string> = {
