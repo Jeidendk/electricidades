@@ -12,6 +12,14 @@ export const normalizarTexto = (valor: unknown): string =>
     .replace(/\s+/g, ' ');
 
 /**
+ * Compara dos nombres de día ignorando tildes y mayúsculas: "Miercoles" y "Miércoles"
+ * son el mismo día. Los datos vienen de fuentes distintas (formulario, importación de
+ * Excel, filas antiguas), así que la igualdad estricta deja clases invisibles.
+ */
+export const mismoDia = (a: unknown, b: unknown): boolean =>
+  normalizarTexto(a) === normalizarTexto(b);
+
+/**
  * Extrae el número de un valor que puede venir como número o como texto ("5", "5to", "PAO 5").
  * Devuelve undefined si no hay ningún dígito: así el llamador distingue "sin dato" de 0.
  */

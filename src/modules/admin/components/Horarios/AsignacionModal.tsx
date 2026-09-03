@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Plus, BookOpen, Clock } from 'lucide-react';
-import { calcularDuracion, dias, horasSeleccionables } from './horariosData';
+import { calcularDuracion, dias, diaEnBD, horasSeleccionables } from './horariosData';
 import { useMateriasStore } from '../../../../store/materiasStore';
 import { useDocentesStore } from '../../../../store/docentesStore';
 import { useFacultadesStore } from '../../../../store/facultadesStore';
@@ -270,8 +270,8 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Día</label>
-                      <select value={formValues.dia} onChange={e => setFormValues({...formValues, dia: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
-                          {dias.map(d => <option key={d} value={d === 'Miércoles' ? 'Miercoles' : d}>{d}</option>)}
+                      <select value={diaEnBD(formValues.dia)} onChange={e => setFormValues({...formValues, dia: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
+                          {dias.map(d => <option key={d} value={diaEnBD(d)}>{d}</option>)}
                       </select>
                   </div>
                   <div className="flex flex-col gap-1.5">

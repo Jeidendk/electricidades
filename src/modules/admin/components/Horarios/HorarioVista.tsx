@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers } from 'lucide-react';
 import { dias, horas, availableIcons, rangoIncluyeBloque } from './horariosData';
+import { mismoDia } from '../../../../lib/texto';
 import { SearchInput } from '../../../../components/ui/SearchInput';
 
 interface HorarioVistaProps {
@@ -62,7 +63,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
 }) => {
   const getClaseEnCasilla = (dia: string, hora: string) => {
     const q = searchQuery.trim().toLowerCase();
-    return clases.find(c => c.dia === dia && rangoIncluyeBloque(c.hora, hora) && (
+    return clases.find(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && (
       // Al buscar por clase/docente se IGNORA el filtro de edificio/aula: así se ve
       // dónde dicta ese docente (o materia) en todas sus aulas. Sin búsqueda, filtra por ubicación.
       q

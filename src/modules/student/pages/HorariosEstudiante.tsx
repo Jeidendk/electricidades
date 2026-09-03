@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronRight, ChevronLeft, BookOpen, User, Clock, Info, FlaskConical, Users, MapPin } from 'lucide-react';
 import { dias, horas } from '../../admin/components/Horarios/horariosData';
+import { mismoDia } from '../../../lib/texto';
 import { studentInfo, materiaColors } from '../data/studentSchedule';
 import { useAuthStore } from '../../../store/authStore';
 import { useHorarioEstudianteStore, type HorarioEstudianteItem } from '../../../store/horarioEstudianteStore';
@@ -106,7 +107,7 @@ export const HorariosEstudiante = () => {
   const visibleDays = viewMode === 'week' ? dias : [dias[selectedDay]];
 
   // Get classes for a specific day
-  const getClasesForDay = (dia: string) => clases.filter(c => c.dia === dia);
+  const getClasesForDay = (dia: string) => clases.filter(c => mismoDia(c.dia, dia));
 
   /** Pide confirmación antes de salir del horario y abrir el mapa en ese espacio. */
   const confirmarIrAlAula = async (aula: string, tipo: HorarioEstudianteItem['tipo']) => {

@@ -71,6 +71,17 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Fix: clases de miércoles invisibles y "Aula ocupada" sobre una casilla vacía.** El enum
+  `dia_semana` de Postgres usa `Miercoles` **sin tilde**; la UI muestra `Miércoles` con tilde.
+  El select traducía bien al guardar, pero la grilla (`HorarioVista.tsx:65`), el PDF, el Word,
+  el horario del estudiante y los choques al importar comparaban con `===` contra el valor
+  acentuado → la clase no se dibujaba, mientras la validación de choques (que sí usaba el valor
+  sin tilde) la encontraba. Mismo origen del 2.º síntoma: el botón «+» de la celda mandaba
+  `Miércoles`, ninguna `<option>` tenía ese valor y el navegador caía a **Lunes**.
+  Ahora: `mismoDia()` en `src/lib/texto.ts` para **comparar** (nunca `===`) y `diaEnBD()` en
+  `horariosData.ts` como único punto de traducción UI→enum. **Sin migración: la base estaba bien,
+  el error era del lado JS.** Esquema real volcado en `supabase/ESQUEMA.md` (parcial) — antes de
+  tocar una columna `USER-DEFINED`, verificar ahí sus etiquetas en vez de adivinarlas.
 - **Responsive de admin, lote 1 (solo clases, sin tocar lógica).** Los modales CRUD tenían
   `grid-cols-2`/`-3` fijos sin breakpoint → ahora `grid-cols-1 md:grid-cols-2`; de `md` en
   adelante se ve idéntico. En Horarios, la barra de la vista previa de exportación era una fila

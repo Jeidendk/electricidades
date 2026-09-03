@@ -5,6 +5,7 @@
 // insertar y cuáles se rechazan, con el motivo exacto de cada rechazo.
 
 import { dias, horasFinDisponibles, horasSeleccionables } from './horariosData';
+import { mismoDia } from '../../../../lib/texto';
 
 /** Columnas que reconoce el importador; el orden de la plantilla es este. */
 export const COLUMNAS_PLANTILLA = ['materia', 'docente', 'dia', 'hora_inicio', 'hora_fin', 'aula', 'edificio'] as const;
@@ -255,7 +256,7 @@ const resumirFila = (fila: FilaCruda) =>
 const seSolapan = (
   a: { dia: string; inicio: string; fin: string },
   b: { dia: string; inicio: string; fin: string },
-) => a.dia === b.dia && a.inicio < b.fin && a.fin > b.inicio;
+) => mismoDia(a.dia, b.dia) && a.inicio < b.fin && a.fin > b.inicio;
 
 interface BloqueOcupado {
   dia: string;

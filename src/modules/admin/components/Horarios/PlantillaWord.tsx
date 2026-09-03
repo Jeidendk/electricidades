@@ -1,5 +1,6 @@
 import React from 'react';
 import { diasFormales, horas, rangoIncluyeBloque } from './horariosData';
+import { mismoDia } from '../../../../lib/texto';
 import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
 interface PlantillaWordProps {
@@ -44,7 +45,7 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
   };
 
   const getClaseParaExportacion = (dia: string, hora: string, aulaTarget: string) => {
-    return clases.find(c => c.dia.toUpperCase() === dia.toUpperCase() && rangoIncluyeBloque(c.hora, hora) && c.aula === aulaTarget);
+    return clases.find(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && c.aula === aulaTarget);
   };
 
   const getHeader1Size = () => `${documentFontSize + 7}px`;

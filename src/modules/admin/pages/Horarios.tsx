@@ -17,6 +17,7 @@ import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
 import { horasFinDisponibles } from '../components/Horarios/horariosData';
+import { mismoDia } from '../../../lib/texto';
 
 // Preferencias del formato de exportación (persisten entre sesiones para no
 // reconfigurar período, tipografía, orientación, etc. cada vez).
@@ -216,7 +217,7 @@ export const Horarios = () => {
       // ── Control de cruces: misma aula o mismo docente, mismo día, horas solapadas ──
       const nuevoIni = horaInicio + ':00';
       const nuevoFin = horaFin + ':00';
-      const solapa = (c: any) => nuevoIni < c.hora_fin && nuevoFin > c.hora_inicio && c.dia === formValues.dia;
+      const solapa = (c: any) => nuevoIni < c.hora_fin && nuevoFin > c.hora_inicio && mismoDia(c.dia, formValues.dia);
       const otras = (rawClases as any[]).filter(c => c.id !== selectedClaseId);
 
       const choqueAula = otras.find(c => c.id_espacio === formValues.idEspacio && solapa(c));
