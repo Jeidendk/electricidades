@@ -17,6 +17,7 @@ import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
 import { horasFinDisponibles, PARALELO_POR_DEFECTO } from '../components/Horarios/horariosData';
+import { altoPaginaEnPx, contarPaginas, paginaDesdeScroll } from '../components/Horarios/paginacionPdf';
 import { nombreConTitulo } from '../data/docentesData';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
@@ -414,6 +415,54 @@ export const Horarios = () => {
     }
   };
 
+  // ── Paginación de la vista previa ──────────────────────────────────────────────
+  // El alto del documento no se puede suponer: depende de las clases, del tamaño de fuente y
+  // de la tipografía. Se mide el elemento real y se compara contra el alto de página que
+  // corresponde al papel y la orientación elegidos.
+  const contenedorVistaPreviaRef = useRef<HTMLDivElement | null>(null);
+  const [altoDocumentoPx, setAltoDocumentoPx] = useState(0);
+  const [paginaActual, setPaginaActual] = useState(1);
+
+  const escalaVistaPrevia = pdfZoom / 120;
+  const altoPagina = altoPaginaEnPx(paperSize, orientation);
+  const totalPaginas = contarPaginas(altoDocumentoPx, altoPagina);
+
+  useEffect(() => {
+    if (!isExportModalOpen) return;
+
+    const documento = document.getElementById('documento-pdf-oficial');
+    if (!documento) return;
+
+    // `offsetHeight` ignora el `transform: scale`, que no afecta al layout: así el alto medido
+    // y el alto de página están siempre en la misma escala.
+    const medir = () => setAltoDocumentoPx(documento.offsetHeight);
+    medir();
+
+    const observador = new ResizeObserver(medir);
+    observador.observe(documento);
+    return () => observador.disconnect();
+  }, [isExportModalOpen, orientation, paperSize, documentFontSize, typography, includeFooter, clases, exportAula, exportEdificio]);
+
+  // Si al cambiar de papel u orientación el documento encoge, la página actual puede quedar
+  // fuera de rango.
+  useEffect(() => {
+    setPaginaActual(actual => Math.min(actual, totalPaginas));
+  }, [totalPaginas]);
+
+  const irAPagina = (pagina: number) => {
+    const destino = Math.min(totalPaginas, Math.max(1, pagina));
+    setPaginaActual(destino);
+    // El scroll ocurre en el espacio ya escalado que ve el usuario.
+    contenedorVistaPreviaRef.current?.scrollTo({
+      top: (destino - 1) * altoPagina * escalaVistaPrevia,
+      behavior: 'smooth',
+    });
+  };
+
+  const alDesplazarVistaPrevia = (evento: React.UIEvent<HTMLDivElement>) => {
+    setPaginaActual(paginaDesdeScroll(evento.currentTarget.scrollTop, altoPagina, escalaVistaPrevia, totalPaginas));
+  };
+
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
     try {
@@ -458,7 +507,13 @@ export const Horarios = () => {
             .schedule-table th { font-weight: 900; text-transform: uppercase; }
             img { max-width: 100%; height: auto; }
             .printable-area { margin: 0 !important; padding: 0 40px 20px 40px !important; box-shadow: none !important; min-height: auto !important; width: 100% !important; }
-            * { page-break-before: avoid !important; page-break-after: avoid !important; page-break-inside: avoid !important; }
+            /* Antes se aplicaba page-break avoid a TODOS los elementos. Pedirle al navegador
+               que no corte nada no evita el corte —el contenido tiene que caber igual—, solo lo
+               vuelve impredecible. Ahora se dice donde SI puede cortar: entre filas, nunca dentro
+               de una, y la cabecera se repite en cada hoja. */
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; break-inside: avoid; }
+            img { page-break-inside: avoid; break-inside: avoid; }
             @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
           </style>
         </head>
@@ -667,9 +722,23 @@ export const Horarios = () => {
                     <div className="flex items-center gap-3 border-l border-gray-200 pl-6">
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Página</span>
                       <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                        <button className="p-0.5 text-gray-300"><ChevronLeft className="w-4 h-4"/></button>
-                        <div className="px-1.5 text-[11px] font-bold text-gray-700">1 / 1</div>
-                        <button className="p-0.5 text-gray-300"><ChevronRight className="w-4 h-4"/></button>
+                        <button
+                          onClick={() => irAPagina(paginaActual - 1)}
+                          disabled={paginaActual <= 1}
+                          title="Página anterior"
+                          className="p-0.5 text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4"/>
+                        </button>
+                        <div className="px-1.5 text-[11px] font-bold text-gray-700 tabular-nums">{paginaActual} / {totalPaginas}</div>
+                        <button
+                          onClick={() => irAPagina(paginaActual + 1)}
+                          disabled={paginaActual >= totalPaginas}
+                          title="Página siguiente"
+                          className="p-0.5 text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4"/>
+                        </button>
                       </div>
                     </div>
 
@@ -692,7 +761,7 @@ export const Horarios = () => {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-auto pt-4 pb-10 px-10 flex justify-center items-start custom-scrollbar">
+                <div ref={contenedorVistaPreviaRef} onScroll={alDesplazarVistaPrevia} className="flex-1 overflow-auto pt-4 pb-10 px-10 flex justify-center items-start custom-scrollbar">
                   <PlantillaPDF 
                     pdfZoom={pdfZoom}
                     orientation={orientation}

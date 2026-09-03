@@ -71,6 +71,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Paginación real en la vista previa de exportación** (antes era UI muerta: botones sin
+  `onClick` y un "1 / 1" escrito a mano). El PDF **no lo genera jsPDF**: se manda al diálogo de
+  impresión del navegador, así que quien pagina es el navegador según papel y orientación. Para
+  no adivinar, `paginacionPdf.ts` reproduce esa geometría (mm de A4/Carta menos los márgenes de
+  `@page`) y el alto del documento se **mide** con `ResizeObserver` sobre
+  `#documento-pdf-oficial`. Se usa `offsetHeight` porque `transform: scale` no afecta al layout;
+  el scroll sí va en espacio escalado (`altoPagina * pdfZoom/120`). **Es estimación**: si el
+  usuario cambia márgenes o escala en el diálogo de impresión puede diferir en una página.
+  De paso se corrigió el CSS de impresión: tenía
+  `* { page-break-*: avoid !important }`, que no evita el corte (el contenido tiene que caber
+  igual) y solo lo vuelve impredecible. Ahora `thead { display: table-header-group }` —la
+  cabecera se repite en cada hoja— y el corte se permite entre filas, nunca dentro de una.
 - **Horarios: candado para las acciones destructivas.** "Formatear todos" y "Borrar aula"
   estaban en la misma fila que Importar/Exportar/Nueva Clase, a un clic de distancia. Ahora
   viven tras un botón de candado que **arranca cerrado en cada montaje** (si el estado
