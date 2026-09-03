@@ -1,5 +1,5 @@
 import React from 'react';
-import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo } from './horariosData';
+import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
@@ -14,6 +14,8 @@ interface PlantillaPDFProps {
   exportPeriodo: string;
   clases: any[];
   includeFooter: boolean;
+  /** Líneas opcionales dentro de cada casilla. */
+  camposClase?: CamposClase;
   documentFontSize: number;
 }
 
@@ -28,6 +30,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
   exportPeriodo,
   clases,
   includeFooter,
+  camposClase = CAMPOS_CLASE_POR_DEFECTO,
   documentFontSize,
 }) => {
   const getFontFamily = (font: string) => {
@@ -136,19 +139,21 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
                             <span className="font-black uppercase leading-tight text-[#0f172a]" style={{ fontSize: getTitleSize() }}>
                               {claseExport.materia}
                             </span>
-                            {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo) && (
+                            {camposClase.paoParalelo && etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo) && (
                               <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
                                 {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo)}
                               </span>
                             )}
-                            {claseExport.carrera && (
+                            {camposClase.carrera && claseExport.carrera && (
                               <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
                                 {claseExport.carrera}
                               </span>
                             )}
-                            <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
-                              {claseExport.docente}
-                            </span>
+                            {camposClase.docente && (
+                              <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
+                                {claseExport.docente}
+                              </span>
+                            )}
                           </div>
                         ) : null}
                       </td>

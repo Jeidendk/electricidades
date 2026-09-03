@@ -1,5 +1,5 @@
 import React from 'react';
-import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo } from './horariosData';
+import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
@@ -14,6 +14,8 @@ interface PlantillaWordProps {
   exportPeriodo: string;
   clases: any[];
   includeFooter: boolean;
+  /** Líneas opcionales dentro de cada casilla. */
+  camposClase?: CamposClase;
   documentFontSize: number;
 }
 
@@ -26,6 +28,7 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
   exportPeriodo,
   clases,
   includeFooter,
+  camposClase = CAMPOS_CLASE_POR_DEFECTO,
   documentFontSize,
 }) => {
   const getFontFamily = (font: string) => {
@@ -128,19 +131,21 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
                         <div style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: getTitleSize(), marginBottom: '3px' }}>
                           {claseExport.materia}
                         </div>
-                        {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo) && (
+                        {camposClase.paoParalelo && etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo) && (
                           <div style={{ textTransform: 'uppercase', fontSize: getSubSize() }}>
                             {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo)}
                           </div>
                         )}
-                        {claseExport.carrera && (
+                        {camposClase.carrera && claseExport.carrera && (
                           <div style={{ textTransform: 'uppercase', fontSize: getSubSize() }}>
                             {claseExport.carrera}
                           </div>
                         )}
-                        <div style={{ textTransform: 'uppercase', fontSize: getSubSize() }}>
-                          {claseExport.docente}
-                        </div>
+                        {camposClase.docente && (
+                          <div style={{ textTransform: 'uppercase', fontSize: getSubSize() }}>
+                            {claseExport.docente}
+                          </div>
+                        )}
                       </div>
                     ) : null}
                   </td>

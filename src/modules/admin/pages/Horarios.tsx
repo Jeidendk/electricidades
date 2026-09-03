@@ -16,7 +16,7 @@ import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
-import { horasFinDisponibles, PARALELO_POR_DEFECTO } from '../components/Horarios/horariosData';
+import { horasFinDisponibles, PARALELO_POR_DEFECTO, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from '../components/Horarios/horariosData';
 import { altoPaginaEnPx, contarPaginas, paginaDesdeScroll } from '../components/Horarios/paginacionPdf';
 import { nombreConTitulo } from '../data/docentesData';
 import { mismoDia } from '../../../lib/texto';
@@ -171,6 +171,9 @@ export const Horarios = () => {
   const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>(() => loadExportPrefs().orientation ?? 'vertical');
   const [paperSize, setPaperSize] = useState<'A4' | 'Carta'>(() => loadExportPrefs().paperSize ?? 'A4');
   const [includeFooter, setIncludeFooter] = useState<boolean>(() => loadExportPrefs().includeFooter ?? true);
+  const [camposClase, setCamposClase] = useState<CamposClase>(
+    () => ({ ...CAMPOS_CLASE_POR_DEFECTO, ...(loadExportPrefs().camposClase ?? {}) }),
+  );
   const [documentFontSize, setDocumentFontSize] = useState<number>(() => loadExportPrefs().documentFontSize ?? 11);
   const [typography, setTypography] = useState<string>(() => loadExportPrefs().typography ?? 'Inter');
   const [headerImg, setHeaderImg] = useState<string>('');
@@ -179,9 +182,9 @@ export const Horarios = () => {
   // Recuerda la configuración del formato entre sesiones.
   useEffect(() => {
     localStorage.setItem(EXPORT_PREFS_KEY, JSON.stringify({
-      exportPeriodo, orientation, paperSize, includeFooter, documentFontSize, typography,
+      exportPeriodo, orientation, paperSize, includeFooter, documentFontSize, typography, camposClase,
     }));
-  }, [exportPeriodo, orientation, paperSize, includeFooter, documentFontSize, typography]);
+  }, [exportPeriodo, orientation, paperSize, includeFooter, documentFontSize, typography, camposClase]);
 
   const { currentUser } = useOutletContext<any>();
   const esTecnico =
@@ -441,7 +444,7 @@ export const Horarios = () => {
     const observador = new ResizeObserver(medir);
     observador.observe(documento);
     return () => observador.disconnect();
-  }, [isExportModalOpen, orientation, paperSize, documentFontSize, typography, includeFooter, clases, exportAula, exportEdificio]);
+  }, [isExportModalOpen, orientation, paperSize, documentFontSize, typography, includeFooter, camposClase, clases, exportAula, exportEdificio]);
 
   // Si al cambiar de papel u orientación el documento encoge, la página actual puede quedar
   // fuera de rango.
@@ -692,6 +695,7 @@ export const Horarios = () => {
                 orientation={orientation} setOrientation={setOrientation}
                 paperSize={paperSize} setPaperSize={setPaperSize}
                 includeFooter={includeFooter} setIncludeFooter={setIncludeFooter}
+                camposClase={camposClase} setCamposClase={setCamposClase}
                 documentFontSize={documentFontSize} setDocumentFontSize={setDocumentFontSize}
                 typography={typography} setTypography={setTypography}
                 formattedDate={formattedDate} formattedTime={formattedTime}
@@ -774,6 +778,7 @@ export const Horarios = () => {
                     exportPeriodo={exportPeriodo}
                     clases={clases}
                     includeFooter={includeFooter}
+                    camposClase={camposClase}
                   />
                   
                   {/* Hidden templates for Word exports */}
@@ -790,6 +795,7 @@ export const Horarios = () => {
                       exportPeriodo={exportPeriodo}
                       clases={clases}
                       includeFooter={includeFooter}
+                      camposClase={camposClase}
                     />
                   </div>
                 </div>

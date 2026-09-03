@@ -2,6 +2,14 @@ import React from 'react';
 import { X, Download, ChevronDown, Clock, Building2, Users, Printer, RefreshCcw } from 'lucide-react';
 import { useEdificiosStore } from '../../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../../store/espaciosStore';
+import type { CamposClase } from './horariosData';
+
+/** Orden y rótulo de cada casilla del checklist. Agregar una línea opcional se hace aquí. */
+const CAMPOS_OPCIONALES: { clave: keyof CamposClase; etiqueta: string }[] = [
+  { clave: 'paoParalelo', etiqueta: 'PAO y paralelo' },
+  { clave: 'carrera', etiqueta: 'Carrera' },
+  { clave: 'docente', etiqueta: 'Docente' },
+];
 
 interface ExportSidebarProps {
   setIsExportModalOpen: (val: boolean) => void;
@@ -17,6 +25,8 @@ interface ExportSidebarProps {
   setPaperSize: (val: 'A4' | 'Carta') => void;
   includeFooter: boolean;
   setIncludeFooter: (val: boolean) => void;
+  camposClase: CamposClase;
+  setCamposClase: (val: CamposClase) => void;
   documentFontSize: number;
   setDocumentFontSize: (val: number) => void;
   typography: string;
@@ -41,6 +51,8 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
   setPaperSize,
   includeFooter,
   setIncludeFooter,
+  camposClase,
+  setCamposClase,
   documentFontSize,
   setDocumentFontSize,
   typography,
@@ -150,6 +162,25 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
                   max="30"
                 />
                 <span className="text-[10px] font-bold text-gray-400 pr-3 select-none">pt</span>
+              </div>
+            </div>
+
+            {/* Qué líneas se imprimen dentro de cada casilla. La materia no es opcional:
+                sin ella el horario no dice nada. */}
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Mostrar en cada clase</label>
+              <div className="flex flex-col gap-1.5 bg-gray-50/60 border border-gray-200/60 rounded-xl p-2.5">
+                {CAMPOS_OPCIONALES.map(({ clave, etiqueta }) => (
+                  <label key={clave} className="flex items-center gap-2.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={camposClase[clave]}
+                      onChange={e => setCamposClase({ ...camposClase, [clave]: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded accent-espoch-red cursor-pointer"
+                    />
+                    <span className="text-[10px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">{etiqueta}</span>
+                  </label>
+                ))}
               </div>
             </div>
 

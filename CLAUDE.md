@@ -71,6 +71,12 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Checklist de qué se imprime en cada casilla** (Generar Formato): PAO y paralelo, Carrera y
+  Docente se pueden ocultar. La materia **no** es opcional a propósito: sin ella el horario no
+  dice nada. El contrato es `CamposClase` en `horariosData.ts`; para sumar otra línea opcional
+  basta agregarla ahí y a `CAMPOS_OPCIONALES` en `ExportSidebar.tsx`. Se guarda junto al resto
+  de la config de exportación en localStorage, y está en las dependencias del `ResizeObserver`
+  de la paginación: al ocultar líneas el documento encoge y el contador de páginas se recalcula.
 - **"Failed to fetch dynamically imported module" tras cada despliegue.** No era un bug del
   código: Vite pone un hash en cada chunk (`AdminLayout-B11TMm2M.js`) y al desplegar los
   viejos dejan de existir, pero una pestaña abierta desde antes los sigue pidiendo → 404.

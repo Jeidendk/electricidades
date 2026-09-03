@@ -4,6 +4,22 @@ export const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
 export const paralelos = [1, 2, 3, 4];
 
+/**
+ * Líneas opcionales dentro de cada casilla de clase, al exportar.
+ * La materia no está aquí a propósito: sin ella el horario no dice nada.
+ */
+export interface CamposClase {
+  paoParalelo: boolean;
+  carrera: boolean;
+  docente: boolean;
+}
+
+export const CAMPOS_CLASE_POR_DEFECTO: CamposClase = {
+  paoParalelo: true,
+  carrera: true,
+  docente: true,
+};
+
 /** Paralelo con el que arranca una clase nueva. */
 export const PARALELO_POR_DEFECTO = String(paralelos[0]);
 
