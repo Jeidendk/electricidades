@@ -515,7 +515,7 @@ export const Usuarios = () => {
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#f4f7fb]">
       {/* HERO SECTION */}
-      <div className="w-full min-h-[120px] bg-[#1a1f26] relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-5 border-b border-gray-800">
+      <div className="w-full min-h-[92px] bg-[#1a1f26] relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-4 border-b border-gray-800">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-[0.25]"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#1a1f26] via-[#1a1f26]/90 to-[#1a1f26]/80"></div>
         
@@ -524,12 +524,14 @@ export const Usuarios = () => {
             <div className="w-14 h-14 shrink-0 rounded-[14px] bg-[#b00000] flex items-center justify-center text-white shadow-lg">
               <UsersIcon className="w-7 h-7" strokeWidth={2} />
             </div>
-            <div className="flex flex-col">
-              <BreadcrumbRuta tituloPagina={soloDocentes ? 'Gestión de Docentes' : 'Gestión de Usuarios y Docentes'} />
-              <h2 className="text-[21px] md:text-[25px] font-bold text-white tracking-tight leading-none mb-1.5">
-                {soloDocentes ? 'Gestión de Docentes' : 'Gestión de Usuarios y Docentes'}
-              </h2>
-              <p className="text-[13px] text-gray-400 font-medium">{soloDocentes ? 'Catálogo de docentes para horarios (varias carreras y materias).' : 'Administración de cuentas y del catálogo docente.'}</p>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <BreadcrumbRuta tituloPagina={soloDocentes ? 'Gestión de Docentes' : 'Gestión de Usuarios y Docentes'} className="shrink-0" separadorFinal />
+                <h2 className="text-[12px] font-extrabold text-espoch-yellow tracking-tight leading-none">
+                  {soloDocentes ? 'Gestión de Docentes' : 'Gestión de Usuarios y Docentes'}
+                </h2>
+              </div>
+              <p className="text-[11px] text-gray-400 font-medium">{soloDocentes ? 'Catálogo de docentes para horarios (varias carreras y materias).' : 'Administración de cuentas y del catálogo docente.'}</p>
             </div>
           </div>
           <div className="flex items-center gap-6 bg-[#212730] rounded-xl px-6 py-3 border border-white/5 shadow-inner hidden md:flex">

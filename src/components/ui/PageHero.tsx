@@ -19,11 +19,13 @@ interface PageHeroProps {
   actions?: React.ReactNode;
   /** Imagen temática de fondo (ver HERO_BG en heroBackgrounds.ts). Opcional. */
   backgroundImage?: string;
+  /** Niveles intermedios que la página abre por dentro; se suman al rastro de navegación. */
+  breadcrumbNiveles?: string[];
 }
 
 // Header estándar de las páginas admin: banner oscuro + título + KPI strip.
-export const PageHero = ({ icon: Icon, title, subtitle, stats, children, actions, backgroundImage }: PageHeroProps) => (
-  <div className="w-full min-h-[120px] bg-espoch-hero relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-5 border-b border-gray-800">
+export const PageHero = ({ icon: Icon, title, subtitle, stats, children, actions, backgroundImage, breadcrumbNiveles }: PageHeroProps) => (
+  <div className="w-full min-h-[92px] bg-espoch-hero relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-4 border-b border-gray-800">
     {backgroundImage && (
       <div
         className="absolute inset-0 bg-cover bg-center opacity-[0.25]"
@@ -37,10 +39,14 @@ export const PageHero = ({ icon: Icon, title, subtitle, stats, children, actions
         <div className="w-14 h-14 shrink-0 rounded-[14px] bg-espoch-red flex items-center justify-center text-white shadow-lg">
           <Icon className="w-7 h-7" strokeWidth={2} />
         </div>
-        <div className="flex flex-col">
-          <BreadcrumbRuta tituloPagina={title} />
-          <h2 className="text-[21px] md:text-[25px] font-bold text-white tracking-tight leading-none mb-1.5">{title}</h2>
-          <p className="text-[13px] text-gray-400 font-medium">{subtitle}</p>
+        <div className="flex flex-col gap-1">
+          {/* Rastro y título comparten fila: apilarlos sumaba una línea entera de alto al
+              banner, y el rastro es texto de 10px que cabe de sobra al costado. */}
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <BreadcrumbRuta tituloPagina={title} niveles={breadcrumbNiveles} className="shrink-0" separadorFinal />
+            <h2 className="text-[12px] font-extrabold text-espoch-yellow tracking-tight leading-none">{title}</h2>
+          </div>
+          <p className="text-[11px] text-gray-400 font-medium">{subtitle}</p>
         </div>
       </div>
 

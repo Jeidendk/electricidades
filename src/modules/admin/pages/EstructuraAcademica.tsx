@@ -421,6 +421,7 @@ export const EstructuraAcademica = () => {
           icon={availableIcons[selectedCarrera.icono] || BookOpen}
           title={selectedCarrera.nombre}
           subtitle={subtituloCarrera}
+          breadcrumbNiveles={selectedFacultad ? [selectedFacultad.nombre] : undefined}
           stats={[
             { Icon: BookOpen, value: selectedCarrera.semestres, label: 'PAOs' },
             { Icon: Layers, value: kpis.materias, label: 'Materias' },

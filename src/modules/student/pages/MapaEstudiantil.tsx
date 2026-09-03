@@ -234,10 +234,10 @@ export const MapaEstudiantil = () => {
               <MapIcon className="w-7 h-7" strokeWidth={2} />
             </div>
             <div className="flex flex-col">
-              <h2 className="text-[21px] md:text-[25px] font-black text-white tracking-tight leading-none mb-1.5">
+              <h2 className="text-[12px] font-extrabold text-white tracking-tight leading-none mb-1.5">
                 Ubicaciones
               </h2>
-              <p className="text-[13px] text-gray-400 font-medium">Encuentra fácilmente los laboratorios y equipos que solicitaste en el campus.</p>
+              <p className="text-[11px] text-gray-400 font-medium">Encuentra fácilmente los laboratorios y equipos que solicitaste en el campus.</p>
             </div>
           </div>
 

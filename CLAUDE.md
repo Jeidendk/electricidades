@@ -71,6 +71,13 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **El banner es ahora una sola línea de navegación.** El rastro y el título comparten fila
+  (`INSTITUCIÓN / ESTRUCTURA ACADÉMICA / Diseño Gráfico`) en vez de apilarse, y el título bajó
+  al tamaño del rastro (`text-[12px]`, antes 28/34px) con el subtítulo a 11px. Los banners
+  pasaron de `min-h-[120px]` a `min-h-[92px]`. El **amarillo marca dónde estás**: los ancestros
+  van en gris y el resaltado lo lleva el título. `BreadcrumbRuta` acepta `niveles` para lo que
+  la ruta no sabe —al abrir una carrera, la facultad pasa a ser ancestro—, expuesto en
+  `PageHero` como `breadcrumbNiveles`.
 - **El rastro de navegación solo dibuja lo que aporta.** En Trámites la sección, el nombre de
   la ruta y el título del banner son la misma palabra: repetirla tres veces no orienta a nadie,
   así que ahí no se dibuja nada. `BreadcrumbRuta` recibe `tituloPagina` y descarta los
