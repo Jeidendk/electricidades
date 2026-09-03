@@ -71,6 +71,14 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Fix: los gráficos de Reportes contaban valores de enum inexistentes.** Filtraban por
+  `'regular'`, `'reparacion'`, `'baja'` y `'material_laboratorio'`, ninguno de los cuales está
+  en `estado_inventario` (`bueno|malo|dañado`) ni en `categoria_inventario`
+  (`equipos|herramientas|mobiliario|tecnologico`). Resultado: **"En mantenimiento" siempre 0**,
+  los dañados sin contar en ningún lado y la barra "Otros" absorbiendo la diferencia. Ahora se
+  usan las constantes de `inventarioData.ts` y las etiquetas dicen lo que miden (Buen estado /
+  Dañados / Malos, Herramientas / Tecnológico). De paso, el arco exterior del donut es `100`
+  fijo en vez de la suma de porcentajes: redondear tres valores podía dar 101 y desbordarlo.
 - El subtítulo del banner de carrera decía `Facultad · Malla de N PAOs · Dir. X`: la facultad
   ya la nombra el rastro de navegación y el número de PAOs tiene su propia tarjeta de KPI.
   Queda solo la dirección de carrera, que no aparece en ninguna otra parte.

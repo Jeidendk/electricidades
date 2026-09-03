@@ -8,6 +8,7 @@ import { useUsuariosStore } from '../../../store/usuariosStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
+import { ESTADO_FISICO, type CategoriaInventario, type EstadoFisico } from '../data/inventarioData';
 
 // Como no hay tabla de historial de reportes generados en la BD actualmente,
 // dejamos este arreglo vacío para reflejar el estado real (vacío).
@@ -19,34 +20,46 @@ export const Reportes = () => {
   const { items: inventario, fetchItems: fetchInventario } = useInventarioStore();
   const { solicitudes, fetchSolicitudes } = useSolicitudesAdminStore();
 
+  /**
+   * Los gráficos filtraban por valores que el enum de la base NO tiene ('regular',
+   * 'reparacion', 'baja', 'material_laboratorio'), así que "En mantenimiento" marcaba
+   * siempre 0, los dañados no se contaban en ningún lado y "Otros" absorbía la diferencia.
+   * Ahora se cuentan las cuatro categorías y los tres estados reales.
+   */
   const chartData = useMemo(() => {
     const total = inventario.length;
-    // Categorias
-    const equipos = inventario.filter(i => i.categoria === 'equipos').length;
-    const mobiliario = inventario.filter(i => i.categoria === 'mobiliario').length;
-    const laboratorio = inventario.filter(i => i.categoria === 'material_laboratorio' || i.categoria === 'herramientas').length;
-    const otros = total - (equipos + mobiliario + laboratorio);
-    
-    const maxCat = Math.max(equipos, mobiliario, laboratorio, otros, 1); // evitamos division por cero
 
-    // Estados
-    const activos = inventario.filter(i => i.estado === 'bueno' || i.estado === 'regular').length;
-    const manten = inventario.filter(i => i.estado === 'reparacion').length;
-    const inactivos = inventario.filter(i => i.estado === 'malo' || i.estado === 'baja').length;
+    const porCategoria = (categoria: CategoriaInventario) =>
+      inventario.filter(item => item.categoria === categoria).length;
+    const porEstado = (estado: EstadoFisico) =>
+      inventario.filter(item => item.estado === estado).length;
 
-    const pActivos = total ? Math.round((activos / total) * 100) : 0;
-    const pManten = total ? Math.round((manten / total) * 100) : 0;
-    const pInactivos = total ? Math.round((inactivos / total) * 100) : 0;
+    const equipos = porCategoria('equipos');
+    const herramientas = porCategoria('herramientas');
+    const mobiliario = porCategoria('mobiliario');
+    const tecnologico = porCategoria('tecnologico');
+    const maxCat = Math.max(equipos, herramientas, mobiliario, tecnologico, 1); // evita dividir por cero
 
-    // SVG dasharrays for donut chart
-    const dashActivos = `${pActivos}, 100`;
-    const dashManten = `${pActivos + pManten}, 100`;
-    const dashInactivos = `100, 100`; // fill the rest
+    const buenos = porEstado(ESTADO_FISICO.bueno);
+    const danados = porEstado(ESTADO_FISICO.danado);
+    const malos = porEstado(ESTADO_FISICO.malo);
 
-    return { 
-      total, equipos, mobiliario, laboratorio, otros, maxCat,
-      activos, manten, inactivos, pActivos, pManten, pInactivos,
-      dashActivos, dashManten, dashInactivos
+    const porcentaje = (cantidad: number) => (total ? Math.round((cantidad / total) * 100) : 0);
+    const pBuenos = porcentaje(buenos);
+    const pDanados = porcentaje(danados);
+    const pMalos = porcentaje(malos);
+
+    // El donut se dibuja por capas, de fuera hacia dentro: el arco de "malos" se pinta primero
+    // y ocupa el anillo entero, y los siguientes lo van tapando. Por eso el último es 100 fijo
+    // y no la suma: redondear tres porcentajes puede dar 101 y desbordar el círculo.
+    const dashBuenos = `${pBuenos}, 100`;
+    const dashDanados = `${Math.min(pBuenos + pDanados, 100)}, 100`;
+    const dashMalos = '100, 100';
+
+    return {
+      total, equipos, herramientas, mobiliario, tecnologico, maxCat,
+      buenos, danados, malos, pBuenos, pDanados, pMalos,
+      dashBuenos, dashDanados, dashMalos,
     };
   }, [inventario]);
 
@@ -265,14 +278,14 @@ export const Reportes = () => {
                         <span className="text-[8px] font-semibold text-gray-500">Mobiliario</span>
                       </div>
                       <div className="flex flex-col items-center gap-1.5 w-1/4">
-                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.laboratorio}</span>
-                        <div className="w-8 md:w-10 bg-[#fbbf24] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.laboratorio / chartData.maxCat) * 90 + 5}%` }}></div>
-                        <span className="text-[8px] font-semibold text-gray-500">Laboratorio</span>
+                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.herramientas}</span>
+                        <div className="w-8 md:w-10 bg-[#fbbf24] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.herramientas / chartData.maxCat) * 90 + 5}%` }}></div>
+                        <span className="text-[8px] font-semibold text-gray-500">Herramientas</span>
                       </div>
                       <div className="flex flex-col items-center gap-1.5 w-1/4">
-                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.otros}</span>
-                        <div className="w-8 md:w-10 bg-[#8b5cf6] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.otros / chartData.maxCat) * 90 + 5}%` }}></div>
-                        <span className="text-[8px] font-semibold text-gray-500">Otros</span>
+                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.tecnologico}</span>
+                        <div className="w-8 md:w-10 bg-[#8b5cf6] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.tecnologico / chartData.maxCat) * 90 + 5}%` }}></div>
+                        <span className="text-[8px] font-semibold text-gray-500">Tecnológico</span>
                       </div>
                     </div>
                   </div>
@@ -286,11 +299,11 @@ export const Reportes = () => {
                       {/* SVG Donut */}
                       <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                         {/* Inactivos (Red) - Background / full circle */}
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" strokeWidth="8" strokeDasharray={chartData.dashInactivos} />
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" strokeWidth="8" strokeDasharray={chartData.dashMalos} />
                         {/* En Mantenimiento (Yellow) */}
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="8" strokeDasharray={chartData.dashManten} className="transition-all duration-1000" />
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="8" strokeDasharray={chartData.dashDanados} className="transition-all duration-1000" />
                         {/* Activos (Green) */}
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="8" strokeDasharray={chartData.dashActivos} className="transition-all duration-1000" />
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="8" strokeDasharray={chartData.dashBuenos} className="transition-all duration-1000" />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-lg font-bold text-gray-900 leading-none">{chartData.total}</span>
@@ -299,16 +312,16 @@ export const Reportes = () => {
                     </div>
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#10b981]"></div><span className="text-[10px] font-extrabold text-gray-700">Activos</span></div>
-                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.activos} ({chartData.pActivos}%)</span>
+                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#10b981]"></div><span className="text-[10px] font-extrabold text-gray-700">Buen estado</span></div>
+                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.buenos} ({chartData.pBuenos}%)</span>
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#f59e0b]"></div><span className="text-[10px] font-extrabold text-gray-700">En Mantenimiento</span></div>
-                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.manten} ({chartData.pManten}%)</span>
+                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#f59e0b]"></div><span className="text-[10px] font-extrabold text-gray-700">Dañados</span></div>
+                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.danados} ({chartData.pDanados}%)</span>
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#ef4444]"></div><span className="text-[10px] font-extrabold text-gray-700">Inactivos</span></div>
-                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.inactivos} ({chartData.pInactivos}%)</span>
+                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#ef4444]"></div><span className="text-[10px] font-extrabold text-gray-700">Malos</span></div>
+                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.malos} ({chartData.pMalos}%)</span>
                       </div>
                     </div>
                   </div>
