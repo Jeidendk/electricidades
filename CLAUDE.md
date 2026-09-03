@@ -71,6 +71,17 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Migración 0022 (HAY QUE EJECUTARLA): nombre de docente único en la BASE.** Índice único
+  parcial `usuarios_docente_nombre_unico` sobre
+  `lower(translate(trim(regexp_replace(nombre,'\s+',' ','g')), tildes, sin_tildes))` con
+  `where id_rol = <id de Docente>`. **Índice y no trigger**: el motor lo resuelve de forma
+  atómica, mientras que un trigger que consulta-y-luego-inserta tiene la misma carrera que el
+  formulario. El predicado de un índice no admite subconsultas, así que el id del rol se
+  resuelve en un bloque `do $$` y se incrusta como literal: **si cambian los ids de `roles` hay
+  que rehacer el índice**. La creación **falla si ya existen duplicados** (a propósito); la
+  migración trae comentada la consulta para listarlos. Orden al depurar: mover las clases a una
+  sola ficha en Horarios y **después** borrar la otra, o salta un error de clave foránea.
+  `Usuarios.tsx` traduce el 23505 a un aviso claro en alta y en edición.
 - **Detección de docentes duplicados: tenía tres agujeros.** `Usuarios.tsx` (1) solo validaba al
   **crear**, así que editando se podía renombrar un docente al nombre de otro; (2) comparaba
   contra **todos** los usuarios, de modo que un estudiante homónimo bloqueaba el alta con el

@@ -165,6 +165,14 @@ export const Usuarios = () => {
         normalizarTexto(usuario.nombre) === normalizarTexto(nombreCompleto),
     );
 
+  /** Cierto cuando la base rechazó el guardado por el índice de nombre de docente repetido. */
+  const esNombreDocenteRepetido = (error: any) =>
+    error?.code === '23505' ||
+    String(error?.message || '').includes('usuarios_docente_nombre_unico');
+
+  const MENSAJE_DOCENTE_REPETIDO =
+    'Otro administrador acaba de registrar un docente con ese mismo nombre. Recarga la lista para verlo.';
+
   const avisarDuplicado = async (duplicado: any) => {
     const S = (await import('sweetalert2')).default;
     S.fire({
@@ -251,7 +259,9 @@ export const Usuarios = () => {
             title: 'No se pudo registrar',
             text: faltaMigracionDocentes
               ? 'La base de datos todavía exige una cuenta de acceso. Aplica la migración 0013_docentes_sin_auth.sql e inténtalo nuevamente.'
-              : error?.message || 'Ocurrió un error al guardar el docente.',
+              : esNombreDocenteRepetido(error)
+                ? MENSAJE_DOCENTE_REPETIDO
+                : error?.message || 'Ocurrió un error al guardar el docente.',
             confirmButtonColor: '#B00020',
           });
         } finally {
@@ -341,7 +351,9 @@ export const Usuarios = () => {
           S.fire({
             icon: 'error',
             title: 'No se pudo actualizar',
-            text: error?.message || 'Ocurrió un error al actualizar el docente.',
+            text: esNombreDocenteRepetido(error)
+              ? MENSAJE_DOCENTE_REPETIDO
+              : error?.message || 'Ocurrió un error al actualizar el docente.',
             confirmButtonColor: '#B00020',
           });
         } finally {
