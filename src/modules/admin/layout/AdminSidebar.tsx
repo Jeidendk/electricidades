@@ -6,6 +6,7 @@ import {
     Users, BarChart2, Clock, Library, Landmark, Inbox
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
+import { MenuUsuario } from '../../../components/ui/MenuUsuario';
 
 export const AdminSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -184,7 +185,9 @@ export const AdminSidebar = () => {
           </div>
         )}
 
-        {/* El cierre de sesión vive solo en el menú de usuario del topbar. */}
+        {/* Cuenta: perfil, seguridad, configuración, ver como y salir. Colapsado queda
+            solo el avatar, pero el panel sigue abriendo con las mismas opciones. */}
+        <MenuUsuario colapsado={collapsed} />
       </aside>
       </div>
     </>

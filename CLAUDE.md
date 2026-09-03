@@ -71,6 +71,15 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **El menú de cuenta pasó del topbar al pie del sidebar** (`src/components/ui/MenuUsuario.tsx`,
+  compartido por admin y técnico; el estudiante tiene el suyo aparte en `StudentLayout`). Se
+  movió el componente **entero**, no se reescribió: los 4 modales (perfil, 2FA, contraseña,
+  configuración), "Ver como" y el logout real son el mismo código, solo que el panel ahora abre
+  **hacia arriba**. Con el sidebar colapsado (72px) queda solo el avatar y el panel sigue
+  funcionando: si se hubiera puesto la lista suelta, a 72px se habrían perdido opciones —los 3
+  botones de "Ver como" no entran—. El topbar bajó de `h-[80px]` a `h-[60px]`: **20px de alto
+  extra en todas las pantallas**, que es la ganancia real (el desplegable era un overlay y nunca
+  ocupó espacio de layout). `AdminTopbar` pasó de 275 a 155 líneas.
 - **Checklist de qué se imprime en cada casilla** (Generar Formato): PAO y paralelo, Carrera y
   Docente se pueden ocultar. La materia **no** es opcional a propósito: sin ella el horario no
   dice nada. El contrato es `CamposClase` en `horariosData.ts`; para sumar otra línea opcional

@@ -5,6 +5,7 @@ import {
   Clock, Library, UserCog, Inbox, Wrench, ArrowLeftRight, GraduationCap as GradCap, BarChart2
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
+import { MenuUsuario } from '../../../components/ui/MenuUsuario';
 
 // Cambiar a true cuando se habiliten progresivamente los demás módulos técnicos.
 const MOSTRAR_MODULOS_FUTUROS = false;
@@ -187,6 +188,9 @@ export const TecnicoSidebar = () => {
             </div>
           </div>
         )}
+
+        {/* Cuenta: mismas opciones que en admin, en un solo componente compartido. */}
+        <MenuUsuario colapsado={collapsed} />
 
       </aside>
       </div>

@@ -1,19 +1,12 @@
-import { useState } from 'react';
 import {
-  LayoutGrid, Bell, Settings, ChevronDown,
-  FileText, Package, Wrench, Users,
-  GraduationCap, BookMarked, BarChart2, Building2, CalendarDays,
-  BookOpen, Inbox, ShieldCheck, KeyRound, User, LogOut, Eye, Menu
+  LayoutGrid, Bell,
+  FileText, Package, Users,
+  BookMarked, BarChart2, Building2, CalendarDays,
+  BookOpen, Inbox, Menu
 } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../../store/authStore';
+import { useLocation } from 'react-router-dom';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 import { useSidebarStore } from '../../../store/sidebarStore';
-import { Avatar } from '../../../components/ui/Avatar';
-import { ConfigModal } from '../../../components/ui/ConfigModal';
-import { ProfileModal } from '../../../components/ui/ProfileModal';
-import { CambiarPasswordModal } from '../../../components/ui/CambiarPasswordModal';
-import { MfaSetupModal } from '../../auth/components/MfaSetupModal';
 interface RouteConfig {
   icon: React.ElementType;
   iconBg: string;
@@ -102,35 +95,12 @@ const TopbarTitle = ({ cfg }: { cfg: RouteConfig }) => {
   );
 };
 
-export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.ReactNode, currentUser?: any, setCurrentUser?: any }) => {
-  const navigate = useNavigate();
+export const AdminTopbar = ({ customTitle }: { customTitle?: React.ReactNode, currentUser?: any, setCurrentUser?: any }) => {
   const location = useLocation();
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [mfaModalOpen, setMfaModalOpen] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const notificaciones = useUiPrefsStore(s => s.notificaciones);
-  const authUser = useAuthStore(s => s.user);
-  const isAdmin = authUser?.role === 'admin';
 
-  // Vista activa según el prefijo de la URL (para el selector de vista del admin).
-  const currentView: 'admin' | 'tecnico' | 'student' =
-    location.pathname.startsWith('/tecnico') ? 'tecnico'
-    : location.pathname.startsWith('/student') ? 'student'
-    : 'admin';
 
-  const switchView = (view: 'admin' | 'tecnico' | 'student') => {
-    setShowUserDropdown(false);
-    if (view === currentView) return;
-    navigate(view === 'admin' ? '/admin' : view === 'tecnico' ? '/tecnico/dashboard' : '/student/catalog');
-  };
 
-  const handleLogout = async () => {
-    setShowUserDropdown(false);
-    await useAuthStore.getState().logout();
-    navigate('/login');
-  };
 
   // Soporta /admin/* y /tecnico/* (resuelve por el último segmento de la ruta)
   const lastSeg = location.pathname.split('/').filter(Boolean).pop() || '';
@@ -151,11 +121,10 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
     </div>
   ));
 
-  const user = currentUser || { id: '', nombre: 'Usuario', rol: '', avatar: null };
 
   return (
     <>
-      <header className="relative h-[80px] bg-white/80 backdrop-blur-md border-b border-gray-200/50 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 z-40 gap-2">
+      <header className="relative h-[60px] bg-white/80 backdrop-blur-md border-b border-gray-200/50 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 z-40 gap-2">
       <div className="flex items-center h-full min-w-0 gap-2">
         <button
           onClick={() => useSidebarStore.getState().toggleMobile()}
@@ -178,98 +147,9 @@ export const AdminTopbar = ({ customTitle, currentUser }: { customTitle?: React.
             <div className="w-px h-8 bg-gray-200"></div>
           </>
         )}
-        <div className="relative">
-          <div onClick={() => setShowUserDropdown(!showUserDropdown)} className="flex items-center gap-3 cursor-pointer group p-1 rounded-xl hover:bg-gray-50 transition-colors">
-            <Avatar nombre={user.nombre} src={user.avatar} className="w-9 h-9 text-[11px]" />
-            <div className="hidden xl:flex flex-col">
-              <span className="text-[11px] font-bold text-gray-800 truncate leading-tight">{user.nombre}</span>
-              <span className="text-[9px] text-gray-400 font-semibold">{user.rol}</span>
-            </div>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-colors hidden xl:block" />
-          </div>
-
-          {showUserDropdown && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowUserDropdown(false)}></div>
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-fade-in">
-                <div className="px-4 py-2 border-b border-gray-50 mb-1">
-                  <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Opciones</span>
-                </div>
-                <div className="py-0.5">
-                  <button
-                    onClick={() => { setProfileModalOpen(true); setShowUserDropdown(false); }}
-                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg"
-                  >
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span className="text-[12px] font-semibold">Mi Perfil</span>
-                  </button>
-                  <button
-                    onClick={() => { setMfaModalOpen(true); setShowUserDropdown(false); }}
-                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-gray-400" />
-                    <span className="text-[12px] font-semibold">Seguridad (2FA)</span>
-                  </button>
-                  <button
-                    onClick={() => { setPasswordModalOpen(true); setShowUserDropdown(false); }}
-                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg"
-                  >
-                    <KeyRound className="w-4 h-4 text-gray-400" />
-                    <span className="text-[12px] font-semibold">Cambiar contraseña</span>
-                  </button>
-                  {/* Configuración (el modo oscuro vive dentro de Configuración; sin duplicar toggle) */}
-                  <button
-                    onClick={() => { setConfigOpen(true); setShowUserDropdown(false); }}
-                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg"
-                  >
-                    <Settings className="w-4 h-4 text-gray-400" />
-                    <span className="text-[12px] font-semibold">Configuración</span>
-                  </button>
-                </div>
-
-                {/* Selector de vista — solo admin (inspecciona técnico/estudiante) */}
-                {isAdmin && (
-                  <>
-                    <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                    <div className="px-4 py-1.5">
-                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Eye className="w-3 h-3" /> Ver como</span>
-                    </div>
-                    <div className="px-2 pb-1 flex gap-1">
-                      {([['admin', 'Admin', Users], ['tecnico', 'Técnico', Wrench], ['student', 'Estudiante', GraduationCap]] as const).map(([key, label, Icon]) => (
-                        <button
-                          key={key}
-                          onClick={() => switchView(key)}
-                          className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-bold transition-colors ${currentView === key ? 'bg-espoch-ink text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                        >
-                          <Icon className="w-4 h-4" />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                <div className="py-0.5">
-                  <button onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-red-50 text-red-600 transition-colors rounded-lg">
-                    <LogOut className="w-4 h-4" />
-                    <span className="text-[12px] font-bold">Cerrar Sesión</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
       </div>
     </header>
 
-      {/* MODAL DE SEGURIDAD MFA */}
-      <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
-      <MfaSetupModal isOpen={mfaModalOpen} onClose={() => setMfaModalOpen(false)} />
-      <CambiarPasswordModal isOpen={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
-      {/* MODAL DE CONFIGURACIÓN */}
-      <ConfigModal isOpen={configOpen} onClose={() => setConfigOpen(false)} />
     </>
   );
 };
