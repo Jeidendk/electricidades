@@ -104,7 +104,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
   const [selectedIds, setSelectedIds] = useState<string[]>([]); // guarda res.key
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  const isDanado = (estado?: string) => estado === 'malo' || estado === 'danado';
+  const isDanado = (estado?: string) => estado === 'malo' || estado === 'dañado';
 
   // Pool completo normalizado según el tipo de recurso activo
   const allResources = useMemo<Res[]>(() => {
@@ -357,7 +357,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
   const showFilters = resourceKind !== 'edificio';
   const estadoOptions = resourceKind === 'espacio'
     ? [{ key: 'todos', label: 'Todos' }, { key: 'disponible', label: 'Disponible' }, { key: 'ocupada', label: 'Ocupada' }, { key: 'mantenimiento', label: 'Mantenimiento' }]
-    : [{ key: 'todos', label: 'Todos' }, { key: 'bueno', label: 'Bueno' }, { key: 'malo', label: 'Malo' }, { key: 'danado', label: 'Dañado' }];
+    : [{ key: 'todos', label: 'Todos' }, { key: 'bueno', label: 'Bueno' }, { key: 'malo', label: 'Malo' }, { key: 'dañado', label: 'Dañado' }];
   const kindLabel = KINDS.find(k => k.key === resourceKind)?.label;
   const headingLabel = activeCat === 'todos' ? kindLabel : tabItems.find(t => t.key === activeCat)?.label;
 

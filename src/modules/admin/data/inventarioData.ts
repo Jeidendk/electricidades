@@ -1,15 +1,12 @@
 export type CategoriaInventario = 'equipos' | 'herramientas' | 'mobiliario' | 'tecnologico';
-/**
- * Etiquetas exactas del enum `estado_inventario` de Postgres. Van **sin ñ**: la base
- * rechaza "dañado" con un error de valor inválido. La ñ vive solo en lo que se muestra.
- */
-export const ESTADO_FISICO = { bueno: 'bueno', malo: 'malo', danado: 'danado' } as const;
+/** Etiquetas exactas del enum `estado_inventario` de Postgres (migración 0019: con ñ). */
+export const ESTADO_FISICO = { bueno: 'bueno', malo: 'malo', danado: 'dañado' } as const;
 
 export type EstadoFisico = (typeof ESTADO_FISICO)[keyof typeof ESTADO_FISICO];
 
-/** Texto para el usuario. La base guarda "danado"; en pantalla se lee "Dañado". */
+/** Texto capitalizado para mostrar en pantalla. */
 export const ETIQUETA_ESTADO_FISICO: Record<EstadoFisico, string> = {
-  bueno: 'Bueno', malo: 'Malo', danado: 'Dañado',
+  bueno: 'Bueno', malo: 'Malo', 'dañado': 'Dañado',
 };
 
 export interface InventarioItem {
@@ -47,7 +44,7 @@ export const inventarioData: InventarioItem[] = [
   { id: 'EQ001', serie: 'MUL-1001', nombre: 'Multímetro Digital Fluke', categoria: 'herramientas', edificio: 'Edificio FIE-A', aula: 'Lab. Circuitos', estado: 'bueno', danioDesc: '', fotos: ['https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=400&h=250&fit=crop'] },
   { id: 'EQ002', serie: 'OSC-2005', nombre: 'Osciloscopio Tektronix', categoria: 'herramientas', edificio: 'Edificio FIE-A', aula: 'Lab. Circuitos', estado: 'malo', danioDesc: 'Problema en el canal 2 de lectura', fotos: [] },
   { id: 'EQ013', serie: 'OSC-2006', nombre: 'Osciloscopio Rigol', categoria: 'herramientas', edificio: 'Edificio FIE-A', aula: 'Lab. Electrónica', estado: 'bueno', danioDesc: '', fotos: [] },
-  { id: 'EQ015', serie: 'GEN-001', nombre: 'Generador de Funciones', categoria: 'herramientas', edificio: 'Edificio FIE-A', aula: 'Lab. Circuitos', estado: 'danado', danioDesc: 'No enciende', fotos: [] },
+  { id: 'EQ015', serie: 'GEN-001', nombre: 'Generador de Funciones', categoria: 'herramientas', edificio: 'Edificio FIE-A', aula: 'Lab. Circuitos', estado: 'dañado', danioDesc: 'No enciende', fotos: [] },
 
   // ── Equipos ──
   { id: 'EQ008', serie: 'PLC-1200', nombre: 'Módulo PLC S7-1200', categoria: 'equipos', edificio: 'Bloque de Laboratorios', aula: 'Lab. Control', estado: 'bueno', danioDesc: '', fotos: [] },
@@ -62,7 +59,7 @@ export const inventarioData: InventarioItem[] = [
 
   // ── Tecnológico / Audiovisual ──
   { id: 'EQ003', serie: 'PC-3001', nombre: 'Computadora Core i7', categoria: 'tecnologico', edificio: 'Centro de Cómputo', aula: 'Lab. Cómputo 1', estado: 'bueno', danioDesc: '', fotos: [] },
-  { id: 'EQ004', serie: 'PC-3002', nombre: 'Computadora Core i7', categoria: 'tecnologico', edificio: 'Centro de Cómputo', aula: 'Lab. Cómputo 1', estado: 'danado', danioDesc: 'Fuente de poder quemada', fotos: [] },
+  { id: 'EQ004', serie: 'PC-3002', nombre: 'Computadora Core i7', categoria: 'tecnologico', edificio: 'Centro de Cómputo', aula: 'Lab. Cómputo 1', estado: 'dañado', danioDesc: 'Fuente de poder quemada', fotos: [] },
   { id: 'EQ007', serie: 'PROY-012', nombre: 'Proyector Epson Infocus', categoria: 'tecnologico', edificio: 'Bloque Administrativo', aula: 'Aula Magna', estado: 'bueno', danioDesc: '', fotos: [] },
   { id: 'EQ012', serie: 'PC-3003', nombre: 'Computadora Core i7', categoria: 'tecnologico', edificio: 'Centro de Cómputo', aula: 'Lab. Cómputo 2', estado: 'malo', danioDesc: 'Disco duro defectuoso', fotos: [] },
   { id: 'EQ014', serie: 'PAN-001', nombre: 'Panel Solar 300W', categoria: 'tecnologico', edificio: 'Bloque de Laboratorios', aula: 'Lab. Energías Renovables', estado: 'bueno', danioDesc: '', fotos: [] },

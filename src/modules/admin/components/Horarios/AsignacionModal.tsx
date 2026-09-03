@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Plus, BookOpen, Clock } from 'lucide-react';
-import { calcularDuracion, dias, diaEnBD, horasSeleccionables } from './horariosData';
+import { calcularDuracion, dias, diaCanonico, horasSeleccionables } from './horariosData';
 import { useMateriasStore } from '../../../../store/materiasStore';
 import { useDocentesStore } from '../../../../store/docentesStore';
 import { useFacultadesStore } from '../../../../store/facultadesStore';
@@ -232,9 +232,9 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo de Espacio</label>
                       <select required value={formValues.tipoEspacio} onChange={e => setFormValues({...formValues, tipoEspacio: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
                           <option value="">Seleccione Tipo</option>
-                          <option value="Academica">Aula</option>
-                          <option value="Laboratorio Tecnico">Laboratorio Técnico</option>
-                          <option value="Laboratorio de Informatica">Laboratorio Informático</option>
+                          <option value="Académica">Aula</option>
+                          <option value="Laboratorio Técnico">Laboratorio Técnico</option>
+                          <option value="Laboratorio de Informática">Laboratorio Informático</option>
                       </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -270,8 +270,8 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Día</label>
-                      <select value={diaEnBD(formValues.dia)} onChange={e => setFormValues({...formValues, dia: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
-                          {dias.map(d => <option key={d} value={diaEnBD(d)}>{d}</option>)}
+                      <select value={diaCanonico(formValues.dia)} onChange={e => setFormValues({...formValues, dia: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
+                          {dias.map(d => <option key={d} value={diaCanonico(d)}>{d}</option>)}
                       </select>
                   </div>
                   <div className="flex flex-col gap-1.5">

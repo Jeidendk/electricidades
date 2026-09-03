@@ -18,7 +18,7 @@ export const PRIORIDAD_ORDEN = {
 export const ESTADO_INVENTARIO = {
   bueno: 'bueno',
   malo: 'malo',
-  danado: 'danado',
+  danado: 'dañado',
 } as const;
 
 /** Una orden abierta con más días que esto se marca como atrasada. */

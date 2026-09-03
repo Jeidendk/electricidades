@@ -16,31 +16,32 @@ no da error, simplemente no devuelve nada**.
 | Enum | Etiquetas exactas |
 |---|---|
 | `categoria_inventario` | `equipos`, `herramientas`, `mobiliario`, `tecnologico` ⚠️ sin tilde |
-| `dia_semana` | `Lunes`, `Martes`, `Miercoles` ⚠️ sin tilde, `Jueves`, `Viernes` |
+| `dia_semana` | `Lunes`, `Martes`, `Miércoles`, `Jueves`, `Viernes` |
 | `estado_catalogo` | `disponible`, `agotado` |
 | `estado_edificio` | `operativo`, `mantenimiento` |
 | `estado_espacio` | `disponible`, `ocupada`, `mantenimiento` |
 | `estado_formato` | `activo`, `inactivo` |
 | `estado_inscripcion` | `inscrito`, `asistiendo`, `completado`, `rechazado` |
-| `estado_inventario` | `bueno`, `malo`, `danado` ⚠️ **sin ñ** |
+| `estado_inventario` | `bueno`, `malo`, `dañado` |
 | `estado_ot` | `pendiente`, `en_proceso`, `resuelto` |
 | `estado_prestamo` | `activo`, `devuelto` |
 | `estado_solicitud` | `Aprobada`, `Pendiente`, `Devuelto`, `Rechazada` ⚠️ **con mayúscula** |
 | `estado_solicitud_admin` | `pendiente`, `aprobado`, `rechazado` ⚠️ **minúscula, y en masculino** |
 | `estado_usuario` | `activo`, `inactivo` |
 | `prioridad_ot` | `baja`, `media`, `alta` |
-| `tipo_espacio` | `Academica` ⚠️ sin tilde, `Laboratorio Tecnico`, `Laboratorio de Informatica` |
+| `tipo_espacio` | `Académica`, `Laboratorio Técnico`, `Laboratorio de Informática` |
 | `tipo_formato` | `DINAMICO` ⚠️ sin tilde y en mayúsculas, `PDF` |
 | `tipo_recurso` | `libro`, `software` |
 | `tipo_recurso_rel` | `recomendado`, `obligatorio` |
-| `tipo_solicitud_admin` | `Uso de laboratorio`, `Reporte de dano` ⚠️ **sin ñ**, `Oficio`, `Mantenimiento`, `Prestamo especial` ⚠️ sin tilde |
+| `tipo_solicitud_admin` | `Uso de laboratorio`, `Reporte de daño`, `Oficio`, `Mantenimiento`, `Préstamo especial` |
 
 **Ojo con `estado_solicitud` vs `estado_solicitud_admin`:** son enums distintos con grafías
 distintas para el mismo concepto (`Pendiente` vs `pendiente`). Ya causó un bug en el Dashboard.
 
-`dia_semana` no lleva tilde mientras la interfaz muestra "Miércoles". La traducción entre
-ambos vive en un solo sitio: `diaEnBD()` en `src/modules/admin/components/Horarios/horariosData.ts`.
-Para **comparar** días usar `mismoDia()` de `src/lib/texto.ts`, nunca `===`.
+La **migración 0019** acentuó estas etiquetas para que el valor de la base sea el mismo que se
+muestra en pantalla. Aun así, para **comparar** conviene seguir usando `mismoDia()` y `esAula()`
+(que normalizan) en vez de `===`: los horarios también entran por importación de Excel, donde
+nadie garantiza la grafía.
 
 Para completar las etiquetas que faltan:
 

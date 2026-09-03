@@ -236,8 +236,8 @@ export const Infraestructura = () => {
   ];
 
   const tipoBadge = (tipo: string) => {
-    if (tipo === 'Laboratorio Tecnico') return <Badge color="amber" icon={Wrench}>Técnico</Badge>;
-    if (tipo === 'Laboratorio de Informatica') return <Badge color="purple" icon={Monitor}>Info.</Badge>;
+    if (tipo === 'Laboratorio Técnico') return <Badge color="amber" icon={Wrench}>Técnico</Badge>;
+    if (tipo === 'Laboratorio de Informática') return <Badge color="purple" icon={Monitor}>Info.</Badge>;
     return <Badge color="blue" icon={BookOpen}>Académica</Badge>;
   };
 
@@ -352,7 +352,7 @@ export const Infraestructura = () => {
   };
 
   // ============ MODALS: ESPACIO ============
-  const espDefaults = { nombre: '', idEdificio: '', piso: 1, tipo: 'Academica', capacidad: 20, m2: 60, equipamiento: '', estado: 'disponible', fotos: [] as string[], fotoFiles: [] as (File | null)[], lat: null as number | null, lng: null as number | null, equipoIds: [] as string[] };
+  const espDefaults = { nombre: '', idEdificio: '', piso: 1, tipo: 'Académica', capacidad: 20, m2: 60, equipamiento: '', estado: 'disponible', fotos: [] as string[], fotoFiles: [] as (File | null)[], lat: null as number | null, lng: null as number | null, equipoIds: [] as string[] };
   const [espModal, setEspModal] = useState<null | 'create' | 'edit' | 'delete' | 'fotos'>(null);
   const [espForm, setEspForm] = useState(espDefaults);
   const [selectedEsp, setSelectedEsp] = useState<any>(null);
@@ -368,7 +368,7 @@ export const Infraestructura = () => {
       ...espDefaults,
       idEdificio: selectedEdificioId || '',
       lat: opts.lat ?? null, lng: opts.lng ?? null,
-      tipo: opts.tipo ?? (espTab === 'aula' ? 'Academica' : espTab === 'lab' ? 'Laboratorio Tecnico' : 'Academica'),
+      tipo: opts.tipo ?? (espTab === 'aula' ? 'Académica' : espTab === 'lab' ? 'Laboratorio Técnico' : 'Académica'),
     });
     setShowEquipoPicker(false); setEquipoSearch('');
     setEspModal('create');
@@ -1024,9 +1024,9 @@ export const Infraestructura = () => {
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo</label>
                       <select value={espForm.tipo} onChange={e => setEspForm({ ...espForm, tipo: e.target.value })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all cursor-pointer">
-                        <option value="Academica">Aula (Académica)</option>
-                        <option value="Laboratorio Tecnico">Lab. Técnico</option>
-                        <option value="Laboratorio de Informatica">Lab. Info</option>
+                        <option value="Académica">Aula (Académica)</option>
+                        <option value="Laboratorio Técnico">Lab. Técnico</option>
+                        <option value="Laboratorio de Informática">Lab. Info</option>
                       </select>
                     </div>
                   </div>

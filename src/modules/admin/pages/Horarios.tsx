@@ -55,7 +55,7 @@ export const Horarios = () => {
       docente: c.docentes?.nombre || 'Sin docente',
       aula: c.espacios?.nombre || 'Sin aula',
       edificio: c.espacios?.id_edificio || '',
-      tipoEspacio: c.espacios?.tipo || 'Academica',
+      tipoEspacio: c.espacios?.tipo || 'Académica',
       idFacultad: carreraObj ? carreraObj.id_facultad : '',
       idCarrera: idCarrera,
       idMateria: c.id_materia || '',
@@ -119,7 +119,7 @@ export const Horarios = () => {
         locs.push({
           id: `esp-${esp.id}`,
           nombre: esp.nombre,
-          tipo: esp.tipo, // 'Academica', 'Laboratorio', etc.
+          tipo: esp.tipo, // 'Académica', 'Laboratorio Técnico', etc.
           lat: esp.lat,
           lng: esp.lng,
           estado: esp.estado,

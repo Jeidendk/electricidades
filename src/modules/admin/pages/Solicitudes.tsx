@@ -160,10 +160,10 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
   const getTipoBadge = (tipo: string) => {
     const map: any = {
       'Oficio': 'bg-indigo-50 text-indigo-600 border-indigo-200/50',
-      'Reporte de dano': 'bg-red-50 text-red-600 border-red-200/50',
+      'Reporte de daño': 'bg-red-50 text-red-600 border-red-200/50',
       'Uso de laboratorio': 'bg-blue-50 text-blue-600 border-blue-200/50',
       'Mantenimiento': 'bg-orange-50 text-orange-600 border-orange-200/50',
-      'Prestamo especial': 'bg-purple-50 text-purple-600 border-purple-200/50'
+      'Préstamo especial': 'bg-purple-50 text-purple-600 border-purple-200/50'
     };
     const cls = map[tipo] || 'bg-gray-50 text-gray-600 border-gray-200/50';
     return <span className={`${cls} text-[9px] font-extrabold px-2 py-0.5 rounded-md border`}>{tipo}</span>;
@@ -267,10 +267,10 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
               options={[
                 { key: 'Todos', label: 'Todos' },
                 { key: 'Oficio', label: 'Oficio' },
-                { key: 'Reporte de dano', label: 'Reporte de daño' },
+                { key: 'Reporte de daño', label: 'Reporte de daño' },
                 { key: 'Uso de laboratorio', label: 'Uso de laboratorio' },
                 { key: 'Mantenimiento', label: 'Mantenimiento' },
-                { key: 'Prestamo especial', label: 'Préstamo especial' },
+                { key: 'Préstamo especial', label: 'Préstamo especial' },
               ]}
               onChange={(k) => { setTipoFilter(k); setCurrentPage(1); }}
             />
@@ -501,9 +501,9 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
                       <select name="tipo" className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium appearance-none cursor-pointer">
                         <option value="Uso de laboratorio">Uso de laboratorio</option>
                         <option value="Oficio">Oficio</option>
-                        <option value="Reporte de dano">Reporte de dano</option>
+                        <option value="Reporte de daño">Reporte de daño</option>
                         <option value="Mantenimiento">Mantenimiento</option>
-                        <option value="Prestamo especial">Prestamo especial</option>
+                        <option value="Préstamo especial">Préstamo especial</option>
                       </select>
                     </div>
                     <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Solicitante</label><input name="solicitante" required placeholder="Nombre completo" className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium" /></div>

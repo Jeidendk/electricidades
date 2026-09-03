@@ -71,6 +71,15 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Migración 0019 (HAY QUE EJECUTARLA, y ANTES de desplegar): tildes en las etiquetas de enum.**
+  `RENAME VALUE` sobre `dia_semana` (`Miercoles`→`Miércoles`), `estado_inventario`
+  (`danado`→`dañado`), `tipo_espacio` (las 3) y `tipo_solicitud_admin` (`Reporte de daño`,
+  `Préstamo especial`). Las filas existentes siguen válidas solas: Postgres guarda un id, no el
+  texto. Verificado que ninguna función ni política RLS menciona esas etiquetas. **Orden: SQL
+  primero, deploy después** — en medio, guardar falla porque el formulario manda la etiqueta
+  vieja (leer sí aguanta, las comparaciones normalizan). No se tocó `categoria_inventario`
+  (`tecnologico`): clave interna que nadie ve. De paso desaparece el typo visible "Reporte de
+  dano"/"Prestamo especial" que salía en el select de Solicitudes.
 - **Fix: no se podía guardar un equipo como "Dañado".** `inventario.estado` es el enum
   `estado_inventario`, cuyas etiquetas son `bueno | malo | danado` (**sin ñ**). La app mandaba
   `'dañado'` con ñ, así que Postgres rechazaba el insert/update. Al leer pasaba lo simétrico:

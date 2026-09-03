@@ -3,20 +3,20 @@ import { Cpu, FlaskConical, Briefcase, Zap, Laptop, Wifi, Stethoscope, Globe, Pa
 export const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
 /**
- * Etiquetas exactas del enum `dia_semana` de Postgres, que no llevan tilde.
- * La interfaz muestra `dias` (con tilde) pero la base solo acepta estos valores.
+ * Formas canónicas del enum `dia_semana` (migración 0019: ya llevan tilde).
  */
-const DIA_EN_BD: Record<string, string> = {
-  lunes: 'Lunes', martes: 'Martes', miercoles: 'Miercoles', jueves: 'Jueves', viernes: 'Viernes',
+const DIA_CANONICO: Record<string, string> = {
+  lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes',
 };
 
 /**
- * Traduce cualquier forma de escribir un día ("Miércoles", "miercoles", "MIERCOLES")
- * a la etiqueta que acepta el enum de la base. Devuelve el valor tal cual si no lo reconoce,
- * para que un día inesperado falle de forma visible en vez de convertirse en otro día.
+ * Lleva cualquier forma de escribir un día ("miercoles", "MIÉRCOLES", "Miercoles") a la
+ * etiqueta canónica. Necesario porque los horarios también entran por importación de Excel,
+ * donde nadie garantiza la grafía. Devuelve el valor tal cual si no lo reconoce, para que un
+ * día inesperado falle de forma visible en vez de convertirse en otro día.
  */
-export const diaEnBD = (dia: string): string =>
-  DIA_EN_BD[dia.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()] ?? dia;
+export const diaCanonico = (dia: string): string =>
+  DIA_CANONICO[dia.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()] ?? dia;
 export const diasFormales = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
 // Jornada académica continua: las clases pueden iniciar desde las 07:00

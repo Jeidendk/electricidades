@@ -48,7 +48,7 @@ export const Activos = () => {
         { Icon: Package, value: invItems.length, label: 'Total' },
         { Icon: CheckCircle, value: invItems.filter(d => d.estado === 'bueno').length, label: 'Buen Estado' },
         { Icon: AlertTriangle, value: invItems.filter(d => d.estado === 'malo').length, label: 'Regular / Malo' },
-        { Icon: XOctagon, value: invItems.filter(d => d.estado === 'danado').length, label: 'Dañados' },
+        { Icon: XOctagon, value: invItems.filter(d => d.estado === 'dañado').length, label: 'Dañados' },
       ];
     }
     if (tab === 'mantenimiento') {
@@ -63,7 +63,7 @@ export const Activos = () => {
       const rol = ((u as any).roles?.nombre || '').toLowerCase();
       return (u as any).id_rol === 3 || rol.includes('tecnic') || rol.includes('técnic');
     });
-    const isDanado = (estado?: string | null) => estado === 'malo' || estado === 'danado';
+    const isDanado = (estado?: string | null) => estado === 'malo' || estado === 'dañado';
     return [
       { Icon: User, value: tecnicos.length, label: 'Técnicos' },
       { Icon: CheckCircle, value: Object.keys(asignaciones).length, label: 'Asignados' },
