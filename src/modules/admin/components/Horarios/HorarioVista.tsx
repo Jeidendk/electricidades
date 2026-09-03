@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash } from 'lucide-react';
+import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash, Lock, LockOpen } from 'lucide-react';
 import { dias, horas, availableIcons, rangoIncluyeBloque, etiquetaPaoParalelo, PARALELO_POR_DEFECTO } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import { SearchInput } from '../../../../components/ui/SearchInput';
@@ -94,6 +94,34 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   const [navEd, setNavEd] = useState<string>('');
   const openNav = () => { setNavEd(filterEdificio || edificiosNav[0]?.id || ''); setOpenPiso(null); setNavSearch(''); setNavOpen(true); };
   const togglePiso = (key: string) => setOpenPiso(p => (p === key ? null : key));
+
+  /**
+   * "Formatear todos" y "Borrar aula" destruyen horarios completos y viven justo al lado de
+   * botones inocuos. Quedan tras un candado que arranca cerrado en cada visita a la pantalla.
+   */
+  const [accionesDesbloqueadas, setAccionesDesbloqueadas] = useState(false);
+
+  const alternarCandado = async () => {
+    // Cerrar el candado es la dirección segura: se hace sin preguntar. Confirmar también aquí
+    // acostumbraría a aceptar diálogos sin leerlos, que es justo lo que debilita el de abrir.
+    if (accionesDesbloqueadas) {
+      setAccionesDesbloqueadas(false);
+      return;
+    }
+
+    const Swal = (await import('sweetalert2')).default;
+    const { isConfirmed } = await Swal.fire({
+      icon: 'warning',
+      title: '¿Habilitar acciones destructivas?',
+      html: 'Se mostrarán <b>Formatear todos</b> y <b>Borrar aula</b>.<br/>Ambas eliminan horarios y no se pueden deshacer.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, habilitar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#B00020',
+      focusCancel: true,
+    });
+    if (isConfirmed) setAccionesDesbloqueadas(true);
+  };
   const selectAula = (edId: string, aulaId: string) => { setFilterEdificio(edId); setFilterAula(aulaId); setNavOpen(false); };
 
   return (
@@ -128,12 +156,27 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-          {canFormatAll && (
+          {(canFormatAll || canBorrarAula) && (
+            <button
+              onClick={alternarCandado}
+              title={accionesDesbloqueadas
+                ? 'Ocultar Formatear todos y Borrar aula'
+                : 'Mostrar Formatear todos y Borrar aula (acciones que eliminan horarios)'}
+              className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center transition-colors ${
+                accionesDesbloqueadas
+                  ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              {accionesDesbloqueadas ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+            </button>
+          )}
+          {accionesDesbloqueadas && canFormatAll && (
             <button onClick={handleFormatAll} className="text-gray-600 hover:text-red-700 hover:bg-red-50 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all">
               <FileText className="w-3.5 h-3.5" /> Formatear todos
             </button>
           )}
-          {canBorrarAula && (
+          {accionesDesbloqueadas && canBorrarAula && (
             <button
               onClick={handleBorrarClasesDelAula}
               disabled={!puedeBorrarAulaActual}
@@ -172,11 +215,15 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
       <div className="flex-1 min-h-0 relative overflow-hidden">
       <div className="absolute inset-0 overflow-auto custom-scrollbar border border-gray-100 rounded-[16px] shadow-sm bg-white">
         <table className="w-full min-w-[900px] border-collapse bg-white">
-          <thead className="sticky top-0 z-10 bg-white">
+          {/* El sticky va en cada <th>, no en el <thead>: con border-collapse los bordes los
+              pinta la tabla, no la celda, así que una cabecera fija se queda sin ellos. Se
+              dibujan con un inset shadow, que sí viaja con la celda. El fondo debe ser OPACO
+              (nada de /50): si no, las filas se ven por debajo al desplazarse. */}
+          <thead>
             <tr>
-              <th className="w-24 p-3 border border-gray-200 text-center text-[10px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-50/50">HORA</th>
+              <th className="sticky top-0 z-20 w-24 p-3 text-center text-[10px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-100 shadow-[inset_0_0_0_1px_#e5e7eb]">HORA</th>
               {dias.map(d => (
-                <th key={d} className="p-3 border border-gray-200 text-center text-[11px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-50/50 backdrop-blur-sm">{d}</th>
+                <th key={d} className="sticky top-0 z-20 p-3 text-center text-[11px] font-extrabold text-gray-800 uppercase tracking-widest bg-gray-100 shadow-[inset_0_0_0_1px_#e5e7eb]">{d}</th>
               ))}
             </tr>
           </thead>

@@ -71,6 +71,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Horarios: candado para las acciones destructivas.** "Formatear todos" y "Borrar aula"
+  estaban en la misma fila que Importar/Exportar/Nueva Clase, a un clic de distancia. Ahora
+  viven tras un botón de candado que **arranca cerrado en cada montaje** (si el estado
+  sobreviviera, el candado dejaría de proteger). Abrirlo pide confirmación; cerrarlo es
+  inmediato a propósito: confirmar la dirección segura acostumbra a aceptar diálogos sin
+  leerlos y debilita el que sí importa.
+- **Fix: el encabezado de la grilla de horarios se rompía al desplazar.** El `sticky` estaba en
+  el `<thead>` y con `border-collapse` los bordes los pinta la tabla, no la celda, así que la
+  cabecera fija se quedaba sin ellos; encima el fondo era `bg-gray-50/50`, semitransparente, y
+  las filas se veían por debajo. Ahora el `sticky` va en cada `<th>`, con fondo **opaco** y los
+  bordes dibujados con `shadow-[inset_0_0_0_1px_#e5e7eb]`, que sí viaja con la celda.
+  Verificado en el navegador con una reproducción estática.
 - **Doble scroll en Usuarios y Estructura Académica.** El contenedor del Outlet en
   `AdminLayout.tsx:42` mide 100vh **menos el topbar**, pero las páginas se declaraban
   `h-screen` (100vh): sobraba justo la altura del topbar y ese sobrante era el segundo
