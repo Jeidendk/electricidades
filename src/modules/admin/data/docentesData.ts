@@ -21,6 +21,3 @@ export const nombreConTitulo = (
  */
 export const componerNombreCompleto = (nombres: string, apellidos: string): string =>
   `${nombres.trim()} ${apellidos.trim()}`.trim().replace(/\s+/g, ' ');
-
-/** Los nombres de docente se guardan en mayúsculas para que la lista se vea pareja. */
-export const enMayusculas = (valor: string): string => valor.toLocaleUpperCase('es');

@@ -11,8 +11,8 @@ import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useAuthStore } from '../../../store/authStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { uploadImage } from '../../../lib/upload';
-import { TITULOS_ACADEMICOS, componerNombreCompleto, enMayusculas } from '../data/docentesData';
-import { normalizarTexto } from '../../../lib/texto';
+import { TITULOS_ACADEMICOS, componerNombreCompleto } from '../data/docentesData';
+import { enMayusculas, normalizarTexto } from '../../../lib/texto';
 import { supabase } from '../../../lib/supabase';
 import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 

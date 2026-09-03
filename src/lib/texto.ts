@@ -11,6 +11,9 @@ export const normalizarTexto = (valor: unknown): string =>
     .trim()
     .replace(/\s+/g, ' ');
 
+/** Mayúsculas con las reglas del español. Los catálogos se guardan así para que la lista se vea pareja. */
+export const enMayusculas = (valor: string): string => valor.toLocaleUpperCase('es');
+
 /**
  * Compara dos nombres de día ignorando tildes y mayúsculas: "Miercoles" y "Miércoles"
  * son el mismo día. Los datos vienen de fuentes distintas (formulario, importación de

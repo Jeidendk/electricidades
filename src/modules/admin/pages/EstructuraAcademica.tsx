@@ -20,7 +20,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { CrudModal } from '../../../components/ui/CrudModal';
 import { DataTable } from '../../../components/ui/DataTable';
 import { confirmDelete } from '../../../lib/confirm';
-import { normalizarTexto } from '../../../lib/texto';
+import { enMayusculas, normalizarTexto } from '../../../lib/texto';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useRecursosStore } from '../../../store/recursosStore';
@@ -1224,7 +1224,7 @@ export const EstructuraAcademica = () => {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold text-gray-700">Nombre de la materia</label>
-            <input type="text" value={formMateria.nombre} onChange={e => setFormMateria({ ...formMateria, nombre: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" placeholder="Ej. Sistemas Distribuidos" />
+            <input type="text" value={formMateria.nombre} onChange={e => setFormMateria({ ...formMateria, nombre: enMayusculas(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" placeholder="Ej. Sistemas Distribuidos" />
           </div>
           <div className="flex gap-4">
             <div className="flex flex-col gap-1.5 flex-1">

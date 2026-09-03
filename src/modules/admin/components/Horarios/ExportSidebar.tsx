@@ -115,10 +115,25 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-4 mt-2 mb-1">
-            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest leading-none">Opciones</span>
-            <span className="text-[11px] font-bold text-gray-900 leading-none">Generación</span>
+          {/* Qué líneas se imprimen dentro de cada casilla. La materia no es opcional:
+              sin ella el horario no dice nada. */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Datos de clase</label>
+            <div className="flex flex-col gap-1.5 bg-gray-50/60 border border-gray-200/60 rounded-xl p-2.5">
+              {CAMPOS_OPCIONALES.map(({ clave, etiqueta }) => (
+                <label key={clave} className="flex items-center gap-2.5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={camposClase[clave]}
+                    onChange={e => setCamposClase({ ...camposClase, [clave]: e.target.checked })}
+                    className="w-3.5 h-3.5 rounded accent-espoch-red cursor-pointer"
+                  />
+                  <span className="text-[10px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">{etiqueta}</span>
+                </label>
+              ))}
+            </div>
           </div>
+
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Orientación</label>
@@ -162,25 +177,6 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
                   max="30"
                 />
                 <span className="text-[10px] font-bold text-gray-400 pr-3 select-none">pt</span>
-              </div>
-            </div>
-
-            {/* Qué líneas se imprimen dentro de cada casilla. La materia no es opcional:
-                sin ella el horario no dice nada. */}
-            <div className="flex flex-col gap-2 sm:col-span-2">
-              <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Mostrar en cada clase</label>
-              <div className="flex flex-col gap-1.5 bg-gray-50/60 border border-gray-200/60 rounded-xl p-2.5">
-                {CAMPOS_OPCIONALES.map(({ clave, etiqueta }) => (
-                  <label key={clave} className="flex items-center gap-2.5 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={camposClase[clave]}
-                      onChange={e => setCamposClase({ ...camposClase, [clave]: e.target.checked })}
-                      className="w-3.5 h-3.5 rounded accent-espoch-red cursor-pointer"
-                    />
-                    <span className="text-[10px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">{etiqueta}</span>
-                  </label>
-                ))}
               </div>
             </div>
 

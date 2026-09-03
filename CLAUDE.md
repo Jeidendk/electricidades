@@ -71,6 +71,13 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Barra de exportación: "Datos de clase" reemplaza al encabezado muerto.** "OPCIONES /
+  Generación" eran dos `<span>` decorativos sin ninguna funcionalidad; el checklist ocupa ahora
+  ese lugar, arriba de Orientación. También se renombró (antes "Mostrar en cada clase").
+- **El nombre de la materia se escribe en mayúsculas automáticamente**, igual que el del
+  docente. El helper `enMayusculas` se movió de `docentesData.ts` a `src/lib/texto.ts`: lo usan
+  dos módulos distintos y no es propio de docentes. El código de la materia ya se guardaba en
+  mayúsculas (`toUpperCase()` en el payload), así que ahí no cambió nada.
 - **El menú de cuenta pasó del topbar al pie del sidebar** (`src/components/ui/MenuUsuario.tsx`,
   compartido por admin y técnico; el estudiante tiene el suyo aparte en `StudentLayout`). Se
   movió el componente **entero**, no se reescribió: los 4 modales (perfil, 2FA, contraseña,
