@@ -71,6 +71,22 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **"Failed to fetch dynamically imported module" tras cada despliegue.** No era un bug del
+  código: Vite pone un hash en cada chunk (`AdminLayout-B11TMm2M.js`) y al desplegar los
+  viejos dejan de existir, pero una pestaña abierta desde antes los sigue pidiendo → 404.
+  `src/lib/recargaPorDespliegue.ts` detecta esa familia de mensajes (varía por navegador) y
+  recarga **una sola vez por pestaña**, con marca en `sessionStorage`; si tras recargar sigue
+  fallando el problema es otro y se deja ver. Los 25 `lazy()` del router pasan por
+  `cargarPagina()`, que reintenta una vez (corte de red) y recién ahí recarga; mientras tanto
+  devuelve una promesa que nunca resuelve para que React siga en el Suspense en vez de
+  parpadear un error. También se escucha `vite:preloadError`.
+  **De paso se quitó un listener global en `main.tsx` que reemplazaba `document.body` entero
+  por un stack en rojo ante CUALQUIER error** (incluidos los de extensiones del navegador), y
+  el `ErrorBoundary` pasó de volcar el stack crudo a una pantalla con botón Recargar que
+  distingue "versión vieja" de error real.
+- **La columna NIVELACIÓN ahora se muestra siempre**, aunque esté vacía. Antes aparecía solo si
+  ya tenía materias, lo que dejaba un huevo y la gallina: no había dónde verla ni agregarla.
+  Es el mismo criterio que ya se usaba con los PAO numerados sin materias: mostrar el hueco.
 - **Paginación real en la vista previa de exportación** (antes era UI muerta: botones sin
   `onClick` y un "1 / 1" escrito a mano). El PDF **no lo genera jsPDF**: se manda al diálogo de
   impresión del navegador, así que quien pagina es el navegador según papel y orientación. Para

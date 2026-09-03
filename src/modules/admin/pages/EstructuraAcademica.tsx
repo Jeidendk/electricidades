@@ -357,9 +357,10 @@ export const EstructuraAcademica = () => {
     if (hasMateriaFilters) return semestresMats;
     const total = Math.max(selectedCarrera?.semestres || 0, ...carreraMaterias.map(m => m.semestre), 0);
     const map = new Map(semestresMats);
-    const numerados: number[] = Array.from({ length: total }, (_, i) => i + 1);
-    const hayNivelacion = carreraMaterias.some(m => m.semestre === PAO_NIVELACION);
-    const numeros = hayNivelacion ? [PAO_NIVELACION, ...numerados] : numerados;
+    // La nivelación va siempre, aunque esté vacía: es el mismo criterio que ya se usa con los
+    // PAO numerados sin materias —mostrar el hueco— y sin la columna no habría dónde ver ni
+    // agregar una materia de nivelación.
+    const numeros = [PAO_NIVELACION, ...Array.from({ length: total }, (_, i) => i + 1)];
     return numeros.map(numero => [numero, map.get(numero) || []]);
   }, [semestresMats, hasMateriaFilters, selectedCarrera?.semestres, carreraMaterias]);
 

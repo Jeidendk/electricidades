@@ -4,34 +4,62 @@ import { useThemeStore, applyTheme } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { useUiPrefsStore } from '../store/uiPrefsStore';
 import type { Rol } from '../store/authStore';
+import { esErrorDeVersionVieja, olvidarRecarga, recargarUnaVez } from '../lib/recargaPorDespliegue';
+
+/**
+ * `lazy()` que sobrevive a un despliegue nuevo.
+ *
+ * Al desplegar, los trozos con hash del build anterior dejan de existir. Una pestaña abierta
+ * desde antes los sigue pidiendo y el import falla. Se reintenta una vez —por si fue un corte
+ * de red momentáneo— y, si vuelve a fallar por versión vieja, se recarga la página.
+ *
+ * Mientras la recarga ocurre se devuelve una promesa que nunca resuelve: así React sigue
+ * mostrando el Suspense en lugar de parpadear una pantalla de error que va a desaparecer.
+ */
+const cargarPagina = <T,>(importar: () => Promise<T>): Promise<T> =>
+  importar()
+    .then((modulo) => {
+      olvidarRecarga();
+      return modulo;
+    })
+    .catch(async (error) => {
+      try {
+        return await importar();
+      } catch (segundoError) {
+        if (esErrorDeVersionVieja(segundoError) && recargarUnaVez()) {
+          return new Promise<T>(() => {});
+        }
+        throw error;
+      }
+    });
 
 // Code-splitting por ruta: cada página/layout carga en su propio chunk bajo demanda.
 // Las páginas se exportan con nombre, por eso se mapea { default: m.Nombre }.
-const Login = lazy(() => import('../modules/auth/pages/Login').then(m => ({ default: m.Login })));
-const SetPassword = lazy(() => import('../modules/auth/pages/SetPassword').then(m => ({ default: m.SetPassword })));
-const StudentLayout = lazy(() => import('../modules/student/layout/StudentLayout').then(m => ({ default: m.StudentLayout })));
-const CatalogoEquipos = lazy(() => import('../modules/student/pages/CatalogoEquipos').then(m => ({ default: m.CatalogoEquipos })));
-const MisSolicitudes = lazy(() => import('../modules/student/pages/MisSolicitudes').then(m => ({ default: m.MisSolicitudes })));
-const MapaEstudiantil = lazy(() => import('../modules/student/pages/MapaEstudiantil').then(m => ({ default: m.MapaEstudiantil })));
-const HorariosEstudiante = lazy(() => import('../modules/student/pages/HorariosEstudiante').then(m => ({ default: m.HorariosEstudiante })));
-const RecursosEstudiante = lazy(() => import('../modules/student/pages/RecursosEstudiante').then(m => ({ default: m.RecursosEstudiante })));
-const AdminLayout = lazy(() => import('../modules/admin/layout/AdminLayout').then(m => ({ default: m.AdminLayout })));
-const TecnicoLayout = lazy(() => import('../modules/tecnico/layout/TecnicoLayout').then(m => ({ default: m.TecnicoLayout })));
-const TecnicoDashboard = lazy(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard })));
-const Dashboard = lazy(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard })));
-const Solicitudes = lazy(() => import('../modules/admin/pages/Solicitudes').then(m => ({ default: m.Solicitudes })));
-const Formatos = lazy(() => import('../modules/admin/pages/Formatos').then(m => ({ default: m.Formatos })));
-const Mantenimiento = lazy(() => import('../modules/admin/pages/Mantenimiento').then(m => ({ default: m.Mantenimiento })));
-const Prestamos = lazy(() => import('../modules/admin/pages/Prestamos').then(m => ({ default: m.Prestamos })));
-const Infraestructura = lazy(() => import('../modules/admin/pages/Infraestructura').then(m => ({ default: m.Infraestructura })));
-const Activos = lazy(() => import('../modules/admin/pages/Activos').then(m => ({ default: m.Activos })));
-const Tramites = lazy(() => import('../modules/admin/pages/Tramites').then(m => ({ default: m.Tramites })));
-const Usuarios = lazy(() => import('../modules/admin/pages/Usuarios').then(m => ({ default: m.Usuarios })));
-const Reportes = lazy(() => import('../modules/admin/pages/Reportes').then(m => ({ default: m.Reportes })));
-const Horarios = lazy(() => import('../modules/admin/pages/Horarios').then(m => ({ default: m.Horarios })));
-const Recursos = lazy(() => import('../modules/admin/pages/Recursos').then(m => ({ default: m.Recursos })));
-const Asignaciones = lazy(() => import('../modules/admin/pages/Asignaciones').then(m => ({ default: m.Asignaciones })));
-const EstructuraAcademica = lazy(() => import('../modules/admin/pages/EstructuraAcademica').then(m => ({ default: m.EstructuraAcademica })));
+const Login = lazy(() => cargarPagina(() => import('../modules/auth/pages/Login').then(m => ({ default: m.Login }))));
+const SetPassword = lazy(() => cargarPagina(() => import('../modules/auth/pages/SetPassword').then(m => ({ default: m.SetPassword }))));
+const StudentLayout = lazy(() => cargarPagina(() => import('../modules/student/layout/StudentLayout').then(m => ({ default: m.StudentLayout }))));
+const CatalogoEquipos = lazy(() => cargarPagina(() => import('../modules/student/pages/CatalogoEquipos').then(m => ({ default: m.CatalogoEquipos }))));
+const MisSolicitudes = lazy(() => cargarPagina(() => import('../modules/student/pages/MisSolicitudes').then(m => ({ default: m.MisSolicitudes }))));
+const MapaEstudiantil = lazy(() => cargarPagina(() => import('../modules/student/pages/MapaEstudiantil').then(m => ({ default: m.MapaEstudiantil }))));
+const HorariosEstudiante = lazy(() => cargarPagina(() => import('../modules/student/pages/HorariosEstudiante').then(m => ({ default: m.HorariosEstudiante }))));
+const RecursosEstudiante = lazy(() => cargarPagina(() => import('../modules/student/pages/RecursosEstudiante').then(m => ({ default: m.RecursosEstudiante }))));
+const AdminLayout = lazy(() => cargarPagina(() => import('../modules/admin/layout/AdminLayout').then(m => ({ default: m.AdminLayout }))));
+const TecnicoLayout = lazy(() => cargarPagina(() => import('../modules/tecnico/layout/TecnicoLayout').then(m => ({ default: m.TecnicoLayout }))));
+const TecnicoDashboard = lazy(() => cargarPagina(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard }))));
+const Dashboard = lazy(() => cargarPagina(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard }))));
+const Solicitudes = lazy(() => cargarPagina(() => import('../modules/admin/pages/Solicitudes').then(m => ({ default: m.Solicitudes }))));
+const Formatos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Formatos').then(m => ({ default: m.Formatos }))));
+const Mantenimiento = lazy(() => cargarPagina(() => import('../modules/admin/pages/Mantenimiento').then(m => ({ default: m.Mantenimiento }))));
+const Prestamos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Prestamos').then(m => ({ default: m.Prestamos }))));
+const Infraestructura = lazy(() => cargarPagina(() => import('../modules/admin/pages/Infraestructura').then(m => ({ default: m.Infraestructura }))));
+const Activos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Activos').then(m => ({ default: m.Activos }))));
+const Tramites = lazy(() => cargarPagina(() => import('../modules/admin/pages/Tramites').then(m => ({ default: m.Tramites }))));
+const Usuarios = lazy(() => cargarPagina(() => import('../modules/admin/pages/Usuarios').then(m => ({ default: m.Usuarios }))));
+const Reportes = lazy(() => cargarPagina(() => import('../modules/admin/pages/Reportes').then(m => ({ default: m.Reportes }))));
+const Horarios = lazy(() => cargarPagina(() => import('../modules/admin/pages/Horarios').then(m => ({ default: m.Horarios }))));
+const Recursos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Recursos').then(m => ({ default: m.Recursos }))));
+const Asignaciones = lazy(() => cargarPagina(() => import('../modules/admin/pages/Asignaciones').then(m => ({ default: m.Asignaciones }))));
+const EstructuraAcademica = lazy(() => cargarPagina(() => import('../modules/admin/pages/EstructuraAcademica').then(m => ({ default: m.EstructuraAcademica }))));
 
 // ---------------------------------------------------------------------------
 // Guardia de ruta: requiere sesión activa. Si aún está cargando, muestra nada.
