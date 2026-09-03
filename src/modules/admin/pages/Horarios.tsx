@@ -18,6 +18,7 @@ import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
 import { horasFinDisponibles } from '../components/Horarios/horariosData';
 import { mismoDia } from '../../../lib/texto';
+import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 
 // Preferencias del formato de exportación (persisten entre sesiones para no
 // reconfigurar período, tipografía, orientación, etc. cada vez).
@@ -72,29 +73,40 @@ export const Horarios = () => {
 
   const [activeTab, setActiveTab] = useState<'horario' | 'mapa'>('horario');
   const [searchQuery, setSearchQuery] = useState('');
+  const horarioEdificioId = useUiPrefsStore(s => s.horarioEdificioId);
+  const horarioAulaId = useUiPrefsStore(s => s.horarioAulaId);
+  const setHorarioUbicacion = useUiPrefsStore(s => s.setHorarioUbicacion);
   const [filterEdificio, setFilterEdificio] = useState('');
   const [filterAula, setFilterAula] = useState('');
 
-  // Por defecto abre en el PRIMER edificio (no "Todos"), como una pestaña de Excel.
-  // Solo una vez, al cargar los edificios; luego el admin puede cambiar o poner "Todos".
+  // Al abrir, retoma la última ubicación que se estaba viendo. Solo la primera vez de todas
+  // (o si ese edificio ya no existe) cae al primero, como una pestaña de Excel.
   const didInitEdificio = useRef(false);
   useEffect(() => {
-    if (!didInitEdificio.current && edificiosRaw.length > 0) {
-      setFilterEdificio(edificiosRaw[0].id);
-      didInitEdificio.current = true;
-    }
-  }, [edificiosRaw]);
+    if (didInitEdificio.current || edificiosRaw.length === 0) return;
 
-  // Sin "Todas": el aula por defecto es la PRIMERA del edificio seleccionado.
-  // Cubre la carga inicial y el cambio de edificio (que resetea el aula a '').
+    const guardadoSigueExistiendo = edificiosRaw.some((e: any) => e.id === horarioEdificioId);
+    setFilterEdificio(guardadoSigueExistiendo ? horarioEdificioId! : edificiosRaw[0].id);
+    didInitEdificio.current = true;
+  }, [edificiosRaw, horarioEdificioId]);
+
+  // Sin "Todas": si hay un aula recordada dentro del edificio actual se usa esa; si no,
+  // la PRIMERA del edificio. Cubre la carga inicial y el cambio de edificio (que resetea a '').
   useEffect(() => {
-    if (filterEdificio && !filterAula && espaciosRaw.length > 0) {
-      const primera = [...espaciosRaw]
-        .filter((e: any) => e.id_edificio === filterEdificio)
-        .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre, 'es'))[0];
-      if (primera) setFilterAula(primera.id);
-    }
-  }, [filterEdificio, filterAula, espaciosRaw]);
+    if (!filterEdificio || filterAula || espaciosRaw.length === 0) return;
+
+    const delEdificio = [...espaciosRaw]
+      .filter((e: any) => e.id_edificio === filterEdificio)
+      .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre, 'es'));
+    const recordada = delEdificio.find((e: any) => e.id === horarioAulaId);
+    const elegida = recordada ?? delEdificio[0];
+    if (elegida) setFilterAula(elegida.id);
+  }, [filterEdificio, filterAula, espaciosRaw, horarioAulaId]);
+
+  // Guarda la ubicación una vez que ambas están resueltas.
+  useEffect(() => {
+    if (filterEdificio && filterAula) setHorarioUbicacion(filterEdificio, filterAula);
+  }, [filterEdificio, filterAula, setHorarioUbicacion]);
 
   // Map state
   const mapLocations = useMemo(() => {

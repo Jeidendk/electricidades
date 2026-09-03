@@ -16,6 +16,12 @@ interface UiPrefsState {
   setNotificaciones: (v: boolean) => void;
   densidadCompacta: boolean;
   setDensidadCompacta: (v: boolean) => void;
+
+  // Última ubicación abierta en Horarios, para no volver siempre al primer edificio/aula.
+  // Es una preferencia de vista, no un dato compartido: por eso vive en el navegador.
+  horarioEdificioId: string | null;
+  horarioAulaId: string | null;
+  setHorarioUbicacion: (edificioId: string, aulaId: string) => void;
 }
 
 export const useUiPrefsStore = create<UiPrefsState>()(
@@ -28,6 +34,10 @@ export const useUiPrefsStore = create<UiPrefsState>()(
       setNotificaciones: (v) => set({ notificaciones: v }),
       densidadCompacta: false,
       setDensidadCompacta: (v) => { applyDensidad(v); set({ densidadCompacta: v }); },
+
+      horarioEdificioId: null,
+      horarioAulaId: null,
+      setHorarioUbicacion: (edificioId, aulaId) => set({ horarioEdificioId: edificioId, horarioAulaId: aulaId }),
     }),
     {
       name: 'ui-prefs',

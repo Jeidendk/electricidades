@@ -71,6 +71,11 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Horarios recuerda la última ubicación abierta.** `filterEdificio`/`filterAula` eran `useState`
+  en memoria y un efecto que siempre elegía el primer edificio y la primera aula, así que
+  recargar o cambiar de pestaña devolvía al usuario al inicio. Ahora se guardan en
+  `uiPrefsStore` (zustand `persist`, mismo patrón que densidad y `lastPath`) y solo se cae a la
+  primera si no hay nada guardado o si esa ubicación ya no existe.
 - **Migración 0019 (HAY QUE EJECUTARLA, y ANTES de desplegar): tildes en las etiquetas de enum.**
   `RENAME VALUE` sobre `dia_semana` (`Miercoles`→`Miércoles`), `estado_inventario`
   (`danado`→`dañado`), `tipo_espacio` (las 3) y `tipo_solicitud_admin` (`Reporte de daño`,
