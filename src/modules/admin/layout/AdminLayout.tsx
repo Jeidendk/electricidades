@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopbar } from './AdminTopbar';
@@ -12,7 +11,6 @@ import { useRecursosStore } from '../../../store/recursosStore';
 import { useEffect } from 'react';
 
 export const AdminLayout = () => {
-  const [customTitle, setCustomTitle] = useState<React.ReactNode | null>(null);
   
   const currentUser = useAuthStore(s => s.user);
 
@@ -36,11 +34,11 @@ export const AdminLayout = () => {
       <main className="flex-1 flex flex-col min-w-0 bg-[#f4f7fb]/90 backdrop-blur-xl relative">
         
         {/* TOPBAR */}
-        <AdminTopbar customTitle={customTitle} currentUser={currentUser} setCurrentUser={() => {}} />
+        <AdminTopbar />
 
         {/* ÁREA DE TRABAJO */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden relative flex flex-col">
-          <Outlet context={{ setCustomTitle, currentUser }} />
+          <Outlet context={{ currentUser }} />
         </div>
       </main>
     </div>

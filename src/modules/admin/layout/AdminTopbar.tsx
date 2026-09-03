@@ -94,7 +94,7 @@ const TopbarTitle = ({ cfg }: { cfg: RouteConfig }) => {
   );
 };
 
-export const AdminTopbar = ({ customTitle }: { customTitle?: React.ReactNode, currentUser?: any, setCurrentUser?: any }) => {
+export const AdminTopbar = () => {
   const location = useLocation();
 
 
@@ -103,7 +103,7 @@ export const AdminTopbar = ({ customTitle }: { customTitle?: React.ReactNode, cu
   // Soporta /admin/* y /tecnico/* (resuelve por el último segmento de la ruta)
   const lastSeg = location.pathname.split('/').filter(Boolean).pop() || '';
   const cfg = ROUTES[location.pathname] ?? ROUTES['/admin/' + lastSeg];
-  const resolvedTitle = customTitle ?? (cfg ? <TopbarTitle cfg={cfg} /> : (
+  const resolvedTitle = cfg ? <TopbarTitle cfg={cfg} /> : (
     <div className="flex items-center gap-4">
       <div className="w-11 h-11 rounded-[12px] bg-gray-50 flex items-center justify-center text-gray-500 shadow-sm border border-gray-200 shrink-0">
         <LayoutGrid className="w-5 h-5" strokeWidth={2} />
@@ -117,7 +117,7 @@ export const AdminTopbar = ({ customTitle }: { customTitle?: React.ReactNode, cu
         <p className="text-[10.5px] text-gray-500 font-semibold leading-none">Sistema de gestión de laboratorios y recursos.</p>
       </div>
     </div>
-  ));
+  );
 
 
   return (

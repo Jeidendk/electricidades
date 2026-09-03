@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
+import { BreadcrumbRuta } from './BreadcrumbRuta';
 
 export interface HeroStat {
   Icon: React.ElementType;
@@ -37,6 +38,7 @@ export const PageHero = ({ icon: Icon, title, subtitle, stats, children, actions
           <Icon className="w-7 h-7" strokeWidth={2} />
         </div>
         <div className="flex flex-col">
+          <BreadcrumbRuta />
           <h2 className="text-[28px] md:text-[34px] font-bold text-white tracking-tight leading-none mb-1.5">{title}</h2>
           <p className="text-[13px] text-gray-400 font-medium">{subtitle}</p>
         </div>

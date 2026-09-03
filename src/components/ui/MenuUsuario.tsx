@@ -86,9 +86,9 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
           {avisosAbiertos && (
             <>
               <div className="fixed inset-0 z-[95]" onClick={() => setAvisosAbiertos(false)} />
-              <div className="absolute bottom-full right-0 mb-2 w-[210px] bg-white rounded-xl shadow-2xl border border-gray-100 p-4 z-[96] animate-fade-in">
-                <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Notificaciones</span>
-                <p className="text-[11px] font-medium text-gray-500 leading-relaxed mt-2">
+              <div className="absolute bottom-full right-0 mb-2 w-[210px] lg:bottom-0 lg:left-full lg:right-auto lg:ml-3 lg:mb-0 bg-espoch-sidebar rounded-xl shadow-2xl border border-gray-700/60 p-4 z-[96] animate-fade-in">
+                <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">Notificaciones</span>
+                <p className="text-[11px] font-medium text-gray-400 leading-relaxed mt-2">
                   Todavía no hay avisos. Esta sección se activará cuando el sistema empiece a
                   generarlos.
                 </p>
@@ -118,18 +118,18 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
       {abierto && (
         <>
           <div className="fixed inset-0 z-[95]" onClick={() => setAbierto(false)} />
-          <div className="absolute bottom-full left-2 right-2 mb-2 min-w-[210px] bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[96] animate-fade-in">
-            <div className="px-4 py-2 border-b border-gray-50 mb-1">
-              <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Opciones</span>
+          <div className="absolute bottom-full left-2 right-2 mb-2 min-w-[210px] lg:bottom-2 lg:left-full lg:right-auto lg:ml-2 lg:mb-0 lg:w-[230px] bg-espoch-sidebar rounded-xl shadow-2xl border border-gray-700/60 py-2 z-[96] animate-fade-in">
+            <div className="px-4 py-2 border-b border-gray-700/50 mb-1">
+              <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">Opciones</span>
             </div>
             <div className="py-0.5">
               {OPCIONES.map(({ etiqueta, Icono, accion }) => (
                 <button
                   key={etiqueta}
                   onClick={accion}
-                  className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-gray-50 text-gray-700 transition-colors rounded-lg"
+                  className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-espoch-sidebarhover text-gray-300 hover:text-white transition-colors rounded-lg"
                 >
-                  <Icono className="w-4 h-4 text-gray-400" />
+                  <Icono className="w-4 h-4 text-gray-500" />
                   <span className="text-[12px] font-semibold">{etiqueta}</span>
                 </button>
               ))}
@@ -138,9 +138,9 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
             {/* Selector de vista — solo admin (inspecciona técnico/estudiante) */}
             {esAdmin && (
               <>
-                <div className="h-px bg-gray-100 my-1 mx-2" />
+                <div className="h-px bg-gray-700/50 my-1 mx-2" />
                 <div className="px-4 py-1.5">
-                  <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
                     <Eye className="w-3 h-3" /> Ver como
                   </span>
                 </div>
@@ -149,7 +149,7 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
                     <button
                       key={clave}
                       onClick={() => cambiarVista(clave)}
-                      className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-bold transition-colors ${vistaActual === clave ? 'bg-espoch-ink text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                      className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-bold transition-colors ${vistaActual === clave ? 'bg-espoch-red text-white' : 'text-gray-400 hover:bg-espoch-sidebarhover hover:text-white'}`}
                     >
                       <Icono className="w-4 h-4" />
                       {etiqueta}
@@ -159,10 +159,10 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
               </>
             )}
 
-            <div className="h-px bg-gray-100 my-1 mx-2" />
+            <div className="h-px bg-gray-700/50 my-1 mx-2" />
             <button
               onClick={cerrarSesion}
-              className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-red-50 text-red-600 transition-colors rounded-lg"
+              className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors rounded-lg"
             >
               <LogOut className="w-4 h-4" />
               <span className="text-[12px] font-bold">Cerrar Sesión</span>

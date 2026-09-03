@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { BreadcrumbRuta } from '../../../components/ui/BreadcrumbRuta';
 import { useOutletContext } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { CalendarDays, Clock, DoorOpen, UserCheck,  ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Maximize2, RefreshCcw, FileText } from 'lucide-react';
@@ -590,6 +591,7 @@ export const Horarios = () => {
               <Clock className="w-7 h-7" strokeWidth={2} />
             </div>
             <div className="flex flex-col">
+              <BreadcrumbRuta />
               <h2 className="text-[28px] md:text-[34px] font-bold text-white tracking-tight leading-none mb-1.5">
                 Horarios
               </h2>

@@ -71,6 +71,17 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **El rastro de navegación pasó al banner de cada página** (`BreadcrumbRuta`, alimentado por
+  `src/lib/breadcrumbRutas.ts`, extraído del mapa `ROUTES` que vivía dentro de `AdminTopbar`).
+  Como `PageHero` lo incluye, lo heredan las 10 páginas que ya lo usaban sin tocar ninguna;
+  Horarios y Usuarios, que tienen banner propio, lo llevan explícito. Con esto **se eliminó la
+  plomería muerta de `setCustomTitle`**: se pasaba por el contexto del Outlet en ambos layouts
+  y ninguna página la llamaba jamás. `currentUser` sí se queda en el contexto: varias páginas
+  lo leen.
+- **El panel del menú de cuenta abre a la DERECHA del sidebar en escritorio** (`lg:left-full`)
+  para no taparlo; en móvil sigue abriendo hacia arriba, porque ahí el sidebar es un drawer y
+  a la derecha se saldría de la pantalla. Sus colores pasaron a la paleta oscura del sidebar
+  (`bg-espoch-sidebar`, hover `espoch-sidebarhover`, activo de "Ver como" en `espoch-red`).
 - **Topbar solo en móvil.** En escritorio ya no se renderiza: el título que mostraba lo repite
   el hero de cada página, así que solo costaba alto. **Debajo de `lg` tiene que quedarse**: su
   botón de menú es lo ÚNICO que abre el sidebar cuando este es un drawer; borrarlo del todo
