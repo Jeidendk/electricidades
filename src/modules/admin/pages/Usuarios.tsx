@@ -453,6 +453,12 @@ export const Usuarios = () => {
 
   // Columnas visibles según el rol filtrado (no todos los roles usan todos los campos).
   // Sin filtro (o al ver todos) se muestran todas.
+  /**
+   * Rol con el que abre el formulario de alta: el mismo que se está listando. Si la pantalla
+   * muestra docentes, "Nuevo" crea un docente. Sin filtro cae al rol por defecto.
+   */
+  const rolParaAlta = soloDocentes ? 'Docente' : (filterRol || defaultFormValues.rol);
+
   const showCarrera = !filterRol || filterRol === 'Estudiante' || filterRol === 'Tecnico';
   const showPao = !filterRol || filterRol === 'Estudiante';
   const showCodigo = !filterRol || filterRol === 'Estudiante';
@@ -622,7 +628,7 @@ export const Usuarios = () => {
             <button onClick={exportCsv} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
               <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
             </button>
-            <button onClick={() => { setFormValues({ ...defaultFormValues, rol: soloDocentes ? 'Docente' : defaultFormValues.rol }); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
+            <button onClick={() => { setFormValues({ ...defaultFormValues, rol: rolParaAlta }); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
               <Plus className="w-3.5 h-3.5" /> {soloDocentes ? 'Nuevo docente' : 'Nuevo registro'}
             </button>
           </div>

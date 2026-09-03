@@ -71,6 +71,11 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Fix: "Nuevo" siempre abría el formulario en rol Estudiante.** Aunque la lista estuviera
+  filtrada por Docente, el botón de alta forzaba `defaultFormValues.rol`, así que salía el campo
+  único "Nombre completo" en vez de Título/Nombres/Apellidos hasta cambiar el rol a mano — por
+  eso los campos nuevos "solo se veían al editar". Ahora el alta hereda el rol que se está
+  listando (`rolParaAlta`).
 - **Migración 0022 (HAY QUE EJECUTARLA): nombre de docente único en la BASE.** Índice único
   parcial `usuarios_docente_nombre_unico` sobre
   `lower(translate(trim(regexp_replace(nombre,'\s+',' ','g')), tildes, sin_tildes))` con
