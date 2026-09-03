@@ -71,6 +71,9 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- El subtítulo del banner de carrera decía `Facultad · Malla de N PAOs · Dir. X`: la facultad
+  ya la nombra el rastro de navegación y el número de PAOs tiene su propia tarjeta de KPI.
+  Queda solo la dirección de carrera, que no aparece en ninguna otra parte.
 - **El banner es ahora una sola línea de navegación.** El rastro y el título comparten fila
   (`INSTITUCIÓN / ESTRUCTURA ACADÉMICA / Diseño Gráfico`) en vez de apilarse, y el título bajó
   al tamaño del rastro (`text-[12px]`, antes 28/34px) con el subtítulo a 11px. Los banners

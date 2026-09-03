@@ -312,22 +312,20 @@ export const EstructuraAcademica = () => {
   const selectedCarrera = mappedCarreras.find(c => c.id === selectedCarreraId);
 
   /**
-   * Subtítulo del banner de la carrera. Antes decía "FIE > 9 PAO": siglas sin contexto y un
-   * separador que se leía como navegación. Ahora nombra la facultad y describe la malla,
-   * omitiendo las partes que no existan en vez de dejar restos como "> 9 PAO".
+   * Subtítulo del banner de la carrera: solo lo que no se dice ya en otro lado.
+   * La facultad la nombra el rastro de navegación de arriba y el número de PAOs lo muestra su
+   * propia tarjeta de KPI, así que repetirlos aquí era ruido. Queda la dirección de carrera,
+   * que no aparece en ninguna otra parte.
    */
   const subtituloCarrera = useMemo(() => {
     if (!selectedCarrera) return '';
 
-    const paos = selectedCarrera.semestres;
     const partes = [
-      selectedFacultad?.nombre || selectedFacultad?.siglas,
-      paos ? `Malla de ${paos} ${paos === 1 ? 'PAO' : 'PAOs'}` : null,
       selectedCarrera.director ? `Dir. ${selectedCarrera.director}` : null,
     ].filter(Boolean);
 
     return partes.join(' · ');
-  }, [selectedCarrera, selectedFacultad]);
+  }, [selectedCarrera]);
 
 
   const carreraMaterias = useMemo(() => materias.filter(m => m.idCarrera === selectedCarreraId), [materias, selectedCarreraId]);
