@@ -16,7 +16,8 @@ export const etiquetaPaoParalelo = (
   pao?: number | null,
   paralelo?: number | null,
 ): string => [
-  pao != null ? `PAO ${pao}` : null,
+  // El PAO 0 es la nivelación, no un periodo más de la malla.
+  pao != null ? (pao === 0 ? 'NIVELACIÓN' : `PAO ${pao}`) : null,
   paralelo != null ? `PARALELO ${paralelo}` : null,
 ].filter(Boolean).join(' · ');
 

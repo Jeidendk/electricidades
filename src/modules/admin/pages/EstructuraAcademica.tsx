@@ -170,6 +170,15 @@ export const EstructuraAcademica = () => {
   const [modalType, setModalType] = useState<null | 'createFacultad' | 'editFacultad' | 'createCarrera' | 'editCarrera'>(null);
   const defaultFacultadValues = { siglas: '', nombre: '', decano: '', estado: 'activo', colorHex: '#3b82f6', icono: 'Building', customSvg: null as string | null };
   const [formFacultad, setFormFacultad] = useState(defaultFacultadValues);
+  /**
+   * El PAO 0 es la nivelación: no forma parte de la malla numerada, así que la carrera no lo
+   * cuenta en `semestres` y solo aparece como columna si tiene materias.
+   */
+  const PAO_NIVELACION = 0;
+
+  /** "NIVELACIÓN" para el 0, "PAO n" para el resto. Un solo lugar decide cómo se lee un PAO. */
+  const etiquetaPao = (pao: number) => (pao === PAO_NIVELACION ? 'NIVELACIÓN' : `PAO ${pao}`);
+
   const defaultCarreraValues = { idFacultad: '', nombre: '', semestres: 9, director: '', estado: 'activo', colorHex: '#3b82f6', icono: 'BookOpen', customSvg: null as string | null };
   const [formCarrera, setFormCarrera] = useState(defaultCarreraValues);
   const [carreraError, setCarreraError] = useState<string | null>(null);
@@ -348,7 +357,10 @@ export const EstructuraAcademica = () => {
     if (hasMateriaFilters) return semestresMats;
     const total = Math.max(selectedCarrera?.semestres || 0, ...carreraMaterias.map(m => m.semestre), 0);
     const map = new Map(semestresMats);
-    return Array.from({ length: total }, (_, i) => [i + 1, map.get(i + 1) || []]);
+    const numerados: number[] = Array.from({ length: total }, (_, i) => i + 1);
+    const hayNivelacion = carreraMaterias.some(m => m.semestre === PAO_NIVELACION);
+    const numeros = hayNivelacion ? [PAO_NIVELACION, ...numerados] : numerados;
+    return numeros.map(numero => [numero, map.get(numero) || []]);
   }, [semestresMats, hasMateriaFilters, selectedCarrera?.semestres, carreraMaterias]);
 
   const kpis = useMemo(() => ({
@@ -731,7 +743,7 @@ export const EstructuraAcademica = () => {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input type="text" value={searchMateria} onChange={(e) => setSearchMateria(e.target.value)} placeholder="Buscar materia..." className="w-[220px] pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-[12px] font-medium text-gray-700 outline-none focus:border-indigo-400 transition-colors" />
                     </div>
-                    <FilterDropdown label="PAO" value={selectedSemestreFilter} options={[{ key: 'Todos', label: 'Todos' }, ...allSemestres.map(s => ({ key: s.toString(), label: `PAO ${s}` }))]} onChange={setSelectedSemestreFilter} />
+                    <FilterDropdown label="PAO" value={selectedSemestreFilter} options={[{ key: 'Todos', label: 'Todos' }, ...allSemestres.map(s => ({ key: s.toString(), label: etiquetaPao(s) }))]} onChange={setSelectedSemestreFilter} />
                     {(searchMateria || selectedSemestreFilter !== 'Todos') && (
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] font-bold text-gray-500">{filteredMaterias.length} de {carreraMaterias.length} materias</span>
@@ -776,7 +788,7 @@ export const EstructuraAcademica = () => {
                         columns={[
                           { key: 'codigo', header: 'Código', width: '90px', sortValue: m => m.codigo, render: m => <span className="text-[11px] font-bold text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded-md border border-gray-100">{m.codigo}</span> },
                           { key: 'nombre', header: 'Nombre de la materia', width: '2.5fr', sortValue: m => m.nombre, render: m => <span className="text-[12px] font-bold text-gray-900 group-hover:text-indigo-600 transition-colors truncate">{m.nombre}</span> },
-                          { key: 'semestre', header: 'PAO', width: '70px', align: 'center', sortValue: m => m.semestre, render: m => <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">{m.semestre}</span> },
+                          { key: 'semestre', header: 'PAO', width: '70px', align: 'center', sortValue: m => m.semestre, render: m => <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md" title={etiquetaPao(m.semestre)}>{m.semestre === PAO_NIVELACION ? 'Niv.' : m.semestre}</span> },
                           { key: 'creditos', header: 'Créditos', width: '90px', align: 'center', sortValue: m => m.creditos, render: m => <span className="text-[11px] font-bold text-gray-700">{m.creditos} cr.</span> },
                           {
                             key: 'silabo', header: 'Estado sílabo', width: '1.3fr', sortValue: m => (m.silaboUrl ? 1 : 0),
@@ -858,7 +870,10 @@ export const EstructuraAcademica = () => {
                                       <Layers className="w-4 h-4" style={{ color: pc.iconColor }} />
                                     </div>
                                     {/* Título PAO */}
-                                    <span className="text-[14px] font-bold text-gray-900 tracking-tight">PAO {sem}</span>
+                                    <span className="text-[14px] font-bold text-gray-900 tracking-tight">{etiquetaPao(sem)}</span>
+                                    {sem === PAO_NIVELACION && (
+                                      <span className="text-[11px] font-semibold text-gray-400">"PAO 0"</span>
+                                    )}
                                     {/* Badge materias: texto del color del PAO, sin fondo relleno */}
                                     <span
                                       className="text-[11px] font-semibold"
@@ -1217,13 +1232,13 @@ export const EstructuraAcademica = () => {
             </div>
             <div className="flex flex-col gap-1.5 w-[100px]">
               <label className="text-[11px] font-bold text-gray-700">PAO</label>
-              <input type="number" min={1} max={12} value={formMateria.semestre} onChange={e => setFormMateria({ ...formMateria, semestre: parseInt(e.target.value) || 1 })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+              <input type="number" min={0} max={12} value={formMateria.semestre} onChange={e => { const valor = parseInt(e.target.value); setFormMateria({ ...formMateria, semestre: Number.isNaN(valor) ? PAO_NIVELACION : valor }); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold text-gray-700">Créditos</label>
             <select value={formMateria.creditos} onChange={e => setFormMateria({ ...formMateria, creditos: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] font-medium text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
-              {[1, 2, 3, 4, 5, 6].map(c => <option key={c} value={c}>{c} créditos</option>)}
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(c => <option key={c} value={c}>{c} créditos</option>)}
             </select>
           </div>
           {materiaError && <p className="text-[11px] text-red-500 font-semibold bg-red-50 border border-red-100 px-3 py-2 rounded-lg">{materiaError}</p>}
@@ -1239,7 +1254,7 @@ export const EstructuraAcademica = () => {
               <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0"><BookOpen className="w-5 h-5" /></div>
               <div>
                 <h3 className="text-[17px] font-bold text-gray-900 tracking-tight leading-tight">{currentMateria.nombre}</h3>
-                <p className="text-[11px] font-medium text-gray-400 mt-0.5">{currentMateria.codigo} · PAO {currentMateria.semestre} · {currentMateria.creditos} créditos</p>
+                <p className="text-[11px] font-medium text-gray-400 mt-0.5">{currentMateria.codigo} · {etiquetaPao(currentMateria.semestre)} · {currentMateria.creditos} créditos</p>
               </div>
             </div>
             {/* Sección "Documentos" (Sílabo / Programa analítico) oculta temporalmente
