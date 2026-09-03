@@ -1,11 +1,10 @@
 import {
-  LayoutGrid, Bell,
+  LayoutGrid,
   FileText, Package, Users,
   BookMarked, BarChart2, Building2, CalendarDays,
   BookOpen, Inbox, Menu
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 import { useSidebarStore } from '../../../store/sidebarStore';
 interface RouteConfig {
   icon: React.ElementType;
@@ -97,7 +96,6 @@ const TopbarTitle = ({ cfg }: { cfg: RouteConfig }) => {
 
 export const AdminTopbar = ({ customTitle }: { customTitle?: React.ReactNode, currentUser?: any, setCurrentUser?: any }) => {
   const location = useLocation();
-  const notificaciones = useUiPrefsStore(s => s.notificaciones);
 
 
 
@@ -124,7 +122,10 @@ export const AdminTopbar = ({ customTitle }: { customTitle?: React.ReactNode, cu
 
   return (
     <>
-      <header className="relative h-[60px] bg-white/80 backdrop-blur-md border-b border-gray-200/50 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 z-40 gap-2">
+      {/* Solo en móvil. En escritorio el título ya lo pone el hero de cada página, así que la
+          barra no aportaba nada y sí costaba alto. Debajo de lg tiene que quedarse: el botón
+          de menú es lo ÚNICO que abre el sidebar cuando este es un drawer. */}
+      <header className="lg:hidden relative h-[60px] bg-white/80 backdrop-blur-md border-b border-gray-200/50 flex items-center justify-between px-4 sm:px-6 shrink-0 z-40 gap-2">
       <div className="flex items-center h-full min-w-0 gap-2">
         <button
           onClick={() => useSidebarStore.getState().toggleMobile()}
@@ -135,19 +136,7 @@ export const AdminTopbar = ({ customTitle }: { customTitle?: React.ReactNode, cu
         </button>
         {resolvedTitle}
       </div>
-      <div className="flex items-center gap-6">
-        {notificaciones && (
-          <>
-            <div className="flex items-center gap-4">
-              <button className="text-gray-400 hover:text-gray-700 relative" title="Notificaciones">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-espoch-yellow rounded-full border border-white"></span>
-              </button>
-            </div>
-            <div className="w-px h-8 bg-gray-200"></div>
-          </>
-        )}
-      </div>
+
     </header>
 
     </>

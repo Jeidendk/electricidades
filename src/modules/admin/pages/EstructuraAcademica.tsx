@@ -872,9 +872,6 @@ export const EstructuraAcademica = () => {
                                     </div>
                                     {/* Título PAO */}
                                     <span className="text-[14px] font-bold text-gray-900 tracking-tight">{etiquetaPao(sem)}</span>
-                                    {sem === PAO_NIVELACION && (
-                                      <span className="text-[11px] font-semibold text-gray-400">"PAO 0"</span>
-                                    )}
                                     {/* Badge materias: texto del color del PAO, sin fondo relleno */}
                                     <span
                                       className="text-[11px] font-semibold"

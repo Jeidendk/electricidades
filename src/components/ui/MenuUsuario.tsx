@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronUp, Settings, ShieldCheck, KeyRound, User, LogOut, Eye, Users, Wrench, GraduationCap } from 'lucide-react';
+import { ChevronUp, Settings, ShieldCheck, KeyRound, User, LogOut, Eye, Users, Wrench, GraduationCap, Bell } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useUiPrefsStore } from '../../store/uiPrefsStore';
 import { Avatar } from './Avatar';
 import { ConfigModal } from './ConfigModal';
 import { ProfileModal } from './ProfileModal';
@@ -26,6 +27,10 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
   const [mfaAbierto, setMfaAbierto] = useState(false);
   const [passwordAbierto, setPasswordAbierto] = useState(false);
   const [configAbierta, setConfigAbierta] = useState(false);
+  const [avisosAbiertos, setAvisosAbiertos] = useState(false);
+
+  // La campana se puede apagar desde Configuración.
+  const notificaciones = useUiPrefsStore(s => s.notificaciones);
 
   const esAdmin = usuario?.role === 'admin';
 
@@ -65,10 +70,38 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
 
   return (
     <div className="relative shrink-0 border-t border-gray-800/80 px-2 py-2">
+      {/* Campana provisional: todavía no hay fuente de avisos, pero al menos responde en vez
+          de quedarse muda. Se oculta con el sidebar colapsado, donde no cabe junto al avatar. */}
+      {notificaciones && !colapsado && (
+        <div className="absolute top-3.5 right-3 z-[97]">
+          <button
+            onClick={() => { setAvisosAbiertos(!avisosAbiertos); setAbierto(false); }}
+            title="Notificaciones"
+            className="relative text-gray-500 hover:text-white transition-colors p-1"
+          >
+            <Bell className="w-4 h-4" />
+            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-espoch-yellow rounded-full" />
+          </button>
+
+          {avisosAbiertos && (
+            <>
+              <div className="fixed inset-0 z-[95]" onClick={() => setAvisosAbiertos(false)} />
+              <div className="absolute bottom-full right-0 mb-2 w-[210px] bg-white rounded-xl shadow-2xl border border-gray-100 p-4 z-[96] animate-fade-in">
+                <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Notificaciones</span>
+                <p className="text-[11px] font-medium text-gray-500 leading-relaxed mt-2">
+                  Todavía no hay avisos. Esta sección se activará cuando el sistema empiece a
+                  generarlos.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <button
-        onClick={() => setAbierto(!abierto)}
+        onClick={() => { setAbierto(!abierto); setAvisosAbiertos(false); }}
         title={colapsado ? nombre : undefined}
-        className={`w-full flex items-center gap-2.5 rounded-xl p-2 transition-colors hover:bg-espoch-sidebarhover ${colapsado ? 'justify-center' : ''}`}
+        className={`w-full flex items-center gap-2.5 rounded-xl p-2 pr-9 transition-colors hover:bg-espoch-sidebarhover ${colapsado ? 'justify-center pr-2' : ''}`}
       >
         <Avatar nombre={nombre} src={usuario?.avatar} className="w-8 h-8 text-[10px] shrink-0" />
         {!colapsado && (

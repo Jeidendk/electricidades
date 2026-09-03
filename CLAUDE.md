@@ -71,6 +71,17 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Topbar solo en móvil.** En escritorio ya no se renderiza: el título que mostraba lo repite
+  el hero de cada página, así que solo costaba alto. **Debajo de `lg` tiene que quedarse**: su
+  botón de menú es lo ÚNICO que abre el sidebar cuando este es un drawer; borrarlo del todo
+  dejaba la navegación inalcanzable en celular. La campana (que tampoco tenía `onClick`) se
+  movió al pie del sidebar, junto al usuario, y ahora **responde**: abre un panel que dice que
+  todavía no hay avisos, en vez de ser un botón mudo. Sigue respetando la preferencia
+  `notificaciones` y se oculta con el sidebar colapsado, donde no cabe. `AdminTopbar` quedó en
+  144 líneas (eran 275). **Plomería muerta detectada, no tocada**: `setCustomTitle` se pasa por
+  el contexto del Outlet pero ninguna página lo llama nunca.
+- La cabecera de la columna de nivelación dice solo **NIVELACIÓN**; se quitó el `"PAO 0"` que
+  la apretaba.
 - **Barra de exportación: "Datos de clase" reemplaza al encabezado muerto.** "OPCIONES /
   Generación" eran dos `<span>` decorativos sin ninguna funcionalidad; el checklist ocupa ahora
   ese lugar, arriba de Orientación. También se renombró (antes "Mostrar en cada clase").
