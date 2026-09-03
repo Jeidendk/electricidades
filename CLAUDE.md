@@ -71,6 +71,13 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **El rastro de navegación solo dibuja lo que aporta.** En Trámites la sección, el nombre de
+  la ruta y el título del banner son la misma palabra: repetirla tres veces no orienta a nadie,
+  así que ahí no se dibuja nada. `BreadcrumbRuta` recibe `tituloPagina` y descarta los
+  segmentos repetidos entre sí y el que el `<h2>` ya muestra, comparando con `normalizarTexto`
+  (sin tildes ni mayúsculas). Si no queda ninguno, no renderiza.
+- **Título del banner de `text-[28px] md:text-[34px]` a `text-[21px] md:text-[25px]`** en los
+  13 banners (admin, técnico y estudiante), para que no aplaste al texto de apoyo.
 - **El rastro de navegación pasó al banner de cada página** (`BreadcrumbRuta`, alimentado por
   `src/lib/breadcrumbRutas.ts`, extraído del mapa `ROUTES` que vivía dentro de `AdminTopbar`).
   Como `PageHero` lo incluye, lo heredan las 10 páginas que ya lo usaban sin tocar ninguna;

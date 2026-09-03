@@ -93,7 +93,7 @@ export const Reportes = () => {
                 <BarChart2 className="w-7 h-7" strokeWidth={2} />
               </div>
               <div className="flex flex-col">
-                <h2 className="text-[28px] md:text-[34px] font-bold text-white tracking-tight leading-none mb-1.5">
+                <h2 className="text-[21px] md:text-[25px] font-bold text-white tracking-tight leading-none mb-1.5">
                   Reportes y Analíticas
                 </h2>
                 <p className="text-[13px] text-gray-400 font-medium">Generación de informes exportables del sistema.</p>

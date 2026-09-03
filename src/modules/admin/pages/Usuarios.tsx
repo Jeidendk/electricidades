@@ -525,8 +525,8 @@ export const Usuarios = () => {
               <UsersIcon className="w-7 h-7" strokeWidth={2} />
             </div>
             <div className="flex flex-col">
-              <BreadcrumbRuta />
-              <h2 className="text-[28px] md:text-[34px] font-bold text-white tracking-tight leading-none mb-1.5">
+              <BreadcrumbRuta tituloPagina={soloDocentes ? 'Gestión de Docentes' : 'Gestión de Usuarios y Docentes'} />
+              <h2 className="text-[21px] md:text-[25px] font-bold text-white tracking-tight leading-none mb-1.5">
                 {soloDocentes ? 'Gestión de Docentes' : 'Gestión de Usuarios y Docentes'}
               </h2>
               <p className="text-[13px] text-gray-400 font-medium">{soloDocentes ? 'Catálogo de docentes para horarios (varias carreras y materias).' : 'Administración de cuentas y del catálogo docente.'}</p>

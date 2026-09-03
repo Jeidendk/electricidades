@@ -110,7 +110,7 @@ export const RecursosEstudiante = () => {
                 <BookOpen className="w-7 h-7" strokeWidth={2} />
               </div>
               <div className="flex flex-col">
-                <h2 className="text-[28px] md:text-[34px] font-black text-white tracking-tight leading-none mb-1.5">
+                <h2 className="text-[21px] md:text-[25px] font-black text-white tracking-tight leading-none mb-1.5">
                   Repositorio Digital
                 </h2>
                 <p className="text-[13px] text-gray-400 font-medium">Descarga libros, software y sílabos organizados por nivel y materia.</p>
