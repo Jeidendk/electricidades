@@ -12,6 +12,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { uploadImage } from '../../../lib/upload';
 import { TITULOS_ACADEMICOS, componerNombreCompleto, enMayusculas } from '../data/docentesData';
+import { normalizarTexto } from '../../../lib/texto';
 import { supabase } from '../../../lib/supabase';
 import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 
@@ -150,6 +151,30 @@ export const Usuarios = () => {
     else { setSortCol(col); setSortAsc(true); }
   };
 
+  /**
+   * Docente ya registrado con el mismo nombre completo. Compara **normalizando** (sin tildes,
+   * sin mayúsculas, espacios colapsados): "PEREZ GOMEZ ANA" y "Pérez  Gómez Ana" son la misma
+   * persona. Se limita al rol Docente —un estudiante homónimo no debe bloquear un alta— y
+   * `idAExcluir` evita que un docente choque consigo mismo al editarlo.
+   */
+  const buscarDocenteDuplicado = (nombreCompleto: string, idAExcluir?: string) =>
+    items.find(
+      (usuario: any) =>
+        usuario.rol === 'Docente' &&
+        usuario.id !== idAExcluir &&
+        normalizarTexto(usuario.nombre) === normalizarTexto(nombreCompleto),
+    );
+
+  const avisarDuplicado = async (duplicado: any) => {
+    const S = (await import('sweetalert2')).default;
+    S.fire({
+      icon: 'warning',
+      title: 'Docente ya registrado',
+      text: `Ya existe un docente llamado "${duplicado.nombre}". Revisa la lista: si es la misma persona, edítalo en vez de crearlo otra vez.`,
+      confirmButtonColor: '#B00020',
+    });
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -164,16 +189,9 @@ export const Usuarios = () => {
       const S = (await import('sweetalert2')).default;
       if (formValues.rol === 'Docente') {
         const nombre = nombreAGuardar;
-        const duplicado = items.find(
-          (usuario: any) => usuario.nombre.trim().toLocaleLowerCase('es') === nombre.toLocaleLowerCase('es'),
-        );
+        const duplicado = buscarDocenteDuplicado(nombre);
         if (duplicado) {
-          S.fire({
-            icon: 'warning',
-            title: 'Docente ya registrado',
-            text: 'Ya existe un docente con ese nombre. Puedes editarlo desde la lista.',
-            confirmButtonColor: '#B00020',
-          });
+          await avisarDuplicado(duplicado);
           return;
         }
 
@@ -291,6 +309,12 @@ export const Usuarios = () => {
       fetchUsuarios();
     } else if (modalType === 'edit' && selectedUser) {
       if (selectedUser.tipoRegistro === 'docente') {
+        const duplicado = buscarDocenteDuplicado(nombreAGuardar, selectedUser.id);
+        if (duplicado) {
+          await avisarDuplicado(duplicado);
+          return;
+        }
+
         const S = (await import('sweetalert2')).default;
         setIsSubmitting(true);
         try {

@@ -75,3 +75,20 @@ select u.nombre,
  where r.nombre = 'Docente'
    and (u.nombres is null or u.apellidos is null)
  order by u.nombre;
+
+-- ---------------------------------------------------------------------------
+-- REVISAR A MANO: docentes DUPLICADOS (mismo nombre, ignorando tildes y mayúsculas).
+-- Un docente duplicado no da error, pero parte sus clases entre dos fichas y al asignar
+-- horario es imposible saber cuál elegir. Si aparece alguno: mover sus clases a una sola
+-- ficha desde Horarios y luego borrar la otra en Usuarios.
+-- ---------------------------------------------------------------------------
+select lower(translate(u.nombre, 'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun')) as nombre_normalizado,
+       count(*)              as fichas,
+       array_agg(u.id)       as ids,
+       array_agg(u.nombre)   as tal_como_estan
+  from public.usuarios u
+  join public.roles r on r.id = u.id_rol
+ where r.nombre = 'Docente'
+ group by 1
+having count(*) > 1
+ order by 1;

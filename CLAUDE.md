@@ -71,6 +71,15 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Detección de docentes duplicados: tenía tres agujeros.** `Usuarios.tsx` (1) solo validaba al
+  **crear**, así que editando se podía renombrar un docente al nombre de otro; (2) comparaba
+  contra **todos** los usuarios, de modo que un estudiante homónimo bloqueaba el alta con el
+  mensaje "ya existe un docente"; y (3) usaba `toLocaleLowerCase('es')` **sin quitar tildes**,
+  así que "PEREZ" y "PÉREZ" pasaban como distintos. Ahora hay un solo `buscarDocenteDuplicado()`
+  que normaliza con `normalizarTexto`, filtra por rol Docente y excluye la ficha que se edita;
+  se usa en alta y en edición, y el aviso nombra al docente que ya existe. **Sigue siendo
+  validación de cliente**: dos admins guardando a la vez pueden colar un duplicado. La
+  migración 0021 termina con un `select` que lista los duplicados que ya existan.
 - **Docentes: título académico y nombre partido (migración 0021, HAY QUE EJECUTARLA ANTES de
   desplegar).** `usuarios` gana `titulo`, `apellidos` y `nombres`. **`nombre` se conserva** como
   el nombre completo canónico —lo leen los horarios, los avatares y el chequeo de duplicados—
