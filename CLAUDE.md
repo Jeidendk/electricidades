@@ -71,6 +71,16 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Doble scroll en Usuarios y Estructura Académica.** El contenedor del Outlet en
+  `AdminLayout.tsx:42` mide 100vh **menos el topbar**, pero las páginas se declaraban
+  `h-screen` (100vh): sobraba justo la altura del topbar y ese sobrante era el segundo
+  scrollbar. Ahora la raíz es `flex-1 min-h-0`, es decir un flex item que ocupa lo disponible,
+  y se quitó un `h-full` redundante en `Usuarios.tsx:569` que estiraba el contenido al 100%
+  del padre **además** del hero. `Horarios.tsx` conserva `h-screen`: tiene el mismo defecto
+  pero no molesta ahí, y no se toca lo que funciona.
+- **Migración 0023 (HAY QUE EJECUTARLA): nivelación como PAO 0.** `materias_semestre_check`
+  exigía `semestre >= 1`, así que guardar una materia de nivelación fallaba. Ahora `>= 0`,
+  con el tope de 12 intacto. Sin esto, la UI de nivelación no puede guardar nada.
 - **Fix: "Nuevo" siempre abría el formulario en rol Estudiante.** Aunque la lista estuviera
   filtrada por Docente, el botón de alta forzaba `defaultFormValues.rol`, así que salía el campo
   único "Nombre completo" en vez de Título/Nombres/Apellidos hasta cambiar el rol a mano — por

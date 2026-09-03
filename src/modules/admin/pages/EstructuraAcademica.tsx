@@ -414,7 +414,7 @@ export const EstructuraAcademica = () => {
   const currentMateriaEditable = !!currentMateria && puedeGestionarMateria(currentMateria);
 
   return (
-    <div className="flex flex-col h-screen bg-[#f4f7fb]">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#f4f7fb]">
       {selectedCarrera ? (
         <PageHero
           icon={availableIcons[selectedCarrera.icono] || BookOpen}

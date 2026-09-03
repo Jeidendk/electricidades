@@ -512,7 +512,7 @@ export const Usuarios = () => {
   const esDocenteForm = (modalType === 'create' && formValues.rol === 'Docente') || editandoDocente;
 
   return (
-    <div className="flex flex-col h-screen bg-[#f4f7fb]">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#f4f7fb]">
       {/* HERO SECTION */}
       <div className="w-full min-h-[120px] bg-[#1a1f26] relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-5 border-b border-gray-800">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-[0.25]"></div>
@@ -566,7 +566,7 @@ export const Usuarios = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col p-6 md:p-8 min-h-0 relative bg-[#f4f7fb]/90 backdrop-blur-xl h-full animate-fade-in">
+      <div className="flex-1 flex flex-col p-6 md:p-8 min-h-0 relative bg-[#f4f7fb]/90 backdrop-blur-xl animate-fade-in">
 
 
       {/* CONTENT */}
