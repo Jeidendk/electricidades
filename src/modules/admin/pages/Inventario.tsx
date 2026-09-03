@@ -107,7 +107,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
     total: mappedItems.length,
     buenos: mappedItems.filter(d => d.estado === 'bueno').length,
     regularesMalos: mappedItems.filter(d => d.estado === 'malo').length,
-    danados: mappedItems.filter(d => d.estado === 'dañado').length,
+    danados: mappedItems.filter(d => d.estado === 'danado').length,
   }), [mappedItems]);
 
   const tabItems = useMemo(() => [
@@ -329,7 +329,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
                       { key: 'todos', label: 'Todos' },
                       { key: 'bueno', label: 'Bueno' },
                       { key: 'malo', label: 'Malo' },
-                      { key: 'dañado', label: 'Dañado' },
+                      { key: 'danado', label: 'Dañado' },
                     ]}
                     onChange={(k) => { setFilterEstado(k === 'todos' ? '' : k); setCurrentPage(1); }}
                   />
@@ -630,10 +630,10 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
                   <select value={formValues.estado} onChange={e => setFormValues({...formValues, estado: e.target.value})} className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium appearance-none cursor-pointer">
                     <option value="bueno">Bueno</option>
                     <option value="malo">Malo / Regular</option>
-                    <option value="dañado">Dañado</option>
+                    <option value="danado">Dañado</option>
                   </select>
                 </div>
-                {(formValues.estado === 'dañado' || formValues.estado === 'malo') && (
+                {(formValues.estado === 'danado' || formValues.estado === 'malo') && (
                   <div className="flex flex-col gap-1.5 animate-fade-in">
                     <label className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Descripción del Daño</label>
                     <textarea required value={formValues.danioDesc} onChange={e => setFormValues({...formValues, danioDesc: e.target.value})} rows={2} placeholder="Describa el problema..." className="bg-red-50/50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-red-200 focus:border-red-400 font-medium resize-none"></textarea>
@@ -703,7 +703,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
                     <option value="">Todos los estados</option>
                     <option value="bueno">Bueno</option>
                     <option value="malo">Malo / Regular</option>
-                    <option value="dañado">Dañado</option>
+                    <option value="danado">Dañado</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">

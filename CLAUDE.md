@@ -71,6 +71,14 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Fix: no se podía guardar un equipo como "Dañado".** `inventario.estado` es el enum
+  `estado_inventario`, cuyas etiquetas son `bueno | malo | danado` (**sin ñ**). La app mandaba
+  `'dañado'` con ñ, así que Postgres rechazaba el insert/update. Al leer pasaba lo simétrico:
+  el KPI "Dañados", el filtro por estado, el aviso de descripción del daño, los contadores de
+  Activos y Asignaciones y las alertas del dashboard técnico comparaban contra `'dañado'` y
+  **siempre daban 0**. Ahora `ESTADO_FISICO`/`ETIQUETA_ESTADO_FISICO` en `inventarioData.ts`
+  separan el valor de la base del texto en pantalla: se guarda `danado`, se lee "Dañado".
+  Sin migración (el enum impidió que se guardaran filas malas).
 - **Auditoría de enums contra el código.** `supabase/ESQUEMA.md` ya lista las **19** etiquetas
   reales. Varias van sin tilde ni ñ (`Academica`, `danado`, `Reporte de dano`, `tecnologico`)
   y `estado_solicitud` (`Pendiente`) usa otra grafía que `estado_solicitud_admin` (`pendiente`).
