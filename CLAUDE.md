@@ -71,6 +71,12 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Jornada extendida hasta las 19:00** (antes 17:00) y paralelo como select 1-4. El rango
+  horario ya no está escrito con números sueltos: `HORA_INICIO_JORNADA`/`HORA_FIN_JORNADA` en
+  `horariosData.ts` gobiernan la grilla, los selectores del formulario y las plantillas de
+  PDF/Word a la vez. La grilla pasa de 10 a 12 bloques. Las opciones de paralelo salen de
+  `paralelos = [1,2,3,4]`; la base no pone tope (`check >= 1`), así que ampliar esa lista basta
+  si algún periodo necesita más — **sin migración**.
 - **Paralelo por bloque de clase (migración 0020, HAY QUE EJECUTARLA).** `clases.paralelo`
   smallint nullable, `check (paralelo is null or paralelo >= 1)`, sin tope: la cantidad de
   paralelos cambia cada periodo. Va en `clases` y no en `materias` porque no se sabe de antemano

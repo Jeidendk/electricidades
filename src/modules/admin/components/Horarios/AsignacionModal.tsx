@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Plus, BookOpen, Clock } from 'lucide-react';
-import { calcularDuracion, dias, diaCanonico, horasSeleccionables } from './horariosData';
+import { calcularDuracion, dias, diaCanonico, paralelos, horasSeleccionables } from './horariosData';
 import { useMateriasStore } from '../../../../store/materiasStore';
 import { useDocentesStore } from '../../../../store/docentesStore';
 import { useFacultadesStore } from '../../../../store/facultadesStore';
@@ -210,18 +210,17 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
                   </div>
                   <div className="flex flex-col gap-1.5">
                       <label htmlFor="asignacion-paralelo" className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Paralelo</label>
-                      <input
+                      <select
                         id="asignacion-paralelo"
-                        type="number"
-                        min={1}
-                        step={1}
-                        inputMode="numeric"
                         value={formValues.paralelo}
                         onChange={e => setFormValues({...formValues, paralelo: e.target.value})}
                         disabled={isReadOnly}
-                        placeholder="1"
-                        className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium w-full transition-all disabled:opacity-60"
-                      />
+                        className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60"
+                      >
+                          {/* Vacío es válido: las clases antiguas no tienen paralelo asignado. */}
+                          <option value="">—</option>
+                          {paralelos.map(p => <option key={p} value={String(p)}>{p}</option>)}
+                      </select>
                   </div>
               </div>
               

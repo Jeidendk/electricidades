@@ -2,6 +2,8 @@ import { Cpu, FlaskConical, Briefcase, Zap, Laptop, Wifi, Stethoscope, Globe, Pa
 
 export const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
+export const paralelos = [1, 2, 3, 4];
+
 /**
  * Línea "PAO 7 · PARALELO 1" del encabezado de una clase. Omite la parte que falte:
  * las clases cargadas antes de la migración 0020 no tienen paralelo, y no se inventa uno.
@@ -32,18 +34,26 @@ export const diaCanonico = (dia: string): string =>
   DIA_CANONICO[dia.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()] ?? dia;
 export const diasFormales = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
-// Jornada académica continua: las clases pueden iniciar desde las 07:00
-// y deben finalizar como máximo a las 17:00.
-export const horas = Array.from({ length: 10 }, (_, indice) => {
-  const inicio = indice + 7;
-  const fin = inicio + 1;
-  return `${String(inicio).padStart(2, '0')}:00 - ${String(fin).padStart(2, '0')}:00`;
-});
+// Jornada académica continua. Cambiar estas dos constantes mueve la grilla, los selectores
+// del formulario y las plantillas de PDF/Word a la vez: no hay ningún rango escrito aparte.
+const HORA_INICIO_JORNADA = 7;  // 07:00, primera clase
+const HORA_FIN_JORNADA = 19;    // 19:00, última hora en la que puede terminar una clase
+
+const comoHora = (hora: number) => `${String(hora).padStart(2, '0')}:00`;
+
+/** Bloques de una hora: "07:00 - 08:00" … "18:00 - 19:00". */
+export const horas = Array.from(
+  { length: HORA_FIN_JORNADA - HORA_INICIO_JORNADA },
+  (_, indice) => {
+    const inicio = HORA_INICIO_JORNADA + indice;
+    return `${comoHora(inicio)} - ${comoHora(inicio + 1)}`;
+  },
+);
 
 // Ambos selectores muestran siempre exactamente el mismo rango completo.
 export const horasSeleccionables = Array.from(
-  { length: 11 },
-  (_, indice) => `${String(indice + 7).padStart(2, '0')}:00`,
+  { length: HORA_FIN_JORNADA - HORA_INICIO_JORNADA + 1 },
+  (_, indice) => comoHora(HORA_INICIO_JORNADA + indice),
 );
 
 export const horasInicio = horasSeleccionables;
