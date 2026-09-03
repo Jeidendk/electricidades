@@ -13,16 +13,30 @@ Una columna `USER-DEFINED` es un enum de Postgres: solo acepta sus etiquetas exa
 Escribir un valor que no existe da error 400, y **comparar contra un valor de otro enum
 no da error, simplemente no devuelve nada**.
 
-| Enum | Etiquetas | Usado en |
-|---|---|---|
-| `dia_semana` | `Lunes`, `Martes`, `Miercoles`, `Jueves`, `Viernes` — **sin tilde** | `clases.dia` |
-| `categoria_inventario` | *(sin verificar)* | `catalogo_equipos.categoria` |
-| `estado_catalogo` | *(sin verificar)* | `catalogo_equipos.estado` |
-| `estado_usuario` | *(sin verificar)* | `docentes.estado` |
-| `estado_edificio` | *(sin verificar)* | `edificios.estado` |
-| `tipo_espacio` | *(sin verificar)* | `espacios.tipo` |
-| `estado_espacio` | *(sin verificar)* | `espacios.estado` |
-| `tipo_formato`, `estado_formato` | *(sin verificar)* | `formatos.tipo`, `formatos.estado` |
+| Enum | Etiquetas exactas |
+|---|---|
+| `categoria_inventario` | `equipos`, `herramientas`, `mobiliario`, `tecnologico` ⚠️ sin tilde |
+| `dia_semana` | `Lunes`, `Martes`, `Miercoles` ⚠️ sin tilde, `Jueves`, `Viernes` |
+| `estado_catalogo` | `disponible`, `agotado` |
+| `estado_edificio` | `operativo`, `mantenimiento` |
+| `estado_espacio` | `disponible`, `ocupada`, `mantenimiento` |
+| `estado_formato` | `activo`, `inactivo` |
+| `estado_inscripcion` | `inscrito`, `asistiendo`, `completado`, `rechazado` |
+| `estado_inventario` | `bueno`, `malo`, `danado` ⚠️ **sin ñ** |
+| `estado_ot` | `pendiente`, `en_proceso`, `resuelto` |
+| `estado_prestamo` | `activo`, `devuelto` |
+| `estado_solicitud` | `Aprobada`, `Pendiente`, `Devuelto`, `Rechazada` ⚠️ **con mayúscula** |
+| `estado_solicitud_admin` | `pendiente`, `aprobado`, `rechazado` ⚠️ **minúscula, y en masculino** |
+| `estado_usuario` | `activo`, `inactivo` |
+| `prioridad_ot` | `baja`, `media`, `alta` |
+| `tipo_espacio` | `Academica` ⚠️ sin tilde, `Laboratorio Tecnico`, `Laboratorio de Informatica` |
+| `tipo_formato` | `DINAMICO` ⚠️ sin tilde y en mayúsculas, `PDF` |
+| `tipo_recurso` | `libro`, `software` |
+| `tipo_recurso_rel` | `recomendado`, `obligatorio` |
+| `tipo_solicitud_admin` | `Uso de laboratorio`, `Reporte de dano` ⚠️ **sin ñ**, `Oficio`, `Mantenimiento`, `Prestamo especial` ⚠️ sin tilde |
+
+**Ojo con `estado_solicitud` vs `estado_solicitud_admin`:** son enums distintos con grafías
+distintas para el mismo concepto (`Pendiente` vs `pendiente`). Ya causó un bug en el Dashboard.
 
 `dia_semana` no lleva tilde mientras la interfaz muestra "Miércoles". La traducción entre
 ambos vive en un solo sitio: `diaEnBD()` en `src/modules/admin/components/Horarios/horariosData.ts`.

@@ -1,4 +1,15 @@
+import { normalizarTexto } from '../../../lib/texto';
+
 export type TipoEspacio = 'Académica' | 'Laboratorio Técnico' | 'Laboratorio de Informática';
+
+/**
+ * True si el espacio es un aula y no un laboratorio.
+ * El enum `tipo_espacio` de Postgres guarda "Academica" SIN tilde, pero los datos de
+ * ejemplo y varias pantallas la escriben con tilde: comparar con === falla en silencio
+ * y clasifica todas las aulas como laboratorio.
+ */
+export const esAula = (tipo: string | null | undefined): boolean =>
+  normalizarTexto(tipo) === 'academica';
 export type EstadoEspacio = 'disponible' | 'ocupada' | 'mantenimiento';
 
 export interface Espacio {

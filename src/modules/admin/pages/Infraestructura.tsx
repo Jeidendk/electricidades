@@ -25,6 +25,7 @@ import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
+import { esAula } from '../data/espaciosData';
 
 // --- CONSTANTS ---
 const baseLat = -1.6575;
@@ -36,7 +37,7 @@ const buildingIcons: Record<string, React.ElementType> = {
   building: Building2, microscope: Microscope, book: BookOpen, monitor: Monitor, activity: Activity, coffee: Coffee,
 };
 
-const isAula = (tipo: string) => tipo === 'Academica' || tipo === 'Académica';
+const isAula = esAula;
 
 const getBuildingSvg = (icono: string) => {
   switch (icono) {

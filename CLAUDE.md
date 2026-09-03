@@ -71,6 +71,17 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Auditoría de enums contra el código.** `supabase/ESQUEMA.md` ya lista las **19** etiquetas
+  reales. Varias van sin tilde ni ñ (`Academica`, `danado`, `Reporte de dano`, `tecnologico`)
+  y `estado_solicitud` (`Pendiente`) usa otra grafía que `estado_solicitud_admin` (`pendiente`).
+  **Bug encontrado y corregido**: `Asignaciones.tsx:130,132` comparaba `e.tipo === 'Académica'`
+  con tilde contra el enum sin tilde → ningún espacio entraba por la rama de aula y **todas las
+  aulas se agrupaban como laboratorio, con ícono de microscopio**. Ahora hay un solo helper
+  `esAula()` en `espaciosData.ts`, usado también por `Infraestructura.tsx` (que ya cubría las
+  dos grafías a mano). **Causa estructural, no resuelta**: `src/lib/database.types.ts` está
+  escrito a mano, declara `Enums: Record<string, never>` y tipa TODA columna enum como `string`,
+  así que TypeScript no detecta ni uno de estos errores. Regenerarlo con
+  `supabase gen types typescript` los convertiría en errores de compilación.
 - **Fix: clases de miércoles invisibles y "Aula ocupada" sobre una casilla vacía.** El enum
   `dia_semana` de Postgres usa `Miercoles` **sin tilde**; la UI muestra `Miércoles` con tilde.
   El select traducía bien al guardar, pero la grilla (`HorarioVista.tsx:65`), el PDF, el Word,

@@ -16,6 +16,7 @@ import { generarActaAsignacion, exportarAsignacionesPdf, type RecursoActa } from
 import { useAuthStore } from '../../../store/authStore';
 import { supabase } from '../../../lib/supabase';
 import Swal from 'sweetalert2';
+import { esAula } from '../data/espaciosData';
 
 const CAT_ICON: Record<CategoriaInventario, React.ElementType> = {
   equipos: Settings, herramientas: Wrench, mobiliario: Sofa, tecnologico: MonitorPlay,
@@ -127,9 +128,9 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
         return {
           key: resKey('espacio', e.id), id: e.id, nombre: e.nombre,
           sub: `${edificioNombre} · Piso ${e.piso}`,
-          estado: e.estado, group: e.tipo === 'Académica' ? 'aula' : 'lab', edificio: edificioNombre,
+          estado: e.estado, group: esAula(e.tipo) ? 'aula' : 'lab', edificio: edificioNombre,
           kind: 'espacio' as RecursoKind, danado: false,
-          Icon: e.tipo === 'Académica' ? DoorOpen : Microscope,
+          Icon: esAula(e.tipo) ? DoorOpen : Microscope,
         };
       });
     }
