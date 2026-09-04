@@ -19,6 +19,7 @@ import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { CrudModal } from '../../../components/ui/CrudModal';
 import { DataTable } from '../../../components/ui/DataTable';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 import { confirmDelete } from '../../../lib/confirm';
 import { enMayusculas, normalizarTexto } from '../../../lib/texto';
 import { useFacultadesStore } from '../../../store/facultadesStore';
@@ -559,6 +560,7 @@ export const EstructuraAcademica = () => {
 
         {/* --- RIGHT PANEL: DYNAMIC CONTENT --- */}
         <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in relative">
+          <AcentoTarjeta />
 
           {/* MODO FACULTAD */}
           {/* Vista de facultad: solo administración. El técnico trabaja dentro de su carrera. */}

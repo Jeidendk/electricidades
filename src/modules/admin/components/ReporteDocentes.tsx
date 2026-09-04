@@ -6,6 +6,7 @@ import { useEdificiosStore } from '../../../store/edificiosStore';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { DataTable, type DataTableColumn } from '../../../components/ui/DataTable';
 import { CrudModal } from '../../../components/ui/CrudModal';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 import { mapearClases } from './Horarios/mapearClases';
 import { resumirDocentes, filtrarResumenes, type ResumenDocente } from '../data/reporteDocentes';
 import { etiquetaPaoParalelo } from './Horarios/horariosData';
@@ -133,7 +134,8 @@ export const ReporteDocentes = ({
   ];
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-w-0 flex-1 min-h-0">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-w-0 flex-1 min-h-0 relative overflow-hidden">
+      <AcentoTarjeta />
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="text-[16px] font-extrabold text-gray-900">Carga docente</h3>

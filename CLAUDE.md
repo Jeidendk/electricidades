@@ -71,6 +71,10 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **`AcentoTarjeta`**: la franja de color del borde superior de las tarjetas estaba copiada a
+  mano en 7 pantallas con la misma cadena larga de clases. Ahora es un componente, usado por
+  esas 7 más las tablas de Reportes y el listado de carreras, que no la tenían. La tarjeta que
+  lo contiene necesita `relative` y `overflow-hidden`.
 - **Contenedores que se ajustan a la pantalla en Reportes y Estructura Académica.** En Reportes
   el panel izquierdo creció con las acciones rápidas y el resumen, y había que desplazar la
   página entera para llegar a "Generar y Descargar": ahora los campos scrollean dentro del

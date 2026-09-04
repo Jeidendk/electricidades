@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { generatePreviewPDF } from '../utils/documentGenerator';
 import { useFormatosStore } from '../../../store/formatosStore';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
 export const Formatos = () => {
   const { formatos, fetchFormatos, addFormato, updateFormato, removeFormato } = useFormatosStore();
@@ -323,7 +324,7 @@ export const Formatos = () => {
         
         {/* PANEL IZQUIERDO */}
         <div className="bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-6 flex flex-col relative overflow-hidden flex-1 min-w-0 transition-all duration-300">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-espoch-yellow via-orange-400 to-espoch-red opacity-90"></div>
+          <AcentoTarjeta />
         
         {/* TOOLBAR */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-6 shrink-0">

@@ -7,6 +7,7 @@ import { generarPDFComprobante } from '../../../utils/pdfGenerator';
 import { supabase } from '../../../lib/supabase';
 import { useAuthStore } from '../../../store/authStore';
 import { HERO_BG } from '../../../components/ui/heroBackgrounds';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
 export const CatalogoEquipos = () => {
   const { cart, cartOpen, setCartOpen, addToCart, updateQty, removeFromCart, clearCart } = useCartStore();
@@ -505,7 +506,7 @@ export const CatalogoEquipos = () => {
 
       {/* CARRITO (RIGHT PANEL) */}
       <div className={`bg-white border-l border-gray-200/80 flex flex-col shrink-0 transition-all duration-300 overflow-hidden relative ${cartOpen ? 'w-[360px] opacity-100 pointer-events-auto shadow-2xl' : 'w-0 opacity-0 pointer-events-none'}`}>
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-espoch-yellow via-orange-400 to-espoch-red opacity-90"></div>
+        <AcentoTarjeta />
 
         <div className="p-5 pb-4 border-b border-gray-100 flex items-center justify-between shrink-0 mt-1 bg-white">
           <div className="flex items-center gap-3">

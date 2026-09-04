@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useReportesStore, type Reporte } from '../../../store/reportesStore';
 import { DataTable } from '../../../components/ui/DataTable';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
 import { filasCsvDocentes, metricasDocentes, type ResumenDocente } from '../data/reporteDocentes';
@@ -168,7 +169,8 @@ export const Reportes = () => {
         <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 flex-1 min-h-0">
           
           {/* LEFT: Generador de Reportes */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-h-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-h-0 relative overflow-hidden">
+            <AcentoTarjeta />
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-lg bg-red-50 text-espoch-red flex items-center justify-center shrink-0">
                 <FileText className="w-4 h-4" />
@@ -283,7 +285,8 @@ export const Reportes = () => {
 
 
             {tipoReporte === 'Historial' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-w-0 flex-1 min-h-0">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-w-0 flex-1 min-h-0 relative overflow-hidden">
+                <AcentoTarjeta />
                 <div className="mb-4">
                   <h3 className="text-[16px] font-extrabold text-gray-900">Historial de reportes</h3>
                   <p className="text-[11px] font-medium text-gray-500 mt-0.5">

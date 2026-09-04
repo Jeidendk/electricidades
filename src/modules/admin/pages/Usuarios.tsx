@@ -16,6 +16,7 @@ import { TITULOS_ACADEMICOS, componerNombreCompleto } from '../data/docentesData
 import { enMayusculas, normalizarTexto } from '../../../lib/texto';
 import { supabase } from '../../../lib/supabase';
 import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
 // Constantes para formularios (dropdowns)
 const ROLES = ['Administrador', 'Estudiante', 'Tecnico', 'Docente'];
@@ -575,7 +576,7 @@ export const Usuarios = () => {
 
       {/* CONTENT */}
       <div className="bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-6 flex flex-col relative overflow-hidden flex-1 min-h-0">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-espoch-yellow via-orange-400 to-espoch-red opacity-90"></div>
+        <AcentoTarjeta />
         
         {/* CONTROLS */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6 shrink-0 mt-2">

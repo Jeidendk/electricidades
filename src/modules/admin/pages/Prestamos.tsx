@@ -13,6 +13,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Badge } from '../../../components/ui/Badge';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
 type TabKey = 'todos' | 'activo' | 'atrasado' | 'devuelto';
 
@@ -222,7 +223,7 @@ export const Prestamos = ({ embedded = false }: { embedded?: boolean } = {}) => 
         )}
 
         <div className="bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-6 flex flex-col relative overflow-hidden flex-1 min-h-0">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-espoch-yellow via-orange-400 to-espoch-red opacity-90"></div>
+          <AcentoTarjeta />
 
           {/* TOOLBAR */}
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4 shrink-0 pt-2">
