@@ -67,6 +67,46 @@ export function friendlyDbError(err: any): FriendlyError {
   return { title: 'No se pudo completar la operación', text: msg };
 }
 
+/**
+ * Traduce los errores de Supabase Auth que el administrador puede encontrarse al invitar a
+ * alguien. Llegan en inglés y sin contexto: "email rate limit exceeded" no le dice a nadie que
+ * el problema es el proveedor de correo y no los datos que acaba de escribir.
+ */
+export function friendlyAuthError(err: any): FriendlyError {
+  const msg = String(err?.message || err?.error_description || err?.msg || '');
+
+  // El servicio de correo que trae Supabase por defecto es solo para pruebas: manda unos pocos
+  // mensajes por hora. No se puede subir ese tope; se resuelve configurando un SMTP propio.
+  if (/rate limit/i.test(msg)) {
+    return {
+      title: 'Límite de correos alcanzado',
+      text: 'El proveedor de correo no acepta más envíos por ahora. Espera una hora e inténtalo otra vez, '
+        + 'o configura un SMTP propio en Supabase para quitar ese tope. La cuenta puede haberse creado igual: '
+        + 'revisa la lista antes de volver a intentarlo.',
+    };
+  }
+
+  if (/already registered|already exists/i.test(msg)) {
+    return {
+      title: 'Ese correo ya tiene cuenta',
+      text: 'Busca a la persona en la lista. Si no aparece, puede que su ficha se haya perdido al crearla.',
+    };
+  }
+
+  if (/invalid email|email address .* invalid/i.test(msg)) {
+    return { title: 'Correo no válido', text: 'Revisa la dirección: parece mal escrita.' };
+  }
+
+  if (!msg || msg === '{}') {
+    return {
+      title: 'No se pudo enviar la invitación',
+      text: `Error del servidor (status ${err?.status ?? '?'}, code ${err?.code ?? '?'}).`,
+    };
+  }
+
+  return { title: 'No se pudo enviar la invitación', text: msg };
+}
+
 // Aviso estándar cuando una operación de guardado/borrado falla en un store.
 export const notifyStoreError = (context: string, err: any) => {
   console.error(context, err);

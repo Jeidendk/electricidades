@@ -17,7 +17,8 @@ interface UsuariosState {
   fetchUsuariosPage: (params: PageParams) => Promise<void>;
   addUsuario: (payload: Record<string, any>) => Promise<void>;
   updateUsuario: (id: string, patch: UsuarioUpdate) => Promise<void>;
-  removeUsuario: (id: string) => Promise<void>;
+  /** `tieneCuenta` en false para los docentes, que existen como ficha y no en auth.users. */
+  removeUsuario: (id: string, tieneCuenta?: boolean) => Promise<void>;
 }
 
 export const useUsuariosStore = create<UsuariosState>()((set) => ({
@@ -89,18 +90,23 @@ export const useUsuariosStore = create<UsuariosState>()((set) => ({
     }
   },
 
-  removeUsuario: async (id) => {
+  removeUsuario: async (id, tieneCuenta = true) => {
     try {
       // 1. Primero eliminar de la tabla pública (si hay FK constraints, falla aquí
       //    sin haber tocado auth — el usuario queda intacto)
       const { error } = await supabase.from('usuarios').delete().eq('id', id);
       if (error) throw error;
 
-      // 2. Solo si la fila pública se borró, eliminar de auth.users
-      const { error: authError } = await supabase.rpc('delete_user_auth', { user_id: id });
-      if (authError) {
-        console.error('Error eliminando usuario de auth:', authError);
-        // La fila pública ya se borró; el auth huérfano no afecta la app
+      // 2. Solo si la fila pública se borró, eliminar de auth.users.
+      //    Los docentes se registran como fichas, sin cuenta de acceso: llamar aquí no
+      //    borraría nada y, como la función es solo para administradores, le devolvería un
+      //    error a cada técnico que borre un docente.
+      if (tieneCuenta) {
+        const { error: authError } = await supabase.rpc('delete_user_auth', { user_id: id });
+        if (authError) {
+          console.error('Error eliminando usuario de auth:', authError);
+          // La fila pública ya se borró; el auth huérfano no afecta la app
+        }
       }
 
       set((s) => ({ items: s.items.filter((it) => it.id !== id) }));

@@ -1,3 +1,4 @@
+import { useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -37,9 +38,14 @@ export const Pagination = ({ page, totalPages, onChange, total, perPage, onPerPa
   const from = total === 0 ? 0 : start + 1;
   const to = Math.min(start + perPage, total);
 
-  const opcionesFilas = FILAS_POR_PAGINA.includes(perPage)
-    ? FILAS_POR_PAGINA
-    : [...FILAS_POR_PAGINA, perPage].sort((a, b) => a - b);
+  // El tamaño con el que arranca la tabla puede no estar entre los estándar (Reportes usa 8).
+  // Se RECUERDA el inicial: si la lista se armara solo con el valor actual, al cambiar a 5 el 8
+  // desaparecería del desplegable y ya no habría forma de volver a él.
+  const inicial = useRef(perPage);
+  const opcionesFilas = useMemo(
+    () => [...new Set([...FILAS_POR_PAGINA, inicial.current, perPage])].sort((a, b) => a - b),
+    [perPage],
+  );
 
   const botonPagina = 'w-8 h-8 flex items-center justify-center rounded-lg transition-colors';
 
