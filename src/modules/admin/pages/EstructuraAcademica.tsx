@@ -564,9 +564,9 @@ export const EstructuraAcademica = () => {
           {/* Vista de facultad: solo administración. El técnico trabaja dentro de su carrera. */}
           {selectedFacultad && !selectedCarreraId && !esTecnico && (
             <div className="flex flex-col h-full overflow-hidden bg-white">
-              <div className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar bg-white">
+              <div className="flex-1 min-h-0 p-6 md:p-8 flex flex-col bg-white overflow-hidden">
                 {/* CARD IDENTIDAD FACULTAD: datos y acciones propias de la facultad */}
-                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mb-6 flex items-center justify-between gap-4 flex-wrap">
+                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mb-6 flex items-center justify-between gap-4 flex-wrap shrink-0">
                   <div className="flex items-center gap-4 min-w-0">
                     {renderIconBox(selectedFacultad.colorHex, selectedFacultad.customSvg, selectedFacultad.icono, Building, "w-12 h-12", "w-6 h-6")}
                     <div className="min-w-0">
@@ -587,7 +587,7 @@ export const EstructuraAcademica = () => {
                   </div>}
                 </div>
 
-                <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+                <div className="flex items-center justify-between mb-6 gap-4 flex-wrap shrink-0">
                   <div className="flex items-center gap-4">
                     <h3 className="text-[14px] font-bold text-gray-800">Carreras ({filteredFacultadCarreras.length})</h3>
                     <div className="relative">
@@ -609,6 +609,7 @@ export const EstructuraAcademica = () => {
 
                 {carreraViewMode === 'list' ? (
                   <DataTable
+                    fill
                     rows={filteredFacultadCarreras}
                     rowKey={car => car.id}
                     onRowClick={car => selectCarrera(selectedFacultad.id, car.id)}
@@ -660,7 +661,7 @@ export const EstructuraAcademica = () => {
                     ]}
                   />
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 auto-rows-min">
                     {filteredFacultadCarreras.map(car => (
                       <div key={car.id} onClick={() => selectCarrera(selectedFacultad.id, car.id)} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-lg transition-all cursor-pointer group flex flex-col relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1.5 h-full opacity-80" style={{ backgroundColor: car.colorHex || '#3b82f6' }} />

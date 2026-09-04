@@ -187,14 +187,14 @@ export const Reportes = () => {
       
       <div className="flex-1 flex flex-col p-6 md:p-8 min-h-0 overflow-hidden bg-[#f4f7fb]/90 backdrop-blur-xl animate-fade-in">
       {/* CONTENT GRID */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-6 pr-2">
+      <div className="flex-1 min-h-0 overflow-y-auto xl:overflow-hidden custom-scrollbar flex flex-col gap-6 pr-2">
         
 
 
         <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 flex-1 min-h-0">
           
           {/* LEFT: Generador de Reportes */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-h-0">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-lg bg-red-50 text-espoch-red flex items-center justify-center shrink-0">
                 <FileText className="w-4 h-4" />
@@ -205,7 +205,8 @@ export const Reportes = () => {
               </div>
             </div>
             
-            <form onSubmit={handleGenerateReport} className="flex flex-col gap-6 flex-1">
+            <form onSubmit={handleGenerateReport} className="flex flex-col gap-6 flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-6 pr-1">
               <div className="flex flex-col gap-2">
                   <label className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">MÓDULO / TIPO DE DATOS</label>
                   <div className="relative">
@@ -308,7 +309,9 @@ export const Reportes = () => {
                 </div>
               )}
 
-              <button type="submit" disabled={isGenerating || (tipoReporte === 'Docentes' && docentesAExportar.length === 0)} className="mt-auto py-3.5 rounded-xl bg-[#0f172a] hover:bg-black text-white text-[14px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 border border-gray-800">
+              </div>
+
+              <button type="submit" disabled={isGenerating || (tipoReporte === 'Docentes' && docentesAExportar.length === 0)} className="shrink-0 py-3.5 rounded-xl bg-[#0f172a] hover:bg-black text-white text-[14px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 border border-gray-800">
                 {isGenerating ? (
                   <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Generando...</>
                 ) : (

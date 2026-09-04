@@ -71,6 +71,14 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Contenedores que se ajustan a la pantalla en Reportes y Estructura Académica.** En Reportes
+  el panel izquierdo creció con las acciones rápidas y el resumen, y había que desplazar la
+  página entera para llegar a "Generar y Descargar": ahora los campos scrollean dentro del
+  panel y el botón queda fijo abajo. De `xl` en adelante la página ya no scrollea (cada columna
+  se maneja sola); por debajo sí, porque las columnas se apilan.
+  En Estructura Académica el listado de carreras usa `fill` de `DataTable` y llega hasta el
+  borde, como Trámites, en vez de dejar media pantalla en blanco. La tarjeta de identidad y la
+  barra de acciones son `shrink-0` y la vista de tarjetas lleva su propio scroll.
 - **Panel del generador: acciones rápidas y resumen de selección.** Vista previa (qué docentes
   entran, antes de generar), Guardar configuración (formato y selección en localStorage, se
   restaura al volver) y Limpiar selección. **No hay "Programar reporte"**: recibir un informe
