@@ -113,12 +113,11 @@ export const Reportes = () => {
     setIsGenerating(true);
     try {
       const seleccion = docentesSeleccionados.length > 0;
-      const subtitulo = seleccion ? `${docentesAExportar.length} docentes seleccionados` : 'Todos los docentes';
 
       if (formato === 'Excel') {
         await exportarExcelDocentes(docentesAExportar, nombreEdificio, 'carga-docente.xlsx');
       } else {
-        exportarPdfDocentes(docentesAExportar, nombreEdificio, subtitulo);
+        exportarPdfDocentes(docentesAExportar);
       }
 
       // La bitácora es informativa: que falle no debe deshacer la descarga, que ya ocurrió.

@@ -71,6 +71,14 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **El reporte de docentes usa la plantilla institucional de Horarios.** El PDF era un listado
+  plano; ahora es **una hoja por docente** con la misma maqueta que el horario por aula: escudo,
+  `ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO`, nombre del docente subrayado (donde el otro pone
+  el aula), **TOTAL DE HORAS SEMANALES**, la grilla semanal HORA × LUNES-VIERNES y el pie
+  institucional. Cada casilla lleva materia / PAO · paralelo / aula · carrera. Reutiliza
+  `horas`, `diasFormales`, `rangoIncluyeBloque` y `mismoDia`, así que la grilla se llena con la
+  misma lógica que la pantalla. El Excel gana una hoja **Resumen** (docente, materias,
+  horas/semana, con fila de TOTAL) además del detalle. Maqueta verificada en el navegador.
 - **Fix: los modales del menú de cuenta salían aplastados dentro del sidebar.** El sidebar
   lleva `translate-x-0` para su animación, y **un `transform` en un ancestro lo convierte en el
   bloque contenedor de todo `position: fixed` que cuelgue debajo**: Configuración, Mi Perfil,
