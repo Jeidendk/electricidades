@@ -1,18 +1,16 @@
 import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText, BookOpen, Clock, Download, FileSpreadsheet, BarChart2,
-  Users, Calendar, CheckCircle2, ChevronDown, ChevronRight, Eye, Bookmark, Trash2, X
+  Users, Calendar, CheckCircle2, ChevronDown, ChevronRight, Eye, Trash2, X
 } from 'lucide-react';
-import { useReportesStore } from '../../../store/reportesStore';
+import { useReportesStore, type Reporte } from '../../../store/reportesStore';
+import { DataTable } from '../../../components/ui/DataTable';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
 import { filasCsvDocentes, metricasDocentes, type ResumenDocente } from '../data/reporteDocentes';
 import { exportarExcelDocentes, exportarPdfDocentes } from '../data/exportarReporteDocentes';
 
-/** Dónde se recuerda la configuración del generador, por navegador. */
-const CLAVE_CONFIG = 'espoch_reportes_config';
-
-type AccionRapida = 'vista_previa' | 'guardar' | 'limpiar';
+type AccionRapida = 'vista_previa' | 'limpiar';
 
 /**
  * Acciones del panel. No hay "Programar reporte": recibir un informe automáticamente exige
@@ -23,8 +21,6 @@ const ACCIONES_RAPIDAS: {
 }[] = [
   { clave: 'vista_previa', Icono: Eye, titulo: 'Vista previa de selección',
     detalle: 'Revisa qué docentes se incluyen', color: 'bg-blue-50 text-blue-600' },
-  { clave: 'guardar', Icono: Bookmark, titulo: 'Guardar configuración',
-    detalle: 'Recuerda formato y selección', color: 'bg-amber-50 text-amber-600' },
   { clave: 'limpiar', Icono: Trash2, titulo: 'Limpiar selección',
     detalle: 'Vuelve a incluir a todos', color: 'bg-red-50 text-red-500' },
 ];
@@ -68,34 +64,12 @@ export const Reportes = () => {
 
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
 
-  /** Restaura la última configuración usada en este navegador. */
-  useEffect(() => {
-    try {
-      const guardado = JSON.parse(localStorage.getItem(CLAVE_CONFIG) || '{}');
-      if (guardado.tipoReporte) setTipoReporte(guardado.tipoReporte);
-      if (guardado.formato) setFormato(guardado.formato);
-      if (Array.isArray(guardado.docentes)) setDocentesSeleccionados(guardado.docentes);
-    } catch {
-      /* Configuración ilegible: se arranca con los valores por defecto. */
-    }
-  }, []);
-
   const ejecutarAccionRapida = (accion: AccionRapida) => {
     if (accion === 'vista_previa') {
       setVistaPreviaAbierta(true);
       return;
     }
-    if (accion === 'limpiar') {
-      setDocentesSeleccionados([]);
-      return;
-    }
-    try {
-      localStorage.setItem(CLAVE_CONFIG, JSON.stringify({
-        tipoReporte, formato, docentes: docentesSeleccionados,
-      }));
-    } catch {
-      /* Sin almacenamiento no se recuerda, pero tampoco se rompe nada. */
-    }
+    setDocentesSeleccionados([]);
   };
 
   const handleGenerateReport = async (e: React.FormEvent) => {
@@ -281,34 +255,6 @@ export const Reportes = () => {
                 </div>
               )}
 
-              {tipoReporte === 'Docentes' && (
-                <div className="flex flex-col gap-2">
-                  <label className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">Resumen de selección</label>
-                  <div className="rounded-xl border border-gray-200/70 bg-gray-50/40 p-4 flex flex-col gap-2.5">
-                    {[
-                      ['Reporte', 'Carga docente'],
-                      ['Alcance', docentesSeleccionados.length > 0
-                        ? `${docentesAExportar.length} ${docentesAExportar.length === 1 ? 'docente' : 'docentes'}`
-                        : `Todos (${resumenesDocentes.length})`],
-                      ['Horas', `${docentesAExportar.reduce((suma, r) => suma + r.horasSemana, 0)} h/semana`],
-                      ['Formato', formato],
-                    ].map(([etiqueta, valor]) => (
-                      <div key={etiqueta} className="flex items-baseline justify-between gap-3">
-                        <span className="text-[10px] font-medium text-gray-500 shrink-0">{etiqueta}</span>
-                        <span className="text-[11px] font-bold text-gray-900 text-right truncate">{valor}</span>
-                      </div>
-                    ))}
-                    <div className="flex items-baseline justify-between gap-3 border-t border-gray-200/70 pt-2.5">
-                      <span className="text-[10px] font-medium text-gray-500">Estado</span>
-                      <span className={`text-[10px] font-bold flex items-center gap-1.5 ${docentesAExportar.length > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${docentesAExportar.length > 0 ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                        {docentesAExportar.length > 0 ? 'Listo para generar' : 'Sin datos'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               </div>
 
               <button type="submit" disabled={isGenerating || (tipoReporte === 'Docentes' && docentesAExportar.length === 0)} className="shrink-0 py-3.5 rounded-xl bg-[#0f172a] hover:bg-black text-white text-[14px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 border border-gray-800">
@@ -337,68 +283,87 @@ export const Reportes = () => {
 
 
             {tipoReporte === 'Historial' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col flex-1">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-[16px] font-extrabold text-gray-900">Historial de Reportes</h3>
-                  <p className="text-[11px] font-medium text-gray-500 mt-0.5">Últimos documentos generados</p>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-w-0 flex-1 min-h-0">
+                <div className="mb-4">
+                  <h3 className="text-[16px] font-extrabold text-gray-900">Historial de reportes</h3>
+                  <p className="text-[11px] font-medium text-gray-500 mt-0.5">
+                    Se guarda el registro de lo generado, no el archivo: el reporte se vuelve a producir cuando haga falta.
+                  </p>
                 </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                {historial.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center border border-gray-100 rounded-xl bg-gray-50/50 mt-4">
-                    <FileText className="w-12 h-12 text-gray-300 mb-3" strokeWidth={1.5} />
-                    <h4 className="text-[14px] font-bold text-gray-800 mb-1">No hay reportes generados</h4>
-                    <p className="text-[11px] font-medium text-gray-500">
-                      Aún no se ha exportado ningún reporte en el sistema.
-                    </p>
-                  </div>
-                ) : (
-                  <table className="w-full text-left border-collapse min-w-[620px] mt-4">
-                    <thead>
-                      <tr className="border-b border-gray-100">
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Tipo</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-center">Formato</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-center">Filas</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Generado por</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-right">Fecha</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historial.map((reporte) => (
-                        <tr key={reporte.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                          <td className="py-3.5 pr-4">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${reporte.formato === 'PDF' ? 'bg-red-50 text-espoch-red border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
-                                {reporte.formato === 'PDF' ? <FileText className="w-4 h-4"/> : <FileSpreadsheet className="w-4 h-4"/>}
-                              </div>
-                              {getTipoBadge(reporte.tipo)}
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-2 text-center">
-                            <span className="text-[11px] font-bold text-gray-700">{reporte.formato}</span>
-                          </td>
-                          <td className="py-3.5 px-2 text-center">
-                            <span className="text-[11px] font-medium text-gray-500">{reporte.filas}</span>
-                          </td>
-                          <td className="py-3.5 px-2">
-                            <span className="text-[11px] font-medium text-gray-600">{reporte.generadoPorNombre || 'Cuenta eliminada'}</span>
-                          </td>
-                          <td className="py-3.5 text-right pl-4">
-                            <span className="text-[11px] font-medium text-gray-500 flex items-center justify-end gap-1.5">
-                              <Calendar className="w-3 h-3 text-gray-400"/> {formatearFecha(reporte.created_at)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-            )}
 
+                <DataTable
+                  fill
+                  rows={historial}
+                  rowKey={(reporte: Reporte) => reporte.id}
+                  minWidthClass="min-w-[620px]"
+                  defaultPerPage={8}
+                  emptyState={
+                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                      <FileText className="w-12 h-12 text-gray-300 mb-3" strokeWidth={1.5} />
+                      <h4 className="text-[14px] font-bold text-gray-800 mb-1">No hay reportes generados</h4>
+                      <p className="text-[11px] font-medium text-gray-500">
+                        Aún no se ha exportado ningún reporte en el sistema.
+                      </p>
+                    </div>
+                  }
+                  columns={[
+                    {
+                      key: 'tipo',
+                      header: 'Tipo',
+                      width: '1.4fr',
+                      sortValue: (reporte: Reporte) => reporte.tipo,
+                      render: (reporte: Reporte) => (
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${reporte.formato === 'PDF' ? 'bg-red-50 text-espoch-red border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                            {reporte.formato === 'PDF' ? <FileText className="w-4 h-4" /> : <FileSpreadsheet className="w-4 h-4" />}
+                          </span>
+                          {getTipoBadge(reporte.tipo)}
+                        </div>
+                      ),
+                    },
+                    {
+                      key: 'formato',
+                      header: 'Formato',
+                      width: '110px',
+                      align: 'center',
+                      sortValue: (reporte: Reporte) => reporte.formato,
+                      render: (reporte: Reporte) => <span className="text-[11px] font-bold text-gray-700">{reporte.formato}</span>,
+                    },
+                    {
+                      key: 'filas',
+                      header: 'Filas',
+                      width: '90px',
+                      align: 'center',
+                      sortValue: (reporte: Reporte) => reporte.filas,
+                      render: (reporte: Reporte) => <span className="text-[11px] font-medium text-gray-500">{reporte.filas}</span>,
+                    },
+                    {
+                      key: 'autor',
+                      header: 'Generado por',
+                      width: '1.4fr',
+                      sortValue: (reporte: Reporte) => reporte.generadoPorNombre || '',
+                      render: (reporte: Reporte) => (
+                        <span className="text-[11px] font-medium text-gray-600 truncate">
+                          {reporte.generadoPorNombre || 'Cuenta eliminada'}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'fecha',
+                      header: 'Fecha',
+                      width: '190px',
+                      align: 'right',
+                      sortValue: (reporte: Reporte) => reporte.created_at,
+                      render: (reporte: Reporte) => (
+                        <span className="text-[11px] font-medium text-gray-500 flex items-center justify-end gap-1.5 whitespace-nowrap">
+                          <Calendar className="w-3 h-3 text-gray-400" /> {formatearFecha(reporte.created_at)}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            )}
             {tipoReporte !== 'Docentes' && tipoReporte !== 'Historial' && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center text-center gap-3">
                 <BarChart2 className="w-10 h-10 text-gray-300" strokeWidth={1.5} />

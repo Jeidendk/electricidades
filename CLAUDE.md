@@ -79,12 +79,12 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
   En Estructura Académica el listado de carreras usa `fill` de `DataTable` y llega hasta el
   borde, como Trámites, en vez de dejar media pantalla en blanco. La tarjeta de identidad y la
   barra de acciones son `shrink-0` y la vista de tarjetas lleva su propio scroll.
-- **Panel del generador: acciones rápidas y resumen de selección.** Vista previa (qué docentes
-  entran, antes de generar), Guardar configuración (formato y selección en localStorage, se
-  restaura al volver) y Limpiar selección. **No hay "Programar reporte"**: recibir un informe
-  automáticamente exige tareas en el servidor, y el botón sin ellas no cumpliría. El resumen
-  muestra reporte, alcance, horas, formato y si está listo para generar. La tabla usa `fill` de
-  `DataTable` y llega hasta abajo, como la de Trámites.
+- **Panel del generador: acciones rápidas.** Vista previa (qué docentes entran, antes de generar)
+  y Limpiar selección. **No hay "Programar reporte"**: recibir un informe automáticamente exige
+  tareas en el servidor. El "Resumen de selección" y "Guardar configuración" se probaron y se
+  quitaron: el resumen repetía lo que ya dicen el selector y la cabecera de la tabla.
+  **Las tres tablas de la pantalla usan `DataTable`** —carga docente, historial y las de
+  Estructura Académica— con `fill`, así que comparten diseño, orden y paginación.
 - **Reportes: una sola tabla gobernada por el selector.** Había dos apiladas —carga docente e
   historial— y la pantalla no cabía al 100% de zoom. Ahora el `<select>` de la izquierda decide
   qué se muestra, y el historial es una opción más. Los módulos sin implementar dicen que no
