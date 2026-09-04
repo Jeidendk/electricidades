@@ -17,6 +17,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { supabase } from '../../../lib/supabase';
 import Swal from 'sweetalert2';
 import { esAula } from '../data/espaciosData';
+import { componerNombreCompleto } from '../../../lib/texto';
 
 const CAT_ICON: Record<CategoriaInventario, React.ElementType> = {
   equipos: Settings, herramientas: Wrench, mobiliario: Sofa, tecnologico: MonitorPlay,
@@ -67,10 +68,12 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
       })
       .map(u => ({
         id: u.id,
-        nombre: u.nombre,
+        // `usuarios` guarda nombre y apellido por separado: mostrar solo `nombre` dejaría a
+        // los técnicos identificados por su nombre de pila.
+        nombre: componerNombreCompleto(u.nombre, (u as any).apellido),
         email: u.email || '',
         departamento: u.departamento || 'General',
-        avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre)}&background=475569&color=fff`,
+        avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(componerNombreCompleto(u.nombre, (u as any).apellido))}&background=475569&color=fff`,
       }));
   }, [rawUsers]);
 

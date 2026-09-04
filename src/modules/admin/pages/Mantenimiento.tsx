@@ -16,6 +16,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Badge } from '../../../components/ui/Badge';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
+import { componerNombreCompleto } from '../../../lib/texto';
 
 type TabKey = 'todas' | EstadoOT;
 
@@ -55,10 +56,14 @@ export const Mantenimiento = ({ embedded = false }: { embedded?: boolean } = {})
     fetchUsuarios();
   }, []);
 
-  const tecnicosDb = useMemo(() => usuarios.filter(u => {
-    const rol = ((u as any).roles?.nombre || '').toLowerCase();
-    return u.id_rol === 3 || rol.includes('tecnic') || rol.includes('técnic');
-  }), [usuarios]);
+  const tecnicosDb = useMemo(() => usuarios
+    .filter(u => {
+      const rol = ((u as any).roles?.nombre || '').toLowerCase();
+      return u.id_rol === 3 || rol.includes('tecnic') || rol.includes('técnic');
+    })
+    // `usuarios` guarda nombre y apellido por separado; los selectores necesitan el completo.
+    .map(u => ({ ...u, nombreCompleto: componerNombreCompleto(u.nombre, (u as any).apellido) })),
+    [usuarios]);
 
   const tecnicoById = (id: string | null | undefined) => tecnicosDb.find(t => t.id === id);
 
@@ -293,7 +298,7 @@ export const Mantenimiento = ({ embedded = false }: { embedded?: boolean } = {})
                     {o.id_tecnico && <img src={tecnicoById(o.id_tecnico)?.avatar_url ?? ''} className="w-6 h-6 rounded-full border border-gray-200 shrink-0" alt="" />}
                     <select value={o.id_tecnico ?? ''} onChange={(e) => updateOrden(o.id, { id_tecnico: e.target.value || null })} className="bg-transparent text-[11px] font-semibold text-gray-700 outline-none cursor-pointer min-w-0 truncate hover:text-gray-900">
                       <option value="">Sin asignar</option>
-                      {tecnicosDb.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                      {tecnicosDb.map(t => <option key={t.id} value={t.id}>{t.nombreCompleto}</option>)}
                     </select>
                   </div>
 
@@ -372,7 +377,7 @@ export const Mantenimiento = ({ embedded = false }: { embedded?: boolean } = {})
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Técnico (opcional)</label>
                   <select value={form.tecnicoId} onChange={e => setForm({ ...form, tecnicoId: e.target.value })} className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium appearance-none cursor-pointer">
                     <option value="">Sin asignar</option>
-                    {tecnicosDb.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                    {tecnicosDb.map(t => <option key={t.id} value={t.id}>{t.nombreCompleto}</option>)}
                   </select>
                 </div>
               </div>
