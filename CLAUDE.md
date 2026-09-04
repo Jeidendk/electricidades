@@ -71,6 +71,17 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Centro de reportes reorganizado.** La franja de gráficos era de inventario en una pantalla
+  de carga docente: se reemplazó por 4 cifras compactas (docentes, materias, horas/semana,
+  reportes generados) más el reparto de horas (mínimo/promedio/máximo). **No se clasifica a
+  nadie como "carga completa"**: ese umbral es una política de la facultad, no un dato del
+  sistema, y ponerle un número inventado etiquetaría mal a personas reales — queda pendiente de
+  confirmar. Tampoco hay comparativas "vs. período anterior" ni evolución temporal: no se
+  guarda historia de la carga. "Seleccionar todos" pasó de botón suelto a **casilla en la
+  cabecera** de la columna (`DataTable.header` acepta ahora `ReactNode`). En el PDF se omiten
+  las franjas horarias que el docente no ocupa; como cada fila lleva su rango escrito, el salto
+  se lee sin ambigüedad. Con el sidebar contraído, el avatar del menú de cuenta dejó de
+  estirarse dentro de un botón alto y angosto.
 - **El reporte de docentes usa la plantilla institucional de Horarios.** El PDF era un listado
   plano; ahora es **una hoja por docente** con la misma maqueta que el horario por aula: escudo,
   `ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO`, nombre del docente subrayado (donde el otro pone

@@ -102,7 +102,7 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
       <button
         onClick={() => { setAbierto(!abierto); setAvisosAbiertos(false); }}
         title={colapsado ? nombre : undefined}
-        className={`w-full flex items-center gap-2.5 rounded-xl p-2 pr-9 transition-colors hover:bg-espoch-sidebarhover ${colapsado ? 'justify-center pr-2' : ''}`}
+        className={`flex items-center gap-2.5 rounded-xl transition-colors hover:bg-espoch-sidebarhover ${colapsado ? 'w-10 h-10 mx-auto justify-center p-0' : 'w-full p-2 pr-9'}`}
       >
         <Avatar nombre={nombre} src={usuario?.avatar} className="w-8 h-8 text-[10px] shrink-0" />
         {!colapsado && (

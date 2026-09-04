@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 
 export interface DataTableColumn<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   /** Fracción o medida para grid-template-columns (default '1fr'). */
   width?: string;
   align?: 'left' | 'center' | 'right';

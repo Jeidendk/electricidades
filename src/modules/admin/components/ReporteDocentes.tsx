@@ -72,9 +72,18 @@ export const ReporteDocentes = ({
   const columnas: DataTableColumn<ResumenDocente>[] = [
     {
       key: 'seleccion',
-      header: '',
       width: '44px',
       align: 'center',
+      header: (
+        <input
+          type="checkbox"
+          checked={todosVisiblesMarcados}
+          onChange={alternarVisibles}
+          disabled={visibles.length === 0}
+          title={todosVisiblesMarcados ? 'Quitar selección' : 'Seleccionar todos'}
+          className="w-3.5 h-3.5 rounded accent-espoch-red cursor-pointer disabled:cursor-not-allowed"
+        />
+      ),
       render: resumen => (
         <input
           type="checkbox"
@@ -139,15 +148,8 @@ export const ReporteDocentes = ({
             value={busqueda}
             onChange={setBusqueda}
             placeholder="Buscar docente o materia..."
-            className="w-full sm:w-[230px]"
+            className="w-full sm:w-[280px]"
           />
-          <button
-            onClick={alternarVisibles}
-            disabled={visibles.length === 0}
-            className="text-[11px] font-bold text-gray-600 hover:text-gray-900 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors shrink-0 whitespace-nowrap"
-          >
-            {todosVisiblesMarcados ? 'Quitar selección' : 'Seleccionar todos'}
-          </button>
         </div>
       </div>
 

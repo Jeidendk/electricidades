@@ -11,18 +11,8 @@ import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
 import { useReportesStore } from '../../../store/reportesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
-import {
-  filasCsvDocentes, metricasDocentes, ETIQUETA_ESTADO_CARGA, HORAS_CARGA_COMPLETA,
-  type EstadoCarga, type ResumenDocente,
-} from '../data/reporteDocentes';
+import { filasCsvDocentes, metricasDocentes, type ResumenDocente } from '../data/reporteDocentes';
 import { exportarExcelDocentes, exportarPdfDocentes } from '../data/exportarReporteDocentes';
-
-/** Orden y color de cada estado de carga en el desglose. */
-const ESTADOS_CARGA: { estado: EstadoCarga; color: string }[] = [
-  { estado: 'completa', color: 'bg-emerald-500' },
-  { estado: 'parcial', color: 'bg-amber-500' },
-  { estado: 'sin_carga', color: 'bg-red-500' },
-];
 
 /** Fecha corta y legible para la bitácora: "3 sept 2026, 10:47". */
 const formatearFecha = (iso: string) =>
@@ -303,36 +293,21 @@ export const Reportes = () => {
               ))}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-6 min-w-0">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-x-8 gap-y-3 min-w-0">
               <div className="flex flex-col shrink-0">
-                <span className="text-[13px] font-bold text-gray-900">Carga por estado</span>
-                <span className="text-[10px] font-medium text-gray-500">
-                  Completa desde {HORAS_CARGA_COMPLETA} h/semana
-                </span>
+                <span className="text-[13px] font-bold text-gray-900">Reparto de horas</span>
+                <span className="text-[10px] font-medium text-gray-500">Por docente, según el horario</span>
               </div>
-              <div className="flex flex-wrap items-center gap-5 flex-1 min-w-0">
-                {ESTADOS_CARGA.map(({ estado, color }) => {
-                  const cantidad = metricas.porEstado[estado];
-                  const porcentaje = metricas.totalDocentes
-                    ? Math.round((cantidad / metricas.totalDocentes) * 100)
-                    : 0;
-                  return (
-                    <div key={estado} className="flex flex-col gap-1 min-w-[150px] flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold text-gray-600 flex items-center gap-1.5">
-                          <span className={`w-2 h-2 rounded-full ${color}`} /> {ETIQUETA_ESTADO_CARGA[estado]}
-                        </span>
-                        <span className="text-[10px] font-extrabold text-gray-900">
-                          {cantidad} <span className="text-gray-400 font-semibold">({porcentaje}%)</span>
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                        <div className={`h-full rounded-full ${color}`} style={{ width: `${porcentaje}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {[
+                { etiqueta: 'Mínimo', valor: metricas.horasMinimas },
+                { etiqueta: 'Promedio', valor: metricas.horasPromedio },
+                { etiqueta: 'Máximo', valor: metricas.horasMaximas },
+              ].map(({ etiqueta, valor }) => (
+                <div key={etiqueta} className="flex items-baseline gap-2">
+                  <span className="text-[16px] font-extrabold text-gray-900">{valor} h</span>
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{etiqueta}</span>
+                </div>
+              ))}
             </div>
 
             <ReporteDocentes
