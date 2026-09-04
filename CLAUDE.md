@@ -71,6 +71,14 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Reportes: una sola tabla gobernada por el selector.** Había dos apiladas —carga docente e
+  historial— y la pantalla no cabía al 100% de zoom. Ahora el `<select>` de la izquierda decide
+  qué se muestra, y el historial es una opción más. Los módulos sin implementar dicen que no
+  están disponibles en vez de mostrar nada. Las 4 cifras pasaron de una fila de tarjetas al
+  **banner**, que ya tenía ese hueco, y ahora describen la carga docente en vez de contar
+  usuarios, activos y trámites, que no son de esta pantalla. Con eso se eliminaron también
+  **4 consultas a Supabase** (usuarios, espacios, inventario, solicitudes) que se pedían en cada
+  visita sin que nada las usara. Fuera el botón "Ver todos" del historial: no tenía `onClick`.
 - **Centro de reportes reorganizado.** La franja de gráficos era de inventario en una pantalla
   de carga docente: se reemplazó por 4 cifras compactas (docentes, materias, horas/semana,
   reportes generados). **No se clasifica a

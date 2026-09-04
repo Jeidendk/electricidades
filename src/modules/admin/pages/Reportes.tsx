@@ -1,13 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText, BookOpen, Clock, Download, FileSpreadsheet, BarChart2,
-  Activity, Users, Map as MapIcon, Wrench, Calendar,
-  CheckCircle2, ChevronDown, ArrowRight
+  Users, Calendar, CheckCircle2, ChevronDown
 } from 'lucide-react';
-import { useUsuariosStore } from '../../../store/usuariosStore';
-import { useEspaciosStore } from '../../../store/espaciosStore';
-import { useInventarioStore } from '../../../store/inventarioStore';
-import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
 import { useReportesStore } from '../../../store/reportesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
@@ -21,20 +16,12 @@ const formatearFecha = (iso: string) =>
   });
 
 export const Reportes = () => {
-  const { items: usuarios, fetchUsuarios } = useUsuariosStore();
-  const { items: espacios, fetchEspacios } = useEspaciosStore();
-  const { items: inventario, fetchItems: fetchInventario } = useInventarioStore();
-  const { solicitudes, fetchSolicitudes } = useSolicitudesAdminStore();
   const { reportes: historial, fetchReportes, registrarReporte } = useReportesStore();
   const { items: edificios, fetchEdificios } = useEdificiosStore();
 
 
 
   useEffect(() => {
-    fetchUsuarios();
-    fetchEspacios();
-    fetchInventario();
-    fetchSolicitudes();
     fetchReportes();
     fetchEdificios();
   }, []);
@@ -122,42 +109,26 @@ export const Reportes = () => {
                 <p className="text-[11px] text-gray-400 font-medium">Generación de informes exportables del sistema.</p>
               </div>
             </div>
+            {/* Las cifras del banner describen lo que esta pantalla reporta: la carga docente.
+                Antes contaban usuarios, activos y trámites, que no son de aquí. */}
             <div className="flex items-center gap-6 bg-[#212730] rounded-xl px-6 py-3 border border-white/5 shadow-inner hidden md:flex">
-
-              <div className="flex items-center gap-3">
-                <Users className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
-                <div className="flex flex-col">
-                  <span className="text-[15px] font-bold text-white leading-tight">{usuarios.length || 0}</span>
-                  <span className="text-[10px] font-medium text-gray-400 leading-none">Usuarios</span>
-                </div>
-              </div>
-              <div className="w-px h-8 bg-white/10 mx-1"></div>
-
-              <div className="flex items-center gap-3">
-                <Wrench className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
-                <div className="flex flex-col">
-                  <span className="text-[15px] font-bold text-white leading-tight">{inventario.length || 0}</span>
-                  <span className="text-[10px] font-medium text-gray-400 leading-none">Activos Fijos</span>
-                </div>
-              </div>
-              <div className="w-px h-8 bg-white/10 mx-1"></div>
-
-              <div className="flex items-center gap-3">
-                <MapIcon className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
-                <div className="flex flex-col">
-                  <span className="text-[15px] font-bold text-white leading-tight">{espacios.length || 0}</span>
-                  <span className="text-[10px] font-medium text-gray-400 leading-none">Espacios Acad.</span>
-                </div>
-              </div>
-              <div className="w-px h-8 bg-white/10 mx-1"></div>
-
-              <div className="flex items-center gap-3">
-                <Activity className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
-                <div className="flex flex-col">
-                  <span className="text-[15px] font-bold text-white leading-tight">{solicitudes.length || 0}</span>
-                  <span className="text-[10px] font-medium text-gray-400 leading-none">Trámites/Mes</span>
-                </div>
-              </div>
+              {[
+                { Icono: Users, valor: metricas.totalDocentes, etiqueta: 'Docentes con carga' },
+                { Icono: BookOpen, valor: metricas.totalMaterias, etiqueta: 'Materias distintas' },
+                { Icono: Clock, valor: metricas.totalHoras, etiqueta: 'Horas / semana' },
+                { Icono: FileText, valor: historial.length, etiqueta: 'Reportes generados' },
+              ].map(({ Icono, valor, etiqueta }, indice) => (
+                <Fragment key={etiqueta}>
+                  {indice > 0 && <div className="w-px h-8 bg-white/10 mx-1" />}
+                  <div className="flex items-center gap-3">
+                    <Icono className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
+                    <div className="flex flex-col">
+                      <span className="text-[15px] font-bold text-white leading-tight">{valor}</span>
+                      <span className="text-[10px] font-medium text-gray-400 leading-none whitespace-nowrap">{etiqueta}</span>
+                    </div>
+                  </div>
+                </Fragment>
+              ))}
             </div>
           </div>
         </div>
@@ -188,6 +159,7 @@ export const Reportes = () => {
                   <div className="relative">
                     <select value={tipoReporte} onChange={e => setTipoReporte(e.target.value)} className="appearance-none w-full bg-white text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-red font-medium cursor-pointer transition-all shadow-sm">
                         <option value="Docentes">Carga docente (horarios por docente)</option>
+                        <option value="Historial">Historial de reportes generados</option>
                         <option value="Inventario">Inventario General (Equipos, Mobiliario)</option>
                         <option value="Infraestructura">Infraestructura (Edificios, Aulas, Labs)</option>
                         <option value="Usuarios">Usuarios Registrados</option>
@@ -272,44 +244,25 @@ export const Reportes = () => {
           {/* RIGHT COL */}
           <div className="flex flex-col gap-6 min-w-0">
             
-            {/* Cifras de cabecera. Todas salen de las clases cargadas: ninguna es estimada,
-                y no hay comparativas contra "el periodo anterior" porque no se guarda historia. */}
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-              {[
-                { Icono: Users, etiqueta: 'Docentes con carga', valor: metricas.totalDocentes, color: 'text-blue-600 bg-blue-50' },
-                { Icono: BookOpen, etiqueta: 'Materias distintas', valor: metricas.totalMaterias, color: 'text-purple-600 bg-purple-50' },
-                { Icono: Clock, etiqueta: 'Horas / semana', valor: metricas.totalHoras, color: 'text-emerald-600 bg-emerald-50' },
-                { Icono: FileText, etiqueta: 'Reportes generados', valor: historial.length, color: 'text-amber-600 bg-amber-50' },
-              ].map(({ Icono, etiqueta, valor, color }) => (
-                <div key={etiqueta} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-                    <Icono className="w-5 h-5" strokeWidth={2} />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[20px] font-extrabold text-gray-900 leading-none">{valor}</span>
-                    <span className="text-[10px] font-semibold text-gray-500 truncate mt-1">{etiqueta}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <ReporteDocentes
+            {/* Una sola tabla: el selector de la izquierda decide qué se muestra. Antes había dos
+                apiladas —la carga docente y el historial— y la pantalla no cabía a 100%. */}
+            {tipoReporte === 'Docentes' && (
+              <ReporteDocentes
               seleccionados={docentesSeleccionados}
               onCambiarSeleccion={setDocentesSeleccionados}
               onResumenes={setResumenesDocentes}
               nombreEdificio={nombreEdificio}
-            />
+              />
+            )}
 
-            {/* Historial Table */}
+
+            {tipoReporte === 'Historial' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col flex-1">
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <h3 className="text-[16px] font-extrabold text-gray-900">Historial de Reportes</h3>
                   <p className="text-[11px] font-medium text-gray-500 mt-0.5">Últimos documentos generados</p>
                 </div>
-                <button className="flex items-center gap-1.5 text-[11px] font-bold text-gray-600 hover:text-gray-900 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-                  Ver todos <ArrowRight className="w-3 h-3" />
-                </button>
               </div>
               
               <div className="overflow-x-auto">
@@ -364,6 +317,19 @@ export const Reportes = () => {
                 )}
               </div>
             </div>
+            )}
+
+            {tipoReporte !== 'Docentes' && tipoReporte !== 'Historial' && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center text-center gap-3">
+                <BarChart2 className="w-10 h-10 text-gray-300" strokeWidth={1.5} />
+                <h3 className="text-[14px] font-bold text-gray-800">Este reporte todavía no está disponible</h3>
+                <p className="text-[11px] font-medium text-gray-500 max-w-[360px] leading-relaxed">
+                  Por ahora solo están implementados la carga docente y el historial. Elige uno de
+                  esos dos en el selector de la izquierda.
+                </p>
+              </div>
+            )}
+
 
           </div>
         </div>
