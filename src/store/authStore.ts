@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { aNumeroOpcional, normalizarTexto } from '../lib/texto';
+import { componerNombreCompleto } from '../lib/texto';
 
 export type Rol = 'admin' | 'tecnico' | 'student';
 
@@ -60,7 +61,7 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   // todavía vacíos durante el primer acceso; nunca reemplaza una edición administrativa.
   const { data: perfilActual } = await supabase
     .from('usuarios')
-    .select('codigo_institucional, facultad_nombre, carrera_nombre, departamento, pao, nombres, apellidos')
+    .select('codigo_institucional, facultad_nombre, carrera_nombre, departamento, pao, nombre, apellido')
     .eq('id', userId)
     .maybeSingle();
 
@@ -71,11 +72,11 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   };
   // El trigger de auth.users copia `nombre`; los dos campos separados llegan por metadata,
   // así que se completan aquí en el primer acceso y ya no se vuelven a tocar.
-  if (!perfilActual?.nombres && meta.nombres) {
-    patch.nombres = meta.nombres;
+  if (!perfilActual?.nombre && meta.nombre) {
+    patch.nombre = meta.nombre;
   }
-  if (!perfilActual?.apellidos && meta.apellidos) {
-    patch.apellidos = meta.apellidos;
+  if (!perfilActual?.apellido && meta.apellido) {
+    patch.apellido = meta.apellido;
   }
   if (!perfilActual?.codigo_institucional && meta.codigo_institucional) {
     patch.codigo_institucional = meta.codigo_institucional;
@@ -104,7 +105,7 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
   // 1. Cargar perfil del usuario (sin join para no depender de RLS de roles)
   const { data, error } = await supabase
     .from('usuarios')
-    .select('id, nombre, email, avatar_url, id_rol, facultad_nombre, carrera_nombre, pao')
+    .select('id, nombre, apellido, email, avatar_url, id_rol, facultad_nombre, carrera_nombre, pao')
     .eq('id', userId)
     .single();
 
@@ -188,7 +189,8 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
 
   return {
     id: data.id,
-    nombre: data.nombre,
+    // La base guarda nombre y apellido por separado; el completo se arma al leer.
+    nombre: componerNombreCompleto(data.nombre, data.apellido),
     email: data.email || '',
     avatar: data.avatar_url,
     role: rolFuncional,

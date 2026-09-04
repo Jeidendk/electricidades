@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { hoy } from '../lib/utils';
+import { componerNombreCompleto } from '../lib/texto';
 
 // Ítem dentro de una solicitud de equipo (lo que el estudiante pidió).
 export interface SolEquipoItem {
@@ -50,14 +51,14 @@ export const useSolicitudesEquipoAdminStore = create<State>()((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('solicitudes_equipo')
-        .select('*, usuarios(nombre, email)')
+        .select('*, usuarios(nombre, apellido, email)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const mapped: SolEquipoAdmin[] = (data as any[] || []).map((d) => ({
         id: d.id,
         numero: d.numero,
         id_usuario: d.id_usuario,
-        estudiante: d.usuarios?.nombre || 'Estudiante',
+        estudiante: componerNombreCompleto(d.usuarios?.nombre, d.usuarios?.apellido) || 'Estudiante',
         fecha: d.fecha,
         hora: d.hora,
         estado: d.estado,

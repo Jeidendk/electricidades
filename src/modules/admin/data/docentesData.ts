@@ -13,11 +13,3 @@ export const nombreConTitulo = (
   titulo: string | null | undefined,
   nombre: string | null | undefined,
 ): string => [titulo?.trim(), nombre?.trim()].filter(Boolean).join(' ');
-
-/**
- * Nombre completo canónico a partir de los dos campos que se capturan.
- * El orden es siempre NOMBRES + APELLIDOS: tener dos inputs rotulados es justamente lo que
- * evita que cada persona lo escriba al revés.
- */
-export const componerNombreCompleto = (nombres: string, apellidos: string): string =>
-  `${nombres.trim()} ${apellidos.trim()}`.trim().replace(/\s+/g, ' ');

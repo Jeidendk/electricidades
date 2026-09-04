@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { componerNombreCompleto } from '../lib/texto';
 
 export interface HorarioEstudianteItem {
   id: string;
@@ -44,7 +45,7 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
           clases (
             id, dia, hora_inicio, hora_fin,
             materias ( nombre ),
-            docentes:usuarios!clases_id_docente_fkey ( nombre ),
+            docentes:usuarios!clases_id_docente_fkey ( nombre, apellido ),
             espacios ( nombre, tipo )
           )
         `)
@@ -61,7 +62,7 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
         return {
           id: d.id,
           materia: c?.materias?.nombre || 'Desconocida',
-          docente: c?.docentes?.nombre || 'Desconocido',
+          docente: componerNombreCompleto(c?.docentes?.nombre, c?.docentes?.apellido) || 'Desconocido',
           aula: c?.espacios?.nombre || 'Sin aula',
           dia: c?.dia || 'LUN',
           horaInicio: c?.hora_inicio?.substring(0, 5) || '00:00',
@@ -99,8 +100,8 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
       const docenteIds = [...new Set((data as any[]).map(c => c.id_docente).filter(Boolean))];
       const docenteMap: Record<string, string> = {};
       if (docenteIds.length) {
-        const { data: docs } = await supabase.from('usuarios').select('id, nombre').in('id', docenteIds);
-        (docs as any[] || []).forEach(d => { docenteMap[d.id] = d.nombre; });
+        const { data: docs } = await supabase.from('usuarios').select('id, nombre, apellido').in('id', docenteIds);
+        (docs as any[] || []).forEach(d => { docenteMap[d.id] = componerNombreCompleto(d.nombre, d.apellido); });
       }
 
       const formatted = (data as any[]).map((c) => {

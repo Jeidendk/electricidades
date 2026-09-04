@@ -71,6 +71,48 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **`usuarios` guarda `nombre` y `apellido`, y nada más (migración 0030, VA CON EL DESPLIEGUE).**
+  Se eliminó la columna `nombre` que guardaba el nombre completo —un derivado que el trigger de
+  la 0025 mantenía sincronizado— y `nombres`/`apellidos` pasaron a singular. El completo se
+  arma al leer con `componerNombreCompleto`, que se movió de `admin/data/docentesData` a
+  `lib/texto` porque ahora lo usan auth, componentes y stores. **No se pierde ningún dato**: las
+  dos columnas que quedan son las mismas, solo cambian de nombre.
+  El trabajo fue chico porque el nombre completo se armaba en **3 puntos** —`mapearClases`,
+  `horarioEstudianteStore` y `docentesStore`— y todo lo demás consume un string ya hecho: la
+  grilla, el PDF, el Word, `AsignacionModal`, `MateriaHorarioModal`, `ReporteDocentes` y el
+  importador **no se tocaron**. En total 9 consultas; dos aparecieron barriendo el proyecto y no
+  estaban en la estimación inicial: el responsable del aula en `MapaEstudiantil` y el
+  solicitante en `Solicitudes`.
+  La migración rehace el índice único de docentes como **índice de expresión** sobre los dos
+  campos, convierte el trigger `componer_nombre` en un normalizador (mayúsculas y espacios) y
+  borra 5 vistas que ninguna pantalla usaba pero que bloqueaban el `drop column`; imprime su
+  definición antes de borrarlas. Con las dos columnas en `NOT NULL` desapareció todo el camino
+  de "ficha sin repartir" en la pantalla Usuarios: ya no puede ocurrir.
+- **Seguridad: tres agujeros abiertos que encontró el linter de Supabase.**
+  **0029 — `delete_user_auth` era `DELETE FROM auth.users WHERE id = user_id;` sin ninguna
+  comprobación**, `SECURITY DEFINER` y expuesta en la API REST: cualquier sesión iniciada podía
+  borrar la cuenta de cualquiera, administradores incluidos. Ahora exige `is_admin()` y se le
+  revocó a `anon`. El cliente además ya no la llama para docentes, que no tienen cuenta.
+  **0028 — `usuarios` tenía la política `allow_all` con `true/true`**, que anulaba las otras
+  seis (las permisivas se suman con OR): cualquiera podía leer todos los correos y **cambiarse
+  el `id_rol` a Administrador**. Se quitó y se repuso solo la lectura, porque cerrarla dejaría
+  al estudiante sin ver el nombre de su docente. Como **RLS filtra filas y no columnas**, un
+  trigger impide cambiar `id_rol` salvo admin —con excepción para `auth.uid() is null`, que es
+  el trigger de auth creando la ficha—. Quedan 13 tablas con el mismo `allow_all`, pendientes.
+  **0027 — el NOT NULL de la 0025 podía dejar cuentas sin ficha**: sin los dos campos en la
+  metadata el INSERT fallaba, el `EXCEPTION WHEN others` se lo tragaba y la persona entraba como
+  estudiante fuese cual fuese su rol. Ahora hay respaldo, y lo que no se sabe se marca
+  `POR COMPLETAR`, visible en la lista.
+- **Correo: nada de esto era código.** El registro no mandaba confirmación porque `Confirm email`
+  estaba apagado; los enlaces de invitación caían en el panel del rol porque el `redirect_to`
+  no estaba en la lista blanca de Supabase y GoTrue lo descarta en silencio usando el Site URL.
+  Ambos ajustados en el dashboard. Sigue **pendiente configurar un SMTP propio**: el servicio
+  integrado manda unos pocos correos por hora y ese tope no se puede subir — es el
+  `email rate limit exceeded` que aparecía al invitar. `friendlyAuthError` en `notifyError.ts`
+  traduce ahora ese error y dice qué hacer, en vez de mostrar el texto crudo en inglés.
+- **Fix: el selector de filas perdía el tamaño inicial.** La lista de opciones se calculaba con
+  el valor actual, así que una tabla que arranca en 8 (Reportes) lo ofrecía al principio y lo
+  perdía al cambiar a 5, sin forma de volver. Ahora el inicial se recuerda.
 - **Un solo pie de tabla en todo el sistema** (`components/ui/Pagination.tsx`), con el formato
   compacto que ya usaba Usuarios: píldora `1-3 de 3`, `Filas:` y el paginador. Había **cuatro
   copias escritas a mano** —Usuarios, Formatos, MisSolicitudes y el propio `Pagination`— y

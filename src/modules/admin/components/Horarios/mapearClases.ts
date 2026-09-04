@@ -1,4 +1,5 @@
 import { nombreConTitulo } from '../../data/docentesData';
+import { componerNombreCompleto } from '../../../../lib/texto';
 
 /**
  * Fila de `clases` ya resuelta: con los nombres de materia, docente, aula y carrera en vez de
@@ -43,7 +44,10 @@ export const mapearClases = (
     return {
       id: fila.id,
       materia: fila.materias?.nombre || 'Sin materia',
-      docente: nombreConTitulo(fila.docentes?.titulo, fila.docentes?.nombre) || 'Sin docente',
+      docente: nombreConTitulo(
+        fila.docentes?.titulo,
+        componerNombreCompleto(fila.docentes?.nombre, fila.docentes?.apellido),
+      ) || 'Sin docente',
       aula: fila.espacios?.nombre || 'Sin aula',
       edificio: fila.espacios?.id_edificio || '',
       tipoEspacio: fila.espacios?.tipo || 'Académica',

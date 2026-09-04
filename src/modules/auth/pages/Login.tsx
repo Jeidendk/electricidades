@@ -6,7 +6,6 @@ import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { supabase } from '../../../lib/supabase';
-import { componerNombreCompleto } from '../../admin/data/docentesData';
 import { enMayusculas } from '../../../lib/texto';
 import {
   consultarBloqueo, limpiarIntentos, mensajeBloqueo, mensajeIntentosRestantes, registrarIntentoFallido,
@@ -41,8 +40,8 @@ export const Login = () => {
   // Campos del formulario de registro
   // Nombres y apellidos por separado, igual que en el alta administrativa: es lo que evita
   // que cada quien los escriba en un orden distinto. `nombre` se compone al guardar.
-  const [registerNombres, setRegisterNombres] = useState('');
-  const [registerApellidos, setRegisterApellidos] = useState('');
+  const [registerNombre, setRegisterNombre] = useState('');
+  const [registerApellido, setRegisterApellido] = useState('');
   const [registerCodigo, setRegisterCodigo] = useState('');
   const [registerFacultad, setRegisterFacultad] = useState('');
   const [registerCarrera, setRegisterCarrera] = useState('');
@@ -212,8 +211,8 @@ export const Login = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!registerNombres.trim() || !registerApellidos.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Nombre incompleto', text: 'Ingresa tus nombres y tus apellidos.', confirmButtonColor: '#B00020' });
+    if (!registerNombre.trim() || !registerApellido.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Nombre incompleto', text: 'Ingresa tu nombre y tu apellido.', confirmButtonColor: '#B00020' });
       return;
     }
     if (registerPassword !== registerConfirmPassword) {
@@ -235,9 +234,8 @@ export const Login = () => {
     const facultadSel = facultades.find((f) => f.id === registerFacultad);
     const carreraSel = carreras.find((c) => c.id === registerCarrera);
     const payload = {
-      nombre: componerNombreCompleto(registerNombres, registerApellidos),
-      nombres: registerNombres.trim(),
-      apellidos: registerApellidos.trim(),
+      nombre: registerNombre.trim(),
+      apellido: registerApellido.trim(),
       codigo_institucional: registerCodigo.trim(),
       facultad_id: registerFacultad,
       facultad_nombre: facultadSel?.nombre || '',
@@ -246,8 +244,6 @@ export const Login = () => {
       pao: registerPao,
     };
     
-    console.log("🚀 ENVIANDO A SUPABASE:", payload);
-
     const { data, error } = await supabase.auth.signUp({
       email: registerEmail,
       password: registerPassword,
@@ -276,7 +272,9 @@ export const Login = () => {
       } else if (msg.includes('valid email')) {
         msg = 'El correo ingresado no es válido.';
       } else if (msg.includes('rate limit')) {
-        msg = 'Demasiados intentos. Por favor intenta más tarde.';
+        // No es un tope de intentos: es la cuota de correos del proveedor. Decir "demasiados
+        // intentos" hace pensar que uno hizo algo mal y que reintentando enseguida se arregla.
+        msg = 'El servicio de correo no acepta más envíos por ahora. Vuelve a intentarlo en una hora.';
       } else if (msg === '{}' || msg.startsWith('{')) {
         msg = 'Error del servidor: ' + JSON.stringify(error, Object.getOwnPropertyNames(error));
       }
@@ -311,8 +309,8 @@ export const Login = () => {
       confirmButtonColor: '#B00020',
     }).then(() => {
       setView('login');
-      setRegisterNombres('');
-      setRegisterApellidos('');
+      setRegisterNombre('');
+      setRegisterApellido('');
       setRegisterEmail('');
       setRegisterPassword('');
       setRegisterConfirmPassword('');
@@ -487,13 +485,13 @@ export const Login = () => {
                     <div className="flex flex-col gap-3.5">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                          <label className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Nombres</label>
-                          <input type="text" placeholder="Ej. JUAN CARLOS" required value={registerNombres} onChange={(e) => setRegisterNombres(enMayusculas(e.target.value))}
+                          <label className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Nombre</label>
+                          <input type="text" placeholder="Ej. JUAN CARLOS" required value={registerNombre} onChange={(e) => setRegisterNombre(enMayusculas(e.target.value))}
                             className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 transition-all placeholder:font-normal placeholder:text-gray-400" />
                         </div>
                         <div>
-                          <label className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Apellidos</label>
-                          <input type="text" placeholder="Ej. PÉREZ MORENO" required value={registerApellidos} onChange={(e) => setRegisterApellidos(enMayusculas(e.target.value))}
+                          <label className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Apellido</label>
+                          <input type="text" placeholder="Ej. PÉREZ MORENO" required value={registerApellido} onChange={(e) => setRegisterApellido(enMayusculas(e.target.value))}
                             className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 transition-all placeholder:font-normal placeholder:text-gray-400" />
                         </div>
                       </div>

@@ -12,6 +12,16 @@ export const normalizarTexto = (valor: unknown): string =>
     .replace(/\s+/g, ' ');
 
 /** Mayúsculas con las reglas del español. Los catálogos se guardan así para que la lista se vea pareja. */
+/**
+ * Nombre completo a partir de los dos campos que se capturan.
+ * El orden es siempre NOMBRE + APELLIDO: tener dos campos rotulados es justamente lo que evita
+ * que cada persona lo escriba al revés. La base ya no guarda esta cadena; se arma al leer.
+ */
+export const componerNombreCompleto = (
+  nombre: string | null | undefined,
+  apellido: string | null | undefined,
+): string => `${(nombre || '').trim()} ${(apellido || '').trim()}`.trim().replace(/\s+/g, ' ');
+
 export const enMayusculas = (valor: string): string => valor.toLocaleUpperCase('es');
 
 /**

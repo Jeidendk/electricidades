@@ -16,8 +16,8 @@ import { uploadImage } from '../../lib/upload';
 import { useAuthStore, ETIQUETA_ROL } from '../../store/authStore';
 import { useExclusiveModal } from '../../hooks/useExclusiveModal';
 import { Avatar } from './Avatar';
-import { enMayusculas } from '../../lib/texto';
-import { componerNombreCompleto } from '../../modules/admin/data/docentesData';
+import { enMayusculas, componerNombreCompleto } from '../../lib/texto';
+
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -62,8 +62,8 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   const user = useAuthStore(state => state.user);
   const setUser = useAuthStore(state => state.setUser);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [nombres, setNombres] = useState('');
-  const [apellidos, setApellidos] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [details, setDetails] = useState<ProfileDetails>(emptyDetails);
@@ -78,8 +78,8 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
 
     // Se dejan vacíos y los llena la consulta: el nombre completo del store no se puede
     // partir sin adivinar dónde termina el nombre y empieza el apellido.
-    setNombres('');
-    setApellidos('');
+    setNombre('');
+    setApellido('');
     setPhotoFile(null);
     setPhotoPreview(user.avatar);
     setError('');
@@ -95,14 +95,14 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     void (async () => {
       const { data, error: profileError } = await supabase
         .from('usuarios')
-        .select('codigo_institucional, facultad_nombre, carrera_nombre, pao, nombres, apellidos')
+        .select('codigo_institucional, facultad_nombre, carrera_nombre, pao, nombre, apellido')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!active) return;
       if (data) {
-        setNombres(data.nombres || '');
-        setApellidos(data.apellidos || '');
+        setNombre(data.nombre || '');
+        setApellido(data.apellido || '');
         setDetails({
           codigoInstitucional: data.codigo_institucional || '',
           facultad: data.facultad_nombre || user.facultadNombre || '',
@@ -158,9 +158,9 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   const handleSave = async () => {
     // `nombre` no se teclea: se compone, para que no pueda quedar en un orden distinto del
     // que muestran los dos campos ni desincronizarse de ellos.
-    const cleanName = componerNombreCompleto(nombres, apellidos);
-    if (!nombres.trim() || !apellidos.trim()) {
-      setError('Ingresa tus nombres y tus apellidos.');
+    const cleanName = componerNombreCompleto(nombre, apellido);
+    if (!nombre.trim() || !apellido.trim()) {
+      setError('Ingresa tu nombre y tu apellido.');
       return;
     }
 
@@ -176,16 +176,15 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
       const { error: profileError } = await supabase
         .from('usuarios')
         .update({
-          nombre: cleanName,
-          nombres: nombres.trim(),
-          apellidos: apellidos.trim(),
+          nombre: nombre.trim(),
+          apellido: apellido.trim(),
           avatar_url: avatarUrl,
         })
         .eq('id', user.id);
       if (profileError) throw profileError;
 
       const { error: authError } = await supabase.auth.updateUser({
-        data: { nombre: cleanName, nombres: nombres.trim(), apellidos: apellidos.trim() },
+        data: { nombre: nombre.trim(), apellido: apellido.trim() },
       });
       if (authError) throw authError;
 
@@ -228,7 +227,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
         <div className="overflow-y-auto px-6 py-5 custom-scrollbar">
           <div className="mb-5 flex flex-col items-center">
             <div className="relative">
-              <Avatar nombre={componerNombreCompleto(nombres, apellidos) || user.nombre} src={photoPreview} className="h-24 w-24 text-2xl" />
+              <Avatar nombre={componerNombreCompleto(nombre, apellido) || user.nombre} src={photoPreview} className="h-24 w-24 text-2xl" />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -252,22 +251,22 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Nombres</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Nombre</span>
                 <div className="relative">
                   <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
-                    value={nombres}
-                    onChange={event => setNombres(enMayusculas(event.target.value))}
+                    value={nombre}
+                    onChange={event => setNombre(enMayusculas(event.target.value))}
                     placeholder="Ej. JUAN CARLOS"
                     className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-3 pl-10 pr-4 text-[13px] font-semibold text-gray-900 outline-none transition-colors focus:border-indigo-400 focus:bg-white"
                   />
                 </div>
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Apellidos</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Apellido</span>
                 <input
-                  value={apellidos}
-                  onChange={event => setApellidos(enMayusculas(event.target.value))}
+                  value={apellido}
+                  onChange={event => setApellido(enMayusculas(event.target.value))}
                   placeholder="Ej. PÉREZ MORENO"
                   className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-3 px-4 text-[13px] font-semibold text-gray-900 outline-none transition-colors focus:border-indigo-400 focus:bg-white"
                 />

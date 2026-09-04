@@ -11,6 +11,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
+import { componerNombreCompleto } from '../../../lib/texto';
 
 export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const { solicitudes, fetchSolicitudes, updateSolicitud, removeSolicitud } = useSolicitudesAdminStore();
@@ -23,7 +24,7 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
     numero: s.numero,
     asunto: s.asunto,
     tipo: s.tipo || 'Oficio',
-    solicitante: s.usuarios?.nombre || 'Desconocido',
+    solicitante: componerNombreCompleto(s.usuarios?.nombre, s.usuarios?.apellido) || 'Desconocido',
     fecha: s.fecha,
     estado: s.estado,
     descripcion: s.descripcion || '',

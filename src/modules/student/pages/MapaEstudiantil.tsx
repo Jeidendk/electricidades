@@ -15,6 +15,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { watchPosition } from '../../../lib/geolocation';
 import { useSolicitudesEquipoStore } from '../../../store/solicitudesEquipoStore';
 import { EdificioPopupCard } from '../../admin/components/EdificioPopupCard';
+import { componerNombreCompleto } from '../../../lib/texto';
 
 // Componente para manejar el centrado del mapa y zoom desde botones externos
 const MapController = ({ center, zoom, layer }: { center: [number, number], zoom: number, layer: string }) => {
@@ -109,7 +110,7 @@ export const MapaEstudiantil = () => {
       const { data: asigData } = await supabase
         .from('asignaciones')
         .select(`
-          usuarios ( nombre, email )
+          usuarios ( nombre, apellido, email )
         `)
         .eq('id_espacio', activeEspacio.id)
         .eq('activa', true)
@@ -117,7 +118,8 @@ export const MapaEstudiantil = () => {
         .single();
         
       if (asigData?.usuarios) {
-        setResponsable(asigData.usuarios as any);
+        const u = asigData.usuarios as any;
+        setResponsable({ nombre: componerNombreCompleto(u.nombre, u.apellido), email: u.email });
       } else {
         setResponsable(null);
       }

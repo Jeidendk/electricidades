@@ -27,7 +27,7 @@ export const useSolicitudesAdminStore = create<SolicitudesAdminState>()((set) =>
     try {
       const { data, error } = await supabase
         .from('solicitudes_admin')
-        .select('*, usuarios(nombre, email)')
+        .select('*, usuarios(nombre, apellido, email)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       set({ solicitudes: (data as any[]) || [] });

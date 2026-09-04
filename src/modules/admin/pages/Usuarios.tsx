@@ -13,8 +13,9 @@ import { useAuthStore } from '../../../store/authStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Pagination } from '../../../components/ui/Pagination';
 import { uploadImage } from '../../../lib/upload';
-import { TITULOS_ACADEMICOS, componerNombreCompleto } from '../data/docentesData';
-import { enMayusculas, normalizarTexto } from '../../../lib/texto';
+import { TITULOS_ACADEMICOS } from '../data/docentesData';
+import { enMayusculas, normalizarTexto, componerNombreCompleto } from '../../../lib/texto';
+import { friendlyAuthError } from '../../../lib/notifyError';
 import { supabase } from '../../../lib/supabase';
 import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
@@ -62,9 +63,10 @@ export const Usuarios = () => {
       id: u.id,
       tipoRegistro: esDocente ? 'docente' as const : 'usuario' as const,
       nombre: u.nombre,
+      apellido: u.apellido,
+      /** La base ya no guarda el nombre completo: se arma al leer. */
+      nombreCompleto: componerNombreCompleto(u.nombre, u.apellido),
       titulo: u.titulo || '',
-      apellidos: u.apellidos || '',
-      nombres: u.nombres || '',
       email: esDocente ? '' : u.email || '',
       rol,
       estado: u.estado,
@@ -80,7 +82,7 @@ export const Usuarios = () => {
         : u.ultima_conexion
           ? new Date(u.ultima_conexion).toLocaleString('es-EC')
           : 'Sin registro',
-      avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre)}&background=${esDocente ? '7e22ce' : '475569'}&color=fff`,
+      avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(componerNombreCompleto(u.nombre, u.apellido))}&background=${esDocente ? '7e22ce' : '475569'}&color=fff`,
     };
   }), [items, facultades, carreras]);
 
@@ -99,7 +101,7 @@ export const Usuarios = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   // La tabla arranca ordenada por apellido, que es como se busca a una persona en un listado.
-  const [sortCol, setSortCol] = useState('apellidos');
+  const [sortCol, setSortCol] = useState('apellido');
   const [sortAsc, setSortAsc] = useState(true);
 
   // Filters
@@ -115,7 +117,7 @@ export const Usuarios = () => {
   const defaultFormValues = {
     nombre: '', email: '', rol: 'Estudiante', departamento: 'FIE', estado: 'activo', avatar_url: '', fotoFile: null as File | null,
     codigo: '', facultadId: '', carreraId: '', pao: '',
-    titulo: '', apellidos: '', nombres: '',
+    titulo: '', apellido: '',
   };
   const [formValues, setFormValues] = useState(defaultFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,19 +130,6 @@ export const Usuarios = () => {
 
 
 
-  /**
-   * Valor por el que se ordena una fila.
-   *
-   * Nombres y apellidos caen al nombre completo cuando la ficha todavía no está repartida: si
-   * se ordenara por un campo vacío, esas filas se irían todas juntas al principio en vez de
-   * quedar en su lugar alfabético.
-   */
-  const valorDeOrden = (u: any, columna: string) => {
-    if (columna === 'apellidos') return u.apellidos || u.nombre || '';
-    if (columna === 'nombres') return u.nombres || u.nombre || '';
-    return u[columna] ?? '';
-  };
-
   const filteredData = useMemo(() => {
     let result = [...usuarios];
     if (filterRol) result = result.filter(u => u.rol === filterRol);
@@ -148,15 +137,15 @@ export const Usuarios = () => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(u => 
-        u.nombre.toLowerCase().includes(q) || 
+        u.nombreCompleto.toLowerCase().includes(q) || 
         u.email.toLowerCase().includes(q) ||
         u.departamento.toLowerCase().includes(q)
       );
     }
     if (sortCol) {
       result.sort((a: any, b: any) => {
-        const va = valorDeOrden(a, sortCol);
-        const vb = valorDeOrden(b, sortCol);
+        const va = a[sortCol] ?? '';
+        const vb = b[sortCol] ?? '';
         if (typeof va === 'number' && typeof vb === 'number') return sortAsc ? va - vb : vb - va;
         // `localeCompare` en español: si no, "ÁLVAREZ" se va detrás de "ZAMORA" por su código.
         const comparacion = String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' });
@@ -182,7 +171,8 @@ export const Usuarios = () => {
       (usuario: any) =>
         usuario.rol === 'Docente' &&
         usuario.id !== idAExcluir &&
-        normalizarTexto(usuario.nombre) === normalizarTexto(nombreCompleto),
+        normalizarTexto(componerNombreCompleto(usuario.nombre, usuario.apellido)) ===
+          normalizarTexto(nombreCompleto),
     );
 
   /** Cierto cuando la base rechazó el guardado por el índice de nombre de docente repetido. */
@@ -206,10 +196,9 @@ export const Usuarios = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Todos los roles capturan nombres y apellidos por separado; `nombre` se compone a partir
-    // de ellos para conservar un único nombre completo canónico (el que leen horarios,
-    // avatares y el índice de docentes duplicados).
-    const nombreAGuardar = componerNombreCompleto(formValues.nombres, formValues.apellidos);
+    // La base guarda `nombre` y `apellido` por separado; el nombre completo se arma solo
+    // cuando hace falta: para avisar de un docente repetido y para el índice único.
+    const nombreAGuardar = componerNombreCompleto(formValues.nombre, formValues.apellido);
 
     if (modalType === 'create') {
       const S = (await import('sweetalert2')).default;
@@ -249,10 +238,9 @@ export const Usuarios = () => {
           const id = crypto.randomUUID();
           await addUsuario({
             id,
-            nombre,
+            nombre: formValues.nombre.trim(),
+            apellido: formValues.apellido.trim(),
             titulo: formValues.titulo || null,
-            apellidos: formValues.apellidos.trim() || null,
-            nombres: formValues.nombres.trim() || null,
             email: null,
             id_rol: rolDocente.id,
             estado: formValues.estado,
@@ -300,9 +288,8 @@ export const Usuarios = () => {
       const fac: any = facultades.find((f: any) => f.id === formValues.facultadId);
       const car: any = carreras.find((c: any) => c.id === formValues.carreraId);
       const meta: Record<string, any> = {
-        nombre: nombreAGuardar,
-        nombres: formValues.nombres.trim(),
-        apellidos: formValues.apellidos.trim(),
+        nombre: formValues.nombre.trim(),
+        apellido: formValues.apellido.trim(),
         rol: formValues.rol,
       };
       if (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') {
@@ -326,10 +313,8 @@ export const Usuarios = () => {
       setIsSubmitting(false);
       if (error) {
         console.error('signInWithOtp error:', error);
-        const e = error as any;
-        const msg = e?.message || e?.error_description || e?.msg || '';
-        const detail = (msg && msg !== '{}') ? msg : `Error del servidor (status ${e?.status ?? '?'}, code ${e?.code ?? '?'}). Suele ser un fallo del trigger de la BD al crear la fila.`;
-        S.fire({ icon: 'error', title: 'No se pudo enviar la invitación', text: detail, confirmButtonColor: '#B00020' });
+        const { title, text } = friendlyAuthError(error);
+        S.fire({ icon: 'error', title, text, confirmButtonColor: '#B00020' });
         return;
       }
       S.fire({
@@ -354,10 +339,9 @@ export const Usuarios = () => {
           const facultad: any = facultades.find((item: any) => item.id === formValues.facultadId);
           const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
           await updateUsuario(selectedUser.id, {
-            nombre: nombreAGuardar,
+            nombre: formValues.nombre.trim(),
+            apellido: formValues.apellido.trim(),
             titulo: formValues.titulo || null,
-            apellidos: formValues.apellidos.trim() || null,
-            nombres: formValues.nombres.trim() || null,
             departamento: nombreFacultad,
             facultad_nombre: nombreFacultad,
             estado: formValues.estado,
@@ -402,9 +386,8 @@ export const Usuarios = () => {
           formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico';
 
         const patch: any = {
-          nombre: nombreAGuardar,
-          nombres: formValues.nombres.trim() || null,
-          apellidos: formValues.apellidos.trim() || null,
+          nombre: formValues.nombre.trim(),
+          apellido: formValues.apellido.trim(),
           estado: formValues.estado as any,
           departamento: tieneAsignacionAcademica ? nombreFacultad : '',
           facultad_nombre: tieneAsignacionAcademica ? nombreFacultad || null : null,
@@ -457,7 +440,7 @@ export const Usuarios = () => {
     if (selectedUser) {
       const S = (await import('sweetalert2')).default;
       try {
-        await removeUsuario(selectedUser.id);
+        await removeUsuario(selectedUser.id, selectedUser.tipoRegistro !== 'docente');
         await fetchUsuarios();
         setModalType(null);
         setSelectedUser(null);
@@ -484,14 +467,6 @@ export const Usuarios = () => {
    */
   const rolParaAlta = soloDocentes ? 'Docente' : (filterRol || defaultFormValues.rol);
 
-  /**
-   * Una ficha muestra nombres y apellidos por separado solo si tiene los DOS campos.
-   * Con uno solo el reparto está a medias y enseñar la mitad haría creer que la otra no existe;
-   * en ese caso la tabla cae al nombre completo guardado, marcado para que se corrija.
-   */
-  const tieneNombreSeparado = (u: { nombres?: string; apellidos?: string }) =>
-    Boolean(u.nombres?.trim() && u.apellidos?.trim());
-
   const showCarrera = !filterRol || filterRol === 'Estudiante' || filterRol === 'Tecnico';
   const showPao = !filterRol || filterRol === 'Estudiante';
   const showCodigo = !filterRol || filterRol === 'Estudiante';
@@ -507,7 +482,7 @@ export const Usuarios = () => {
   const handleBulkDelete = async () => {
     const seleccionados = usuarios.filter((usuario) => selectedIds.includes(usuario.id));
     for (const registro of seleccionados) {
-      await removeUsuario(registro.id);
+      await removeUsuario(registro.id, registro.tipoRegistro !== 'docente');
     }
     await fetchUsuarios();
     setSelectedIds([]);
@@ -516,8 +491,8 @@ export const Usuarios = () => {
 
   const exportCsv = () => {
     const rows = selectedIds.length > 0 ? usuarios.filter(u => selectedIds.includes(u.id)) : filteredData;
-    const head = ['ID', 'Nombres', 'Apellidos', 'Nombre completo', 'Email', 'Rol', 'Estado', 'Departamento', 'Código', 'Facultad', 'Carrera', 'PAO', 'Última conexión'];
-    const body = rows.map(u => [u.id, u.nombres, u.apellidos, u.nombre, u.email, u.rol, u.estado, u.departamento, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.ultimaConexion]);
+    const head = ['ID', 'Nombre', 'Apellido', 'Nombre completo', 'Email', 'Rol', 'Estado', 'Departamento', 'Código', 'Facultad', 'Carrera', 'PAO', 'Última conexión'];
+    const body = rows.map(u => [u.id, u.nombre, u.apellido, u.nombreCompleto, u.email, u.rol, u.estado, u.departamento, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.ultimaConexion]);
     const csv = [head, ...body].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -543,13 +518,6 @@ export const Usuarios = () => {
 
   const editandoDocente = modalType === 'edit' && selectedUser?.tipoRegistro === 'docente';
   const esDocenteForm = (modalType === 'create' && formValues.rol === 'Docente') || editandoDocente;
-  /**
-   * Fichas creadas antes de separar el nombre: `nombres` y `apellidos` están vacíos.
-   * Se muestra el nombre guardado para que el administrador lo reparta a mano; el sistema no
-   * lo divide solo porque en un nombre de tres términos no se sabe dónde empieza el apellido.
-   */
-  const nombreSinRepartir =
-    modalType === 'edit' && !formValues.nombres && !formValues.apellidos && formValues.nombre;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#f4f7fb]">
@@ -681,8 +649,8 @@ export const Usuarios = () => {
         <div className="w-full overflow-auto flex-1 flex flex-col min-h-0 relative custom-scrollbar border border-gray-100 rounded-xl">
           <div className="grid gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3" style={{ gridTemplateColumns: gridCols, minWidth: tableMinW }}>
             <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombres')}>NOMBRES <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('apellidos')}>APELLIDOS <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>NOMBRE <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('apellido')}>APELLIDO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / DEPARTAMENTO <ArrowUpDown className="w-3 h-3" /></div>
             {showCarrera && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>}
             {showPao && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>}
@@ -699,23 +667,14 @@ export const Usuarios = () => {
                   <div className="flex items-center gap-3 min-w-0">
                       <img src={u.avatar} className="w-9 h-9 rounded-full bg-gray-100 object-cover shrink-0" />
                       <div className="flex flex-col min-w-0">
-                          {tieneNombreSeparado(u) ? (
-                            <span className="text-xs font-bold text-gray-900 truncate" title={u.nombres}>{u.nombres}</span>
-                          ) : (
-                            <span
-                              className="text-xs font-bold text-gray-500 italic truncate"
-                              title="Nombre sin repartir: ábrelo con Editar para separarlo en nombres y apellidos."
-                            >{u.nombre}</span>
-                          )}
+                          <span className="text-xs font-bold text-gray-900 truncate" title={u.nombre}>{u.nombre}</span>
                           <span className="text-[10px] text-gray-500 truncate">
                             {u.tipoRegistro === 'docente' ? 'Sin cuenta de acceso' : u.email}
                           </span>
                       </div>
                   </div>
                   <div className="min-w-0">
-                      {tieneNombreSeparado(u)
-                        ? <span className="text-xs font-bold text-gray-900 truncate block" title={u.apellidos}>{u.apellidos}</span>
-                        : <span className="text-[11px] text-gray-300">—</span>}
+                      <span className="text-xs font-bold text-gray-900 truncate block" title={u.apellido}>{u.apellido}</span>
                   </div>
                   <div className="flex flex-col min-w-0 gap-1 w-max">
                       {getRolBadge(u.rol)}
@@ -727,7 +686,7 @@ export const Usuarios = () => {
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
-                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, titulo: u.titulo || '', apellidos: u.apellidos || '', nombres: u.nombres || '', email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, apellido: u.apellido, titulo: u.titulo || '', email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
               </div>
@@ -819,19 +778,16 @@ export const Usuarios = () => {
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombres</label>
-                          <input required value={formValues.nombres} onChange={e => setFormValues({...formValues, nombres: enMayusculas(e.target.value)})} placeholder="Ej. JUAN CARLOS" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre</label>
+                          <input required value={formValues.nombre} onChange={e => setFormValues({...formValues, nombre: enMayusculas(e.target.value)})} placeholder="Ej. JUAN CARLOS" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Apellidos</label>
-                          <input required value={formValues.apellidos} onChange={e => setFormValues({...formValues, apellidos: enMayusculas(e.target.value)})} placeholder="Ej. PÉREZ MORENO" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Apellido</label>
+                          <input required value={formValues.apellido} onChange={e => setFormValues({...formValues, apellido: enMayusculas(e.target.value)})} placeholder="Ej. PÉREZ MORENO" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
                       </div>
                   </div>
                   <p className="text-[10px] font-medium text-gray-400 -mt-2">
-                    Se guardará como <b>{componerNombreCompleto(formValues.nombres, formValues.apellidos) || 'NOMBRES APELLIDOS'}</b>.
-                    {nombreSinRepartir && (
-                      <> Hasta ahora estaba guardado como <b>{formValues.nombre}</b>: sepáralo en los dos campos.</>
-                    )}
+                    Se mostrará como <b>{componerNombreCompleto(formValues.nombre, formValues.apellido) || 'NOMBRE APELLIDO'}</b>.
                   </p>
                   {!esDocenteForm && (
                     <div className="flex flex-col gap-1.5">
