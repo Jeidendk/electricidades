@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Search, ChevronRight, Clock, BookOpen } from 'lucide-react';
+import { Download, Search, ChevronRight, Clock } from 'lucide-react';
 import { useClasesStore } from '../../../store/clasesStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
@@ -8,6 +8,7 @@ import { mapearClases } from './Horarios/mapearClases';
 import { resumirDocentes, filtrarResumenes, type ResumenDocente } from '../data/reporteDocentes';
 import { etiquetaPaoParalelo } from './Horarios/horariosData';
 import { descargarCsv } from '../../../lib/descargarCsv';
+import { normalizarTexto } from '../../../lib/texto';
 
 const CABECERAS_CSV = [
   'Docente', 'Día', 'Hora inicio', 'Hora fin', 'Horas',
@@ -29,7 +30,8 @@ export const ReporteDocentes = () => {
 
   const [busqueda, setBusqueda] = useState('');
   const [docenteAbierto, setDocenteAbierto] = useState<string | null>(null);
-  const [exportando, setExportando] = useState(false);
+  /** Id del docente que se está exportando, 'todos' para el listado completo, o null. */
+  const [exportando, setExportando] = useState<string | null>(null);
 
   useEffect(() => {
     fetchClases();
@@ -59,21 +61,36 @@ export const ReporteDocentes = () => {
       ]),
     );
 
-  const exportar = async () => {
-    const filas = filasCsv(visibles);
-    setExportando(true);
+  /** Nombre de archivo sin acentos ni espacios, que es lo que aguanta cualquier sistema. */
+  const comoNombreArchivo = (texto: string) =>
+    normalizarTexto(texto).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'docente';
+
+  /**
+   * Exporta uno o todos. `docente` vacío significa "lo que está en pantalla", que puede venir
+   * filtrado por la búsqueda; por eso el filtro también se guarda en la bitácora.
+   */
+  const exportar = async (docente?: ResumenDocente) => {
+    const lista = docente ? [docente] : visibles;
+    const filas = filasCsv(lista);
+    if (filas.length === 0) return;
+
+    setExportando(docente?.idDocente ?? 'todos');
     try {
-      descargarCsv('reporte-docentes.csv', CABECERAS_CSV, filas);
+      descargarCsv(
+        docente ? `horario-${comoNombreArchivo(docente.docente)}.csv` : 'reporte-docentes.csv',
+        CABECERAS_CSV,
+        filas,
+      );
       // El historial es una bitácora: que falle no debe deshacer la descarga, que ya ocurrió.
       await registrarReporte({
         tipo: 'Docentes',
         formato: 'CSV',
-        filtros: busqueda ? { busqueda } : {},
+        filtros: docente ? { docente: docente.docente } : (busqueda ? { busqueda } : {}),
         filas: filas.length,
       }).catch(() => {});
       fetchReportes();
     } finally {
-      setExportando(false);
+      setExportando(null);
     }
   };
 
@@ -98,11 +115,11 @@ export const ReporteDocentes = () => {
             />
           </div>
           <button
-            onClick={exportar}
-            disabled={exportando || visibles.length === 0}
+            onClick={() => exportar()}
+            disabled={exportando !== null || visibles.length === 0}
             className="bg-[#0f172a] hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-[11px] px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all shrink-0"
           >
-            <Download className="w-3.5 h-3.5" /> Exportar
+            <Download className="w-3.5 h-3.5" /> Exportar todo
           </button>
         </div>
       </div>
@@ -114,64 +131,90 @@ export const ReporteDocentes = () => {
             : 'Ningún docente coincide con la búsqueda.'}
         </p>
       ) : (
-        <div className="divide-y divide-gray-100">
-          {visibles.map(resumen => {
-            const abierto = docenteAbierto === resumen.idDocente;
-            return (
-              <div key={resumen.idDocente}>
-                <button
-                  onClick={() => setDocenteAbierto(abierto ? null : resumen.idDocente)}
-                  className="w-full px-5 py-3 flex items-center gap-3 hover:bg-gray-50/70 transition-colors text-left"
-                >
-                  <ChevronRight className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[12px] font-bold text-gray-900 block truncate">{resumen.docente}</span>
-                    <span className="text-[10px] text-gray-500 font-medium block truncate">
-                      {resumen.materias.join(' · ')}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold text-gray-600 flex items-center gap-1.5 shrink-0">
-                    <BookOpen className="w-3.5 h-3.5 text-gray-400" /> {resumen.materias.length}
-                  </span>
-                  <span className="text-[10px] font-extrabold text-blue-600 flex items-center gap-1.5 shrink-0 w-[70px] justify-end">
-                    <Clock className="w-3.5 h-3.5 text-blue-400" /> {resumen.horasSemana} h
-                  </span>
-                </button>
+        <>
+          <div className="px-5 py-2 bg-gray-50/70 border-b border-gray-100 flex items-center gap-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">
+            <span className="w-4 shrink-0" />
+            <span className="flex-1">Docente y materias</span>
+            <span className="w-[52px] text-center shrink-0">Mat.</span>
+            <span className="w-[64px] text-right shrink-0">Horas</span>
+            <span className="w-8 shrink-0" />
+          </div>
 
-                {abierto && (
-                  <div className="px-5 pb-4 overflow-x-auto">
-                    <table className="w-full min-w-[640px] text-left border-collapse">
-                      <thead>
-                        <tr className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">
-                          <th className="py-2 pr-3">Día</th>
-                          <th className="py-2 pr-3">Hora</th>
-                          <th className="py-2 pr-3">Materia</th>
-                          <th className="py-2 pr-3">PAO / Paralelo</th>
-                          <th className="py-2 pr-3">Carrera</th>
-                          <th className="py-2 pr-3">Aula</th>
-                          <th className="py-2">Edificio</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-[11px] text-gray-700 font-medium">
-                        {resumen.bloques.map((bloque, indice) => (
-                          <tr key={`${bloque.dia}-${bloque.horaInicio}-${indice}`} className="border-t border-gray-100">
-                            <td className="py-2 pr-3 font-semibold">{bloque.dia}</td>
-                            <td className="py-2 pr-3 whitespace-nowrap">{bloque.horaInicio} – {bloque.horaFin}</td>
-                            <td className="py-2 pr-3">{bloque.materia}</td>
-                            <td className="py-2 pr-3 text-gray-500">{etiquetaPaoParalelo(bloque.pao, bloque.paralelo) || '—'}</td>
-                            <td className="py-2 pr-3 text-gray-500">{bloque.carrera || '—'}</td>
-                            <td className="py-2 pr-3">{bloque.aula}</td>
-                            <td className="py-2 text-gray-500">{nombreEdificio(bloque.edificio)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+          {/* Altura acotada con scroll propio: con 47 docentes la lista empujaba la página
+              entera y obligaba a bajar hasta el final para ver el historial. */}
+          <div className="max-h-[420px] overflow-y-auto custom-scrollbar divide-y divide-gray-100">
+            {visibles.map(resumen => {
+              const abierto = docenteAbierto === resumen.idDocente;
+              return (
+                <div key={resumen.idDocente} className={abierto ? 'bg-blue-50/30' : ''}>
+                  <div className="px-5 py-2.5 flex items-center gap-3 hover:bg-gray-50/70 transition-colors">
+                    <button
+                      onClick={() => setDocenteAbierto(abierto ? null : resumen.idDocente)}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    >
+                      <ChevronRight className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${abierto ? 'rotate-90 text-blue-500' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[12px] font-bold text-gray-900 block truncate">{resumen.docente}</span>
+                        <span className="text-[10px] text-gray-500 font-medium block truncate">
+                          {resumen.materias.join(' · ')}
+                        </span>
+                      </div>
+                    </button>
+
+                    <span className="w-[52px] text-center shrink-0">
+                      <span className="text-[10px] font-bold text-gray-600 bg-gray-100 rounded-md px-2 py-0.5">{resumen.materias.length}</span>
+                    </span>
+                    <span className="w-[64px] text-right shrink-0">
+                      <span className="text-[10px] font-extrabold text-blue-700 bg-blue-50 border border-blue-100 rounded-md px-2 py-0.5 inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-blue-400" /> {resumen.horasSemana} h
+                      </span>
+                    </span>
+
+                    <button
+                      onClick={() => exportar(resumen)}
+                      disabled={exportando !== null}
+                      title={`Exportar el horario de ${resumen.docente}`}
+                      className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+
+                  {abierto && (
+                    <div className="px-5 pb-4 pt-1 overflow-x-auto">
+                      <table className="w-full min-w-[640px] text-left border-collapse">
+                        <thead>
+                          <tr className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">
+                            <th className="py-2 pr-3">Día</th>
+                            <th className="py-2 pr-3">Hora</th>
+                            <th className="py-2 pr-3">Materia</th>
+                            <th className="py-2 pr-3">PAO / Paralelo</th>
+                            <th className="py-2 pr-3">Carrera</th>
+                            <th className="py-2 pr-3">Aula</th>
+                            <th className="py-2">Edificio</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-[11px] text-gray-700 font-medium">
+                          {resumen.bloques.map((bloque, indice) => (
+                            <tr key={`${bloque.dia}-${bloque.horaInicio}-${indice}`} className="border-t border-gray-100">
+                              <td className="py-2 pr-3 font-semibold">{bloque.dia}</td>
+                              <td className="py-2 pr-3 whitespace-nowrap">{bloque.horaInicio} – {bloque.horaFin}</td>
+                              <td className="py-2 pr-3">{bloque.materia}</td>
+                              <td className="py-2 pr-3 text-gray-500">{etiquetaPaoParalelo(bloque.pao, bloque.paralelo) || '—'}</td>
+                              <td className="py-2 pr-3 text-gray-500">{bloque.carrera || '—'}</td>
+                              <td className="py-2 pr-3">{bloque.aula}</td>
+                              <td className="py-2 text-gray-500">{nombreEdificio(bloque.edificio)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

@@ -82,7 +82,12 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
   filas y quién — **no el archivo**, que se vuelve a producir cuando haga falta. Por eso la
   tabla del historial ya no ofrece un botón de descarga: prometería un archivo inexistente.
   RLS: solo admin y técnico (`es_staff()`), y sin políticas de update/delete porque una
-  bitácora no se edita.
+  bitácora no se edita. La lista tiene **scroll propio acotado** (`max-h-[420px]`): con 47
+  docentes empujaba la página entera y había que bajar hasta el final para ver el historial.
+  Se puede exportar el listado completo o **el horario de un solo docente** desde su fila.
+  De paso, la raíz de Reportes pasó de `h-full` a `flex-1 min-h-0` (mismo criterio que
+  Usuarios y Estructura Académica) y el contador "87 Generados", que estaba escrito a mano,
+  ahora sale del historial real.
 - **Fix: los gráficos de Reportes contaban valores de enum inexistentes.** Filtraban por
   `'regular'`, `'reparacion'`, `'baja'` y `'material_laboratorio'`, ninguno de los cuales está
   en `estado_inventario` (`bueno|malo|dañado`) ni en `categoria_inventario`

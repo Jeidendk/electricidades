@@ -100,7 +100,7 @@ export const Reportes = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f4f7fb]">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#f4f7fb]">
         {/* HERO SECTION */}
         <div className="w-full min-h-[92px] bg-[#1a1f26] relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-4 border-b border-gray-800">
           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-[0.25]"></div>
@@ -338,7 +338,7 @@ export const Reportes = () => {
                   <div className="flex justify-between items-start mb-4">
                     <h4 className="text-[10px] font-extrabold text-gray-800">Actividad de Reportes</h4>
                     <div className="text-right">
-                      <span className="text-sm font-bold text-gray-900 leading-none block">87</span>
+                      <span className="text-sm font-bold text-gray-900 leading-none block">{historial.length}</span>
                       <span className="text-[8px] font-bold text-gray-400">Generados</span>
                     </div>
                   </div>
