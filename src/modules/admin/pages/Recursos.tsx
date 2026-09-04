@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Library, Search, ChevronDown, LayoutGrid, List, Download, ExternalLink, BookOpen, MonitorPlay, Book, Plus, X, Upload, Save, Edit2, Trash2, UploadCloud, FileText } from 'lucide-react';
 import { useRecursosStore } from '../../../store/recursosStore';
 import { materiasData } from '../data/academicoData';
+import { EmptyState } from '../../../components/ui/EmptyState';
 
 // Catálogo de materias de la malla (únicas, ordenadas) para asociar recursos
 const materiaCatalogo = Array.from(new Set(materiasData.map(m => m.nombre))).sort((a, b) => a.localeCompare(b));
@@ -45,6 +46,17 @@ export const Recursos = () => {
     link: '',
     portada: ''
   });
+
+  /** Cierto si hay búsqueda o algún filtro marcado: cambia el mensaje del estado vacío. */
+  const hayFiltrosActivos = !!search.trim()
+    || tipoFilters.length > 0 || formatoFilters.length > 0 || materiaFilters.length > 0;
+
+  const limpiarFiltros = () => {
+    setSearch('');
+    setTipoFilters([]);
+    setFormatoFilters([]);
+    setMateriaFilters([]);
+  };
 
   const filteredItems = useMemo(() => {
     let items = [...mappedRecursos];
@@ -398,6 +410,21 @@ export const Recursos = () => {
 
             {/* The Grid / List */}
             <div className="flex-1 overflow-y-auto pr-2 pb-4 custom-scrollbar">
+              {filteredItems.length === 0 ? (
+                /* Sin esto la pantalla quedaba en blanco: ni contenedor ni explicación. */
+                <EmptyState
+                  icon={Library}
+                  variant="card"
+                  title={hayFiltrosActivos ? 'Sin resultados' : 'Sin recursos registrados'}
+                  description={hayFiltrosActivos
+                    ? 'Ningún recurso coincide con la búsqueda o los filtros aplicados.'
+                    : 'Todavía no se ha cargado material académico. Crea el primero para que aparezca aquí.'}
+                  actionLabel={hayFiltrosActivos ? undefined : 'Nuevo recurso'}
+                  onAction={hayFiltrosActivos ? undefined : () => setIsModalOpen(true)}
+                  secondaryLabel={hayFiltrosActivos ? 'Limpiar filtros' : undefined}
+                  onSecondary={hayFiltrosActivos ? limpiarFiltros : undefined}
+                />
+              ) : (
               <div className={viewMode === 'grid' 
                 ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" 
                 : "flex flex-col gap-3"}>
@@ -486,6 +513,7 @@ export const Recursos = () => {
                   );
                 })}
               </div>
+              )}
             </div>
           </div>
         </div>
