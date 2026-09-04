@@ -114,6 +114,52 @@ export const filasCsvDocentes = (
     ]),
   );
 
+/**
+ * Umbral de horas semanales a partir del cual se considera que un docente tiene carga
+ * completa. **Es un valor por confirmar con la dirección de carrera**: no existe en la base
+ * ni en ningún reglamento cargado, así que vive aquí, con nombre, para cambiarlo en un sitio.
+ */
+export const HORAS_CARGA_COMPLETA = 16;
+
+export type EstadoCarga = 'completa' | 'parcial' | 'sin_carga';
+
+export const ETIQUETA_ESTADO_CARGA: Record<EstadoCarga, string> = {
+  completa: 'Carga completa',
+  parcial: 'Carga parcial',
+  sin_carga: 'Sin carga',
+};
+
+export const estadoDeCarga = (horasSemana: number): EstadoCarga => {
+  if (horasSemana <= 0) return 'sin_carga';
+  return horasSemana >= HORAS_CARGA_COMPLETA ? 'completa' : 'parcial';
+};
+
+export interface MetricasDocentes {
+  totalDocentes: number;
+  totalMaterias: number;
+  totalHoras: number;
+  /** Cuántos docentes hay en cada estado, para el gráfico de reparto. */
+  porEstado: Record<EstadoCarga, number>;
+}
+
+/** Cifras de cabecera del reporte. Todas salen de las clases cargadas, ninguna es estimada. */
+export const metricasDocentes = (resumenes: ResumenDocente[]): MetricasDocentes => {
+  const materias = new Set<string>();
+  const porEstado: Record<EstadoCarga, number> = { completa: 0, parcial: 0, sin_carga: 0 };
+
+  for (const resumen of resumenes) {
+    for (const materia of resumen.materias) materias.add(materia);
+    porEstado[estadoDeCarga(resumen.horasSemana)] += 1;
+  }
+
+  return {
+    totalDocentes: resumenes.length,
+    totalMaterias: materias.size,
+    totalHoras: resumenes.reduce((suma, resumen) => suma + resumen.horasSemana, 0),
+    porEstado,
+  };
+};
+
 /** Filtra por nombre de docente o de materia, ignorando tildes y mayúsculas. */
 export const filtrarResumenes = (resumenes: ResumenDocente[], busqueda: string): ResumenDocente[] => {
   const termino = normalizarTexto(busqueda);

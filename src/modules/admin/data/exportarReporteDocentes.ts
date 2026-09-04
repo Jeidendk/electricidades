@@ -89,9 +89,25 @@ const casilla = (bloque?: BloqueDocente) => {
     ${ubicacion ? `<div class="sub">${ubicacion}</div>` : ''}`;
 };
 
+/**
+ * Franjas que el docente realmente ocupa.
+ *
+ * Un horario individual usa una parte pequeña de la jornada: imprimir las doce franjas deja
+ * media hoja en blanco. Se omiten las vacías, y como cada fila lleva su rango horario escrito,
+ * un salto entre 11H00 y 15H00 se lee sin ambigüedad.
+ *
+ * Si por lo que sea no quedara ninguna, se devuelven todas: mejor una grilla vacía que ninguna.
+ */
+const franjasConClase = (bloques: BloqueDocente[]) => {
+  const ocupadas = horas.filter(franja =>
+    diasFormales.some(dia => bloqueEnCasilla(bloques, dia, franja)),
+  );
+  return ocupadas.length > 0 ? ocupadas : horas;
+};
+
 /** Una hoja por docente, con la misma maqueta institucional que el horario por aula. */
 const paginaDeDocente = (resumen: ResumenDocente, incluirPie: boolean) => {
-  const filas = horas.map(franja => `
+  const filas = franjasConClase(resumen.bloques).map(franja => `
     <tr>
       <td class="hora">${escaparHtml(franja.replace(/:00/g, 'H00'))}</td>
       ${diasFormales.map(dia => `<td>${casilla(bloqueEnCasilla(resumen.bloques, dia, franja))}</td>`).join('')}

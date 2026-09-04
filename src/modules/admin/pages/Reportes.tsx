@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  FileText, Download, FileSpreadsheet, BarChart2,
+  FileText, BookOpen, Clock, Download, FileSpreadsheet, BarChart2,
   Activity, Users, Map as MapIcon, Wrench, Calendar,
   CheckCircle2, ChevronDown, ArrowRight
 } from 'lucide-react';
@@ -8,12 +8,21 @@ import { useUsuariosStore } from '../../../store/usuariosStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
-import { ESTADO_FISICO, type CategoriaInventario, type EstadoFisico } from '../data/inventarioData';
 import { useReportesStore } from '../../../store/reportesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
-import { filasCsvDocentes, type ResumenDocente } from '../data/reporteDocentes';
+import {
+  filasCsvDocentes, metricasDocentes, ETIQUETA_ESTADO_CARGA, HORAS_CARGA_COMPLETA,
+  type EstadoCarga, type ResumenDocente,
+} from '../data/reporteDocentes';
 import { exportarExcelDocentes, exportarPdfDocentes } from '../data/exportarReporteDocentes';
+
+/** Orden y color de cada estado de carga en el desglose. */
+const ESTADOS_CARGA: { estado: EstadoCarga; color: string }[] = [
+  { estado: 'completa', color: 'bg-emerald-500' },
+  { estado: 'parcial', color: 'bg-amber-500' },
+  { estado: 'sin_carga', color: 'bg-red-500' },
+];
 
 /** Fecha corta y legible para la bitácora: "3 sept 2026, 10:47". */
 const formatearFecha = (iso: string) =>
@@ -29,48 +38,7 @@ export const Reportes = () => {
   const { reportes: historial, fetchReportes, registrarReporte } = useReportesStore();
   const { items: edificios, fetchEdificios } = useEdificiosStore();
 
-  /**
-   * Los gráficos filtraban por valores que el enum de la base NO tiene ('regular',
-   * 'reparacion', 'baja', 'material_laboratorio'), así que "En mantenimiento" marcaba
-   * siempre 0, los dañados no se contaban en ningún lado y "Otros" absorbía la diferencia.
-   * Ahora se cuentan las cuatro categorías y los tres estados reales.
-   */
-  const chartData = useMemo(() => {
-    const total = inventario.length;
 
-    const porCategoria = (categoria: CategoriaInventario) =>
-      inventario.filter(item => item.categoria === categoria).length;
-    const porEstado = (estado: EstadoFisico) =>
-      inventario.filter(item => item.estado === estado).length;
-
-    const equipos = porCategoria('equipos');
-    const herramientas = porCategoria('herramientas');
-    const mobiliario = porCategoria('mobiliario');
-    const tecnologico = porCategoria('tecnologico');
-    const maxCat = Math.max(equipos, herramientas, mobiliario, tecnologico, 1); // evita dividir por cero
-
-    const buenos = porEstado(ESTADO_FISICO.bueno);
-    const danados = porEstado(ESTADO_FISICO.danado);
-    const malos = porEstado(ESTADO_FISICO.malo);
-
-    const porcentaje = (cantidad: number) => (total ? Math.round((cantidad / total) * 100) : 0);
-    const pBuenos = porcentaje(buenos);
-    const pDanados = porcentaje(danados);
-    const pMalos = porcentaje(malos);
-
-    // El donut se dibuja por capas, de fuera hacia dentro: el arco de "malos" se pinta primero
-    // y ocupa el anillo entero, y los siguientes lo van tapando. Por eso el último es 100 fijo
-    // y no la suma: redondear tres porcentajes puede dar 101 y desbordar el círculo.
-    const dashBuenos = `${pBuenos}, 100`;
-    const dashDanados = `${Math.min(pBuenos + pDanados, 100)}, 100`;
-    const dashMalos = '100, 100';
-
-    return {
-      total, equipos, herramientas, mobiliario, tecnologico, maxCat,
-      buenos, danados, malos, pBuenos, pDanados, pMalos,
-      dashBuenos, dashDanados, dashMalos,
-    };
-  }, [inventario]);
 
   useEffect(() => {
     fetchUsuarios();
@@ -84,6 +52,8 @@ export const Reportes = () => {
   const [tipoReporte, setTipoReporte] = useState('Docentes');
   const [docentesSeleccionados, setDocentesSeleccionados] = useState<string[]>([]);
   const [resumenesDocentes, setResumenesDocentes] = useState<ResumenDocente[]>([]);
+
+  const metricas = useMemo(() => metricasDocentes(resumenesDocentes), [resumenesDocentes]);
 
   const nombreEdificio = useCallback(
     (id: string) => edificios.find((e: any) => e.id === id)?.nombre || id || '—',
@@ -312,139 +282,56 @@ export const Reportes = () => {
           {/* RIGHT COL */}
           <div className="flex flex-col gap-6 min-w-0">
             
-            {/* Top Charts */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-[16px] font-extrabold text-gray-900">Resumen Analítico</h3>
-                  <p className="text-[11px] font-medium text-gray-500 mt-0.5">Panorama general del sistema</p>
+            {/* Cifras de cabecera. Todas salen de las clases cargadas: ninguna es estimada,
+                y no hay comparativas contra "el periodo anterior" porque no se guarda historia. */}
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+              {[
+                { Icono: Users, etiqueta: 'Docentes con carga', valor: metricas.totalDocentes, color: 'text-blue-600 bg-blue-50' },
+                { Icono: BookOpen, etiqueta: 'Materias distintas', valor: metricas.totalMaterias, color: 'text-purple-600 bg-purple-50' },
+                { Icono: Clock, etiqueta: 'Horas / semana', valor: metricas.totalHoras, color: 'text-emerald-600 bg-emerald-50' },
+                { Icono: FileText, etiqueta: 'Reportes generados', valor: historial.length, color: 'text-amber-600 bg-amber-50' },
+              ].map(({ Icono, etiqueta, valor, color }) => (
+                <div key={etiqueta} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 min-w-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+                    <Icono className="w-5 h-5" strokeWidth={2} />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[20px] font-extrabold text-gray-900 leading-none">{valor}</span>
+                    <span className="text-[10px] font-semibold text-gray-500 truncate mt-1">{etiqueta}</span>
+                  </div>
                 </div>
-                <div className="relative">
-                  <select className="appearance-none bg-white border border-gray-200 text-gray-600 text-[11px] font-bold rounded-lg pl-3 pr-8 py-1.5 outline-none cursor-pointer">
-                    <option>Últimos 30 días</option>
-                  </select>
-                  <Calendar className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+              ))}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-6 min-w-0">
+              <div className="flex flex-col shrink-0">
+                <span className="text-[13px] font-bold text-gray-900">Carga por estado</span>
+                <span className="text-[10px] font-medium text-gray-500">
+                  Completa desde {HORAS_CARGA_COMPLETA} h/semana
+                </span>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Chart 1: Bar Chart */}
-                <div className="flex flex-col">
-                  <h4 className="text-[10px] font-extrabold text-gray-800 mb-4">Activos por Categoría</h4>
-                  <div className="flex-1 flex items-end gap-3 h-[120px] px-2 pb-2 relative">
-                    {/* Y Axis */}
-                    <div className="absolute left-0 top-0 bottom-6 w-6 flex flex-col justify-between text-[8px] font-bold text-gray-400 text-right pr-2">
-                      <span>2K</span><span>1.5K</span><span>1K</span><span>500</span><span>0</span>
-                    </div>
-                    {/* Grid lines */}
-                    <div className="absolute left-6 right-0 top-1.5 bottom-6 flex flex-col justify-between z-0">
-                      <div className="w-full border-b border-gray-100/50"></div>
-                      <div className="w-full border-b border-gray-100/50"></div>
-                      <div className="w-full border-b border-gray-100/50"></div>
-                      <div className="w-full border-b border-gray-100/50"></div>
-                      <div className="w-full border-b border-gray-200"></div>
-                    </div>
-                    {/* Bars */}
-                    <div className="flex-1 flex items-end justify-between h-full pl-6 z-10">
-                      <div className="flex flex-col items-center gap-1.5 w-1/4">
-                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.equipos}</span>
-                        <div className="w-8 md:w-10 bg-[#3b82f6] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.equipos / chartData.maxCat) * 90 + 5}%` }}></div>
-                        <span className="text-[8px] font-semibold text-gray-500">Equipos</span>
+              <div className="flex flex-wrap items-center gap-5 flex-1 min-w-0">
+                {ESTADOS_CARGA.map(({ estado, color }) => {
+                  const cantidad = metricas.porEstado[estado];
+                  const porcentaje = metricas.totalDocentes
+                    ? Math.round((cantidad / metricas.totalDocentes) * 100)
+                    : 0;
+                  return (
+                    <div key={estado} className="flex flex-col gap-1 min-w-[150px] flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold text-gray-600 flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${color}`} /> {ETIQUETA_ESTADO_CARGA[estado]}
+                        </span>
+                        <span className="text-[10px] font-extrabold text-gray-900">
+                          {cantidad} <span className="text-gray-400 font-semibold">({porcentaje}%)</span>
+                        </span>
                       </div>
-                      <div className="flex flex-col items-center gap-1.5 w-1/4">
-                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.mobiliario}</span>
-                        <div className="w-8 md:w-10 bg-[#10b981] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.mobiliario / chartData.maxCat) * 90 + 5}%` }}></div>
-                        <span className="text-[8px] font-semibold text-gray-500">Mobiliario</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1.5 w-1/4">
-                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.herramientas}</span>
-                        <div className="w-8 md:w-10 bg-[#fbbf24] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.herramientas / chartData.maxCat) * 90 + 5}%` }}></div>
-                        <span className="text-[8px] font-semibold text-gray-500">Herramientas</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1.5 w-1/4">
-                        <span className="text-[9px] font-extrabold text-gray-700">{chartData.tecnologico}</span>
-                        <div className="w-8 md:w-10 bg-[#8b5cf6] rounded-t-sm w-full transition-all" style={{ height: `${(chartData.tecnologico / chartData.maxCat) * 90 + 5}%` }}></div>
-                        <span className="text-[8px] font-semibold text-gray-500">Tecnológico</span>
+                      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div className={`h-full rounded-full ${color}`} style={{ width: `${porcentaje}%` }} />
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Chart 2: Donut Chart */}
-                <div className="flex flex-col border-l border-r border-gray-100 px-6">
-                  <h4 className="text-[10px] font-extrabold text-gray-800 mb-2">Estado de Activos</h4>
-                  <div className="flex-1 flex items-center gap-6">
-                    <div className="relative w-28 h-28 shrink-0">
-                      {/* SVG Donut */}
-                      <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                        {/* Inactivos (Red) - Background / full circle */}
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" strokeWidth="8" strokeDasharray={chartData.dashMalos} />
-                        {/* En Mantenimiento (Yellow) */}
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="8" strokeDasharray={chartData.dashDanados} className="transition-all duration-1000" />
-                        {/* Activos (Green) */}
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="8" strokeDasharray={chartData.dashBuenos} className="transition-all duration-1000" />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-lg font-bold text-gray-900 leading-none">{chartData.total}</span>
-                        <span className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">Total</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#10b981]"></div><span className="text-[10px] font-extrabold text-gray-700">Buen estado</span></div>
-                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.buenos} ({chartData.pBuenos}%)</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#f59e0b]"></div><span className="text-[10px] font-extrabold text-gray-700">Dañados</span></div>
-                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.danados} ({chartData.pDanados}%)</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#ef4444]"></div><span className="text-[10px] font-extrabold text-gray-700">Malos</span></div>
-                        <span className="text-[9px] font-medium text-gray-500 pl-3.5">{chartData.malos} ({chartData.pMalos}%)</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Chart 3: Line Chart */}
-                <div className="flex flex-col">
-                  <div className="flex justify-between items-start mb-4">
-                    <h4 className="text-[10px] font-extrabold text-gray-800">Actividad de Reportes</h4>
-                    <div className="text-right">
-                      <span className="text-sm font-bold text-gray-900 leading-none block">{historial.length}</span>
-                      <span className="text-[8px] font-bold text-gray-400">Generados</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 relative w-full h-[100px]">
-                     {/* Y Axis */}
-                     <div className="absolute left-0 top-0 bottom-4 w-5 flex flex-col justify-between text-[8px] font-bold text-gray-400 text-right pr-1">
-                      <span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
-                    </div>
-                    <div className="absolute left-5 right-0 top-0 bottom-4">
-                      {/* SVG Line chart */}
-                      <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-                        <defs>
-                          <linearGradient id="gradientArea" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                        <polyline points="0,30 10,20 20,25 30,15 40,20 50,15 60,5 70,12 80,10 90,20 100,5" fill="none" stroke="#3b82f6" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                        <polygon points="0,40 0,30 10,20 20,25 30,15 40,20 50,15 60,5 70,12 80,10 90,20 100,5 100,40" fill="url(#gradientArea)" />
-                        <circle cx="10" cy="20" r="1.5" fill="white" stroke="#3b82f6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                        <circle cx="30" cy="15" r="1.5" fill="white" stroke="#3b82f6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                        <circle cx="60" cy="5" r="1.5" fill="white" stroke="#3b82f6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                        <circle cx="80" cy="10" r="1.5" fill="white" stroke="#3b82f6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                        <circle cx="100" cy="5" r="1.5" fill="white" stroke="#3b82f6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                      </svg>
-                    </div>
-                    {/* X Axis */}
-                    <div className="absolute left-5 right-0 bottom-0 flex justify-between text-[8px] font-bold text-gray-400">
-                      <span>22 Abr</span><span>29 Abr</span><span>6 May</span><span>13 May</span><span>20 May</span>
-                    </div>
-                  </div>
-                </div>
-
+                  );
+                })}
               </div>
             </div>
 
