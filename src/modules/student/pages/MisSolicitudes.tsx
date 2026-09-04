@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ClipboardList, ChevronRight, Search, Filter, Download, Plus, Copy, Calendar, Eye, FileText, X, ChevronsUpDown, ChevronLeft, CheckCircle2, Clock } from 'lucide-react';
+import { ClipboardList, ChevronRight, Search, Filter, Download, Plus, Copy, Calendar, Eye, FileText, X, ChevronsUpDown, CheckCircle2, Clock } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useSolicitudesEquipoStore, type SolicitudEquipo } from '../../../store/solicitudesEquipoStore';
 import { generarPDFComprobante } from '../../../utils/pdfGenerator';
 import ExcelJS from 'exceljs';
 import { Link } from 'react-router-dom';
+import { Pagination } from '../../../components/ui/Pagination';
 
 export const MisSolicitudes = () => {
   const { user } = useAuthStore();
@@ -418,46 +419,16 @@ export const MisSolicitudes = () => {
             </table>
           </div>
           
-          {/* BOTTOM PAGINATION BAR */}
-          <div className="shrink-0 p-4 border-t border-gray-100 flex items-center justify-between bg-white/50 backdrop-blur-sm">
-            <div className="text-[12px] font-medium text-gray-500">
-              Mostrando {totalItems > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0} a {Math.min(currentPage * rowsPerPage, totalItems)} de {totalItems} solicitudes
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-medium text-gray-500">Filas por página:</span>
-                <select 
-                  className="bg-white border border-gray-200 rounded-lg text-[12px] font-bold text-gray-700 py-1.5 px-2 outline-none cursor-pointer shadow-sm hover:border-gray-300"
-                  value={rowsPerPage}
-                  onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                </select>
-              </div>
-              
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-600 bg-blue-600 text-white font-bold text-[13px] shadow-sm">
-                  {currentPage}
-                </div>
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+          <div className="shrink-0 p-4 border-t border-gray-100 bg-white/50 backdrop-blur-sm">
+            <Pagination
+              page={currentPage}
+              totalPages={totalPages}
+              onChange={setCurrentPage}
+              total={totalItems}
+              perPage={rowsPerPage}
+              onPerPageChange={setRowsPerPage}
+              className="mt-0"
+            />
           </div>
           
         </div>

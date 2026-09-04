@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { 
-  FileText, Search, Trash2, X, AlertTriangle, Layers, Download, ArrowUpDown, Settings, Image as ImageIcon, ChevronDown, User, FileEdit, PenTool, Upload, Edit2, UploadCloud, FileDown, ChevronLeft, ChevronRight, CheckCircle, RotateCcw
+  FileText, Search, Trash2, X, AlertTriangle, Layers, Download, ArrowUpDown, Settings, Image as ImageIcon, ChevronDown, User, FileEdit, PenTool, Upload, Edit2, UploadCloud, FileDown, CheckCircle, RotateCcw
 } from 'lucide-react';
 import { generatePreviewPDF } from '../utils/documentGenerator';
 import { useFormatosStore } from '../../../store/formatosStore';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
+import { Pagination } from '../../../components/ui/Pagination';
 
 export const Formatos = () => {
   const { formatos, fetchFormatos, addFormato, updateFormato, removeFormato } = useFormatosStore();
@@ -441,51 +442,15 @@ export const Formatos = () => {
           </div>
         </div>
 
-        {/* PAGINATION */}
-        <div className="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 gap-4 border-t border-gray-100/60 shrink-0">
-          <div className="flex items-center gap-4 text-[11px] font-bold">
-            <span className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full flex items-center gap-1.5 tracking-wider">
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span> 
-              MOSTRANDO {Math.min(start + 1, filteredData.length)} - {Math.min(start + perPage, filteredData.length)} DE {filteredData.length} MODELOS
-            </span>
-            <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500">
-              <span>Filas:</span>
-              <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setCurrentPage(1); }} className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none">
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={15}>15</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100'}`}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {Array.from({ length: totalPages }).map((_, idx) => {
-              const p = idx + 1;
-              return (
-                <button 
-                  key={p} 
-                  onClick={() => setCurrentPage(p)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold ${p === currentPage ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100'}`}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          onChange={setCurrentPage}
+          total={filteredData.length}
+          perPage={perPage}
+          onPerPageChange={setPerPage}
+          className="pt-4 border-t border-gray-100/60"
+        />
       </div>
         
       {/* PANEL DERECHO (Detalle del modelo) */}
