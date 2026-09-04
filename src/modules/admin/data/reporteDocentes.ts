@@ -90,6 +90,30 @@ export const resumirDocentes = (clases: ClaseUI[]): ResumenDocente[] => {
     .sort((a, b) => a.docente.localeCompare(b.docente, 'es'));
 };
 
+export const CABECERAS_CSV_DOCENTES = [
+  'Docente', 'Día', 'Hora inicio', 'Hora fin', 'Horas',
+  'Materia', 'PAO', 'Paralelo', 'Carrera', 'Aula', 'Edificio',
+];
+
+/**
+ * Una fila por bloque de clase: es el detalle que sirve para revisar o archivar.
+ * `nombreEdificio` se recibe de fuera porque los edificios viven en otro store y este módulo
+ * se mantiene puro, sin dependencias de datos.
+ */
+export const filasCsvDocentes = (
+  resumenes: ResumenDocente[],
+  nombreEdificio: (id: string) => string,
+): string[][] =>
+  resumenes.flatMap(resumen =>
+    resumen.bloques.map(bloque => [
+      resumen.docente, bloque.dia, bloque.horaInicio, bloque.horaFin, String(bloque.horas),
+      bloque.materia,
+      bloque.pao != null ? String(bloque.pao) : '',
+      bloque.paralelo != null ? String(bloque.paralelo) : '',
+      bloque.carrera, bloque.aula, nombreEdificio(bloque.edificio),
+    ]),
+  );
+
 /** Filtra por nombre de docente o de materia, ignorando tildes y mayúsculas. */
 export const filtrarResumenes = (resumenes: ResumenDocente[], busqueda: string): ResumenDocente[] => {
   const termino = normalizarTexto(busqueda);

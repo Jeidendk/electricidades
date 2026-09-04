@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText, Download, FileSpreadsheet, BarChart2,
   Activity, Users, Map as MapIcon, Wrench, Calendar,
@@ -10,7 +10,10 @@ import { useInventarioStore } from '../../../store/inventarioStore';
 import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
 import { ESTADO_FISICO, type CategoriaInventario, type EstadoFisico } from '../data/inventarioData';
 import { useReportesStore } from '../../../store/reportesStore';
+import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
+import { filasCsvDocentes, type ResumenDocente } from '../data/reporteDocentes';
+import { exportarExcelDocentes, exportarPdfDocentes } from '../data/exportarReporteDocentes';
 
 /** Fecha corta y legible para la bitácora: "3 sept 2026, 10:47". */
 const formatearFecha = (iso: string) =>
@@ -23,7 +26,8 @@ export const Reportes = () => {
   const { items: espacios, fetchEspacios } = useEspaciosStore();
   const { items: inventario, fetchItems: fetchInventario } = useInventarioStore();
   const { solicitudes, fetchSolicitudes } = useSolicitudesAdminStore();
-  const { reportes: historial, fetchReportes } = useReportesStore();
+  const { reportes: historial, fetchReportes, registrarReporte } = useReportesStore();
+  const { items: edificios, fetchEdificios } = useEdificiosStore();
 
   /**
    * Los gráficos filtraban por valores que el enum de la base NO tiene ('regular',
@@ -74,19 +78,60 @@ export const Reportes = () => {
     fetchInventario();
     fetchSolicitudes();
     fetchReportes();
+    fetchEdificios();
   }, []);
 
-  const [tipoReporte, setTipoReporte] = useState('Inventario');
+  const [tipoReporte, setTipoReporte] = useState('Docentes');
+  const [docentesSeleccionados, setDocentesSeleccionados] = useState<string[]>([]);
+  const [resumenesDocentes, setResumenesDocentes] = useState<ResumenDocente[]>([]);
+
+  const nombreEdificio = useCallback(
+    (id: string) => edificios.find((e: any) => e.id === id)?.nombre || id || '—',
+    [edificios],
+  );
+
+  /** Sin marcar nada se exporta todo: es lo que se espera de un botón que dice "generar". */
+  const docentesAExportar = useMemo(() => {
+    if (docentesSeleccionados.length === 0) return resumenesDocentes;
+    const marcados = new Set(docentesSeleccionados);
+    return resumenesDocentes.filter(resumen => marcados.has(resumen.idDocente));
+  }, [resumenesDocentes, docentesSeleccionados]);
   const [formato, setFormato] = useState('PDF');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleGenerateReport = (e: React.FormEvent) => {
+  const handleGenerateReport = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Por ahora solo la carga docente produce un archivo real; los demás módulos siguen sin
+    // implementar y decirlo es mejor que fingir una descarga.
+    if (tipoReporte !== 'Docentes') {
+      alert('Por ahora solo el reporte de carga docente genera archivo. Elige "Carga docente".');
+      return;
+    }
+    if (docentesAExportar.length === 0) return;
+
     setIsGenerating(true);
-    setTimeout(() => {
+    try {
+      const seleccion = docentesSeleccionados.length > 0;
+      const subtitulo = seleccion ? `${docentesAExportar.length} docentes seleccionados` : 'Todos los docentes';
+
+      if (formato === 'Excel') {
+        await exportarExcelDocentes(docentesAExportar, nombreEdificio, 'carga-docente.xlsx');
+      } else {
+        exportarPdfDocentes(docentesAExportar, nombreEdificio, subtitulo);
+      }
+
+      // La bitácora es informativa: que falle no debe deshacer la descarga, que ya ocurrió.
+      await registrarReporte({
+        tipo: 'Docentes',
+        formato,
+        filtros: seleccion ? { docentes: docentesAExportar.map(d => d.docente) } : {},
+        filas: filasCsvDocentes(docentesAExportar, nombreEdificio).length,
+      }).catch(() => {});
+      fetchReportes();
+    } finally {
       setIsGenerating(false);
-      alert(`¡Reporte generado en formato ${formato}!`);
-    }, 1500);
+    }
   };
 
   const getTipoBadge = (tipo: string) => {
@@ -183,6 +228,7 @@ export const Reportes = () => {
                   <label className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">MÓDULO / TIPO DE DATOS</label>
                   <div className="relative">
                     <select value={tipoReporte} onChange={e => setTipoReporte(e.target.value)} className="appearance-none w-full bg-white text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-red font-medium cursor-pointer transition-all shadow-sm">
+                        <option value="Docentes">Carga docente (horarios por docente)</option>
                         <option value="Inventario">Inventario General (Equipos, Mobiliario)</option>
                         <option value="Infraestructura">Infraestructura (Edificios, Aulas, Labs)</option>
                         <option value="Usuarios">Usuarios Registrados</option>
@@ -226,7 +272,35 @@ export const Reportes = () => {
                   </div>
               </div>
 
-              <button type="submit" disabled={isGenerating} className="mt-auto py-3.5 rounded-xl bg-[#0f172a] hover:bg-black text-white text-[14px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 border border-gray-800">
+              {tipoReporte === 'Docentes' && (
+                <div className="rounded-xl border border-gray-200/70 bg-gray-50/60 p-4 flex flex-col gap-2">
+                  <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">Alcance</span>
+                  <span className="text-[13px] font-bold text-gray-900">
+                    {docentesSeleccionados.length > 0
+                      ? `${docentesAExportar.length} ${docentesAExportar.length === 1 ? 'docente marcado' : 'docentes marcados'}`
+                      : `Todos (${resumenesDocentes.length})`}
+                  </span>
+                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">
+                    {docentesSeleccionados.length > 0
+                      ? 'Se exportará solo lo marcado en la tabla de la derecha.'
+                      : 'Marca docentes en la tabla de la derecha para exportar únicamente esos.'}
+                  </p>
+                  <span className="text-[10px] font-bold text-blue-700">
+                    {docentesAExportar.reduce((suma, resumen) => suma + resumen.horasSemana, 0)} h/semana en total
+                  </span>
+                  {docentesSeleccionados.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDocentesSeleccionados([])}
+                      className="text-[10px] font-bold text-gray-500 hover:text-gray-900 underline self-start transition-colors"
+                    >
+                      Quitar selección
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <button type="submit" disabled={isGenerating || (tipoReporte === 'Docentes' && docentesAExportar.length === 0)} className="mt-auto py-3.5 rounded-xl bg-[#0f172a] hover:bg-black text-white text-[14px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 border border-gray-800">
                 {isGenerating ? (
                   <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Generando...</>
                 ) : (
@@ -237,7 +311,7 @@ export const Reportes = () => {
           </div>
 
           {/* RIGHT COL */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 min-w-0">
             
             {/* Top Charts */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
@@ -375,7 +449,12 @@ export const Reportes = () => {
               </div>
             </div>
 
-            <ReporteDocentes />
+            <ReporteDocentes
+              seleccionados={docentesSeleccionados}
+              onCambiarSeleccion={setDocentesSeleccionados}
+              onResumenes={setResumenesDocentes}
+              nombreEdificio={nombreEdificio}
+            />
 
             {/* Historial Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col flex-1">
