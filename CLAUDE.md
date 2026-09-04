@@ -71,6 +71,12 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Panel del generador: acciones rápidas y resumen de selección.** Vista previa (qué docentes
+  entran, antes de generar), Guardar configuración (formato y selección en localStorage, se
+  restaura al volver) y Limpiar selección. **No hay "Programar reporte"**: recibir un informe
+  automáticamente exige tareas en el servidor, y el botón sin ellas no cumpliría. El resumen
+  muestra reporte, alcance, horas, formato y si está listo para generar. La tabla usa `fill` de
+  `DataTable` y llega hasta abajo, como la de Trámites.
 - **Reportes: una sola tabla gobernada por el selector.** Había dos apiladas —carga docente e
   historial— y la pantalla no cabía al 100% de zoom. Ahora el `<select>` de la izquierda decide
   qué se muestra, y el historial es una opción más. Los módulos sin implementar dicen que no

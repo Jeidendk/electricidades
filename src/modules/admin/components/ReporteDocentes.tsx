@@ -133,7 +133,7 @@ export const ReporteDocentes = ({
   ];
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-w-0">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-w-0 flex-1 min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="text-[16px] font-extrabold text-gray-900">Carga docente</h3>
@@ -160,6 +160,7 @@ export const ReporteDocentes = ({
         onRowClick={setDetalle}
         minWidthClass="min-w-[600px]"
         defaultPerPage={8}
+        fill
         emptyState={
           <p className="py-10 text-center text-[12px] text-gray-400 font-medium">
             {resumenes.length === 0

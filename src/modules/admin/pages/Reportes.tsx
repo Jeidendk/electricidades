@@ -1,13 +1,33 @@
 import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText, BookOpen, Clock, Download, FileSpreadsheet, BarChart2,
-  Users, Calendar, CheckCircle2, ChevronDown
+  Users, Calendar, CheckCircle2, ChevronDown, ChevronRight, Eye, Bookmark, Trash2, X
 } from 'lucide-react';
 import { useReportesStore } from '../../../store/reportesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
 import { filasCsvDocentes, metricasDocentes, type ResumenDocente } from '../data/reporteDocentes';
 import { exportarExcelDocentes, exportarPdfDocentes } from '../data/exportarReporteDocentes';
+
+/** Dónde se recuerda la configuración del generador, por navegador. */
+const CLAVE_CONFIG = 'espoch_reportes_config';
+
+type AccionRapida = 'vista_previa' | 'guardar' | 'limpiar';
+
+/**
+ * Acciones del panel. No hay "Programar reporte": recibir un informe automáticamente exige
+ * tareas en el servidor, y un botón que lo prometa sin ellas no cumpliría.
+ */
+const ACCIONES_RAPIDAS: {
+  clave: AccionRapida; Icono: React.ElementType; titulo: string; detalle: string; color: string;
+}[] = [
+  { clave: 'vista_previa', Icono: Eye, titulo: 'Vista previa de selección',
+    detalle: 'Revisa qué docentes se incluyen', color: 'bg-blue-50 text-blue-600' },
+  { clave: 'guardar', Icono: Bookmark, titulo: 'Guardar configuración',
+    detalle: 'Recuerda formato y selección', color: 'bg-amber-50 text-amber-600' },
+  { clave: 'limpiar', Icono: Trash2, titulo: 'Limpiar selección',
+    detalle: 'Vuelve a incluir a todos', color: 'bg-red-50 text-red-500' },
+];
 
 /** Fecha corta y legible para la bitácora: "3 sept 2026, 10:47". */
 const formatearFecha = (iso: string) =>
@@ -45,6 +65,38 @@ export const Reportes = () => {
   }, [resumenesDocentes, docentesSeleccionados]);
   const [formato, setFormato] = useState('PDF');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
+
+  /** Restaura la última configuración usada en este navegador. */
+  useEffect(() => {
+    try {
+      const guardado = JSON.parse(localStorage.getItem(CLAVE_CONFIG) || '{}');
+      if (guardado.tipoReporte) setTipoReporte(guardado.tipoReporte);
+      if (guardado.formato) setFormato(guardado.formato);
+      if (Array.isArray(guardado.docentes)) setDocentesSeleccionados(guardado.docentes);
+    } catch {
+      /* Configuración ilegible: se arranca con los valores por defecto. */
+    }
+  }, []);
+
+  const ejecutarAccionRapida = (accion: AccionRapida) => {
+    if (accion === 'vista_previa') {
+      setVistaPreviaAbierta(true);
+      return;
+    }
+    if (accion === 'limpiar') {
+      setDocentesSeleccionados([]);
+      return;
+    }
+    try {
+      localStorage.setItem(CLAVE_CONFIG, JSON.stringify({
+        tipoReporte, formato, docentes: docentesSeleccionados,
+      }));
+    } catch {
+      /* Sin almacenamiento no se recuerda, pero tampoco se rompe nada. */
+    }
+  };
 
   const handleGenerateReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,30 +256,55 @@ export const Reportes = () => {
               </div>
 
               {tipoReporte === 'Docentes' && (
-                <div className="rounded-xl border border-gray-200/70 bg-gray-50/60 p-4 flex flex-col gap-2">
-                  <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">Alcance</span>
-                  <span className="text-[13px] font-bold text-gray-900">
-                    {docentesSeleccionados.length > 0
-                      ? `${docentesAExportar.length} ${docentesAExportar.length === 1 ? 'docente marcado' : 'docentes marcados'}`
-                      : `Todos (${resumenesDocentes.length})`}
-                  </span>
-                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">
-                    {docentesSeleccionados.length > 0
-                      ? 'Se exportará solo lo marcado en la tabla de la derecha.'
-                      : 'Marca docentes en la tabla de la derecha para exportar únicamente esos.'}
-                  </p>
-                  <span className="text-[10px] font-bold text-blue-700">
-                    {docentesAExportar.reduce((suma, resumen) => suma + resumen.horasSemana, 0)} h/semana en total
-                  </span>
-                  {docentesSeleccionados.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setDocentesSeleccionados([])}
-                      className="text-[10px] font-bold text-gray-500 hover:text-gray-900 underline self-start transition-colors"
-                    >
-                      Quitar selección
-                    </button>
-                  )}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">Acciones rápidas</label>
+                  <div className="rounded-xl border border-gray-200/70 bg-gray-50/40 divide-y divide-gray-200/60 overflow-hidden">
+                    {ACCIONES_RAPIDAS.map(({ clave, Icono, titulo, detalle, color }) => (
+                      <button
+                        key={clave}
+                        type="button"
+                        onClick={() => ejecutarAccionRapida(clave)}
+                        className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-white transition-colors text-left"
+                      >
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
+                          <Icono className="w-3.5 h-3.5" />
+                        </span>
+                        <span className="flex flex-col min-w-0 flex-1">
+                          <span className="text-[11px] font-bold text-gray-800">{titulo}</span>
+                          <span className="text-[9px] font-medium text-gray-500 truncate">{detalle}</span>
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {tipoReporte === 'Docentes' && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] font-extrabold text-gray-500 uppercase tracking-widest">Resumen de selección</label>
+                  <div className="rounded-xl border border-gray-200/70 bg-gray-50/40 p-4 flex flex-col gap-2.5">
+                    {[
+                      ['Reporte', 'Carga docente'],
+                      ['Alcance', docentesSeleccionados.length > 0
+                        ? `${docentesAExportar.length} ${docentesAExportar.length === 1 ? 'docente' : 'docentes'}`
+                        : `Todos (${resumenesDocentes.length})`],
+                      ['Horas', `${docentesAExportar.reduce((suma, r) => suma + r.horasSemana, 0)} h/semana`],
+                      ['Formato', formato],
+                    ].map(([etiqueta, valor]) => (
+                      <div key={etiqueta} className="flex items-baseline justify-between gap-3">
+                        <span className="text-[10px] font-medium text-gray-500 shrink-0">{etiqueta}</span>
+                        <span className="text-[11px] font-bold text-gray-900 text-right truncate">{valor}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-baseline justify-between gap-3 border-t border-gray-200/70 pt-2.5">
+                      <span className="text-[10px] font-medium text-gray-500">Estado</span>
+                      <span className={`text-[10px] font-bold flex items-center gap-1.5 ${docentesAExportar.length > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${docentesAExportar.length > 0 ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                        {docentesAExportar.length > 0 ? 'Listo para generar' : 'Sin datos'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -242,7 +319,7 @@ export const Reportes = () => {
           </div>
 
           {/* RIGHT COL */}
-          <div className="flex flex-col gap-6 min-w-0">
+          <div className="flex flex-col gap-6 min-w-0 min-h-0">
             
             {/* Una sola tabla: el selector de la izquierda decide qué se muestra. Antes había dos
                 apiladas —la carga docente y el historial— y la pantalla no cabía a 100%. */}
@@ -335,6 +412,42 @@ export const Reportes = () => {
         </div>
       </div>
       </div>
+
+      {/* Vista previa: qué se va a incluir, antes de generar nada. */}
+      {vistaPreviaAbierta && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setVistaPreviaAbierta(false)} />
+          <div className="relative z-10 w-full max-w-[520px] max-h-[80vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-[15px] font-bold text-gray-900">Vista previa de la selección</h3>
+                <p className="text-[11px] font-medium text-gray-500 mt-0.5">
+                  {docentesAExportar.length} {docentesAExportar.length === 1 ? 'docente' : 'docentes'} ·{' '}
+                  {docentesAExportar.reduce((suma, r) => suma + r.horasSemana, 0)} h/semana · formato {formato}
+                </p>
+              </div>
+              <button
+                onClick={() => setVistaPreviaAbierta(false)}
+                className="text-gray-400 hover:text-gray-700 bg-white shadow-sm border border-gray-200 rounded-full p-1.5 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto custom-scrollbar divide-y divide-gray-100">
+              {docentesAExportar.length === 0 ? (
+                <p className="text-[12px] text-gray-400 font-medium text-center py-6">
+                  No hay docentes que incluir.
+                </p>
+              ) : docentesAExportar.map(resumen => (
+                <div key={resumen.idDocente} className="py-2 flex items-center justify-between gap-3">
+                  <span className="text-[12px] font-bold text-gray-800 truncate">{resumen.docente}</span>
+                  <span className="text-[10px] font-bold text-blue-700 shrink-0">{resumen.horasSemana} h</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
