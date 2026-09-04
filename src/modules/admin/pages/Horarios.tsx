@@ -19,7 +19,7 @@ import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
 import { horasFinDisponibles, PARALELO_POR_DEFECTO, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from '../components/Horarios/horariosData';
 import { altoPaginaEnPx, contarPaginas, paginaDesdeScroll } from '../components/Horarios/paginacionPdf';
-import { nombreConTitulo } from '../data/docentesData';
+import { mapearClases } from '../components/Horarios/mapearClases';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 
@@ -49,33 +49,9 @@ export const Horarios = () => {
     fetchDocentes();
   }, []);
 
-  // Mapear datos de Supabase al formato que esperan los sub-componentes
-  const clases = useMemo(() => rawClases.map((c: any) => {
-    const idCarrera = c.materias?.id_carrera || '';
-    const carreraObj = carreras.find(car => car.id === idCarrera);
-    return {
-      id: c.id,
-      materia: c.materias?.nombre || 'Sin materia',
-      docente: nombreConTitulo(c.docentes?.titulo, c.docentes?.nombre) || 'Sin docente',
-      aula: c.espacios?.nombre || 'Sin aula',
-      edificio: c.espacios?.id_edificio || '',
-      tipoEspacio: c.espacios?.tipo || 'Académica',
-      idFacultad: carreraObj ? carreraObj.id_facultad : '',
-      idCarrera: idCarrera,
-      carrera: carreraObj?.nombre || '',
-      pao: c.materias?.semestre ?? null,
-      paralelo: c.paralelo ?? null,
-      idMateria: c.id_materia || '',
-      idDocente: c.id_docente || '',
-      idEspacio: c.id_espacio || '',
-      dia: c.dia,
-      hora: `${c.hora_inicio?.slice(0,5)} - ${c.hora_fin?.slice(0,5)}`,
-      horaInicio: c.hora_inicio?.slice(0,5) || '07:00',
-      horaFin: c.hora_fin?.slice(0,5) || '08:00',
-      creadoPor: c.creado_por || '',
-      _raw: c,
-    };
-  }), [rawClases, carreras]);
+  // El mapeo vive en mapearClases: los reportes usan el mismo, para que el informe no diga
+  // algo distinto de lo que muestra la grilla.
+  const clases = useMemo(() => mapearClases(rawClases, carreras as any), [rawClases, carreras]);
 
   const [activeTab, setActiveTab] = useState<'horario' | 'mapa'>('horario');
   const [searchQuery, setSearchQuery] = useState('');

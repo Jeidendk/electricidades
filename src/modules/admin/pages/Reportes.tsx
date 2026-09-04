@@ -2,23 +2,28 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   FileText, Download, FileSpreadsheet, BarChart2,
   Activity, Users, Map as MapIcon, Wrench, Calendar,
-  MoreVertical, CheckCircle2, ChevronDown, ArrowRight
+  CheckCircle2, ChevronDown, ArrowRight
 } from 'lucide-react';
 import { useUsuariosStore } from '../../../store/usuariosStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
 import { ESTADO_FISICO, type CategoriaInventario, type EstadoFisico } from '../data/inventarioData';
+import { useReportesStore } from '../../../store/reportesStore';
+import { ReporteDocentes } from '../components/ReporteDocentes';
 
-// Como no hay tabla de historial de reportes generados en la BD actualmente,
-// dejamos este arreglo vacío para reflejar el estado real (vacío).
-const historialData: any[] = [];
+/** Fecha corta y legible para la bitácora: "3 sept 2026, 10:47". */
+const formatearFecha = (iso: string) =>
+  new Date(iso).toLocaleString('es-EC', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
 
 export const Reportes = () => {
   const { items: usuarios, fetchUsuarios } = useUsuariosStore();
   const { items: espacios, fetchEspacios } = useEspaciosStore();
   const { items: inventario, fetchItems: fetchInventario } = useInventarioStore();
   const { solicitudes, fetchSolicitudes } = useSolicitudesAdminStore();
+  const { reportes: historial, fetchReportes } = useReportesStore();
 
   /**
    * Los gráficos filtraban por valores que el enum de la base NO tiene ('regular',
@@ -68,6 +73,7 @@ export const Reportes = () => {
     fetchEspacios();
     fetchInventario();
     fetchSolicitudes();
+    fetchReportes();
   }, []);
 
   const [tipoReporte, setTipoReporte] = useState('Inventario');
@@ -369,6 +375,8 @@ export const Reportes = () => {
               </div>
             </div>
 
+            <ReporteDocentes />
+
             {/* Historial Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col flex-1">
               <div className="flex justify-between items-center mb-4">
@@ -382,7 +390,7 @@ export const Reportes = () => {
               </div>
               
               <div className="overflow-x-auto">
-                {historialData.length === 0 ? (
+                {historial.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 px-4 text-center border border-gray-100 rounded-xl bg-gray-50/50 mt-4">
                     <FileText className="w-12 h-12 text-gray-300 mb-3" strokeWidth={1.5} />
                     <h4 className="text-[14px] font-bold text-gray-800 mb-1">No hay reportes generados</h4>
@@ -391,51 +399,40 @@ export const Reportes = () => {
                     </p>
                   </div>
                 ) : (
-                  <table className="w-full text-left border-collapse min-w-[700px] mt-4">
+                  <table className="w-full text-left border-collapse min-w-[620px] mt-4">
                     <thead>
                       <tr className="border-b border-gray-100">
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">ARCHIVO</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-center">TIPO</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-center">RANGO DE FECHA</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">CREADO</th>
-                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-right">ACCIÓN</th>
+                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Tipo</th>
+                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-center">Formato</th>
+                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-center">Filas</th>
+                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Generado por</th>
+                        <th className="pb-3 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest text-right">Fecha</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {historialData.map((rep) => (
-                        <tr key={rep.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors group">
+                      {historial.map((reporte) => (
+                        <tr key={reporte.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                           <td className="py-3.5 pr-4">
                             <div className="flex items-center gap-3">
-                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${rep.formato === 'PDF' ? 'bg-red-50 text-espoch-red border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
-                                {rep.formato === 'PDF' ? <FileText className="w-4 h-4"/> : <FileSpreadsheet className="w-4 h-4"/>}
+                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${reporte.formato === 'PDF' ? 'bg-red-50 text-espoch-red border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                                {reporte.formato === 'PDF' ? <FileText className="w-4 h-4"/> : <FileSpreadsheet className="w-4 h-4"/>}
                               </div>
-                              <div className="flex flex-col">
-                                <span className="text-[12px] font-extrabold text-gray-900 leading-tight">{rep.nombre}</span>
-                                <span className="text-[10px] font-semibold text-gray-400 mt-0.5">{rep.id}</span>
-                              </div>
+                              {getTipoBadge(reporte.tipo)}
                             </div>
                           </td>
                           <td className="py-3.5 px-2 text-center">
-                            {getTipoBadge(rep.tipo)}
+                            <span className="text-[11px] font-bold text-gray-700">{reporte.formato}</span>
                           </td>
                           <td className="py-3.5 px-2 text-center">
-                            <span className="text-[11px] font-medium text-gray-500">{rep.rango}</span>
+                            <span className="text-[11px] font-medium text-gray-500">{reporte.filas}</span>
                           </td>
                           <td className="py-3.5 px-2">
-                            <div className="flex flex-col">
-                              <span className="text-[11px] font-bold text-gray-800 flex items-center gap-1.5"><Calendar className="w-3 h-3 text-gray-400"/> {rep.fecha}</span>
-                              <span className="text-[10px] font-medium text-gray-500 mt-0.5 ml-4.5">{rep.creador}</span>
-                            </div>
+                            <span className="text-[11px] font-medium text-gray-600">{reporte.generadoPorNombre || 'Cuenta eliminada'}</span>
                           </td>
                           <td className="py-3.5 text-right pl-4">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-espoch-red hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm">
-                                <Download className="w-4 h-4" />
-                              </button>
-                              <button className="w-8 h-8 rounded-lg border border-transparent text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-colors">
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <span className="text-[11px] font-medium text-gray-500 flex items-center justify-end gap-1.5">
+                              <Calendar className="w-3 h-3 text-gray-400"/> {formatearFecha(reporte.created_at)}
+                            </span>
                           </td>
                         </tr>
                       ))}

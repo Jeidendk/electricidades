@@ -71,6 +71,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Reporte de carga docente en Reportes (migración 0024, HAY QUE EJECUTARLA).** Por cada
+  docente: horas/semana, materias que dicta y su horario completo (día, hora, materia, PAO y
+  paralelo, carrera, aula y edificio), con búsqueda por docente o materia y exportación a CSV.
+  **Reusa lo que ya existía**: el mapeo de `clases` se extrajo de `Horarios.tsx` a
+  `mapearClases.ts` y ahora lo usan los dos, para que el informe no pueda decir algo distinto
+  de lo que muestra la grilla. La lógica pura vive en `data/reporteDocentes.ts` (verificada
+  aparte: suma de horas, materias sin repetir, orden por día y descarte de clases sin docente).
+  La migración crea `reportes` como **bitácora**: guarda qué se generó, con qué filtros, cuántas
+  filas y quién — **no el archivo**, que se vuelve a producir cuando haga falta. Por eso la
+  tabla del historial ya no ofrece un botón de descarga: prometería un archivo inexistente.
+  RLS: solo admin y técnico (`es_staff()`), y sin políticas de update/delete porque una
+  bitácora no se edita.
 - **Fix: los gráficos de Reportes contaban valores de enum inexistentes.** Filtraban por
   `'regular'`, `'reparacion'`, `'baja'` y `'material_laboratorio'`, ninguno de los cuales está
   en `estado_inventario` (`bueno|malo|dañado`) ni en `categoria_inventario`
