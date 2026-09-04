@@ -71,6 +71,34 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Un solo pie de tabla en todo el sistema** (`components/ui/Pagination.tsx`), con el formato
+  compacto que ya usaba Usuarios: píldora `1-3 de 3`, `Filas:` y el paginador. Había **cuatro
+  copias escritas a mano** —Usuarios, Formatos, MisSolicitudes y el propio `Pagination`— y
+  habían derivado: dos textos distintos ("Mostrando N de M registros" vs `N-M de T`), dos
+  tamaños de letra, dos rojos (`red-600` vs `espoch-red`) y tres listas de filas por página
+  (5/10/15/25, 5/10/20, 5/10/15). Ahora las cuatro llaman al mismo componente.
+  De paso, dos defectos que traía el original: (1) dibujaba **un botón por página sin tope**, y
+  59 docentes a 5 por página son 12 botones que rompen la fila — ahora hay una ventana de 5
+  alrededor de la actual; (2) si la tabla arrancaba con un tamaño fuera de la lista (`Reportes`
+  usa 8) el `<select>` salía **en blanco** — ahora se agrega el valor recibido.
+- **Tabla de usuarios: NOMBRES y APELLIDOS en columnas separadas**, ordenables, para los cuatro
+  roles. Arranca ordenada por apellido A→Z. Las fichas sin repartir muestran el nombre completo
+  en gris cursiva con un "—" en Apellidos, y para ordenar caen a ese nombre completo: con un
+  campo vacío se irían todas al principio en vez de quedar en su lugar alfabético. El
+  comparador pasó a `localeCompare('es')` —antes `"ÁLVAREZ"` caía detrás de `"ZAMORA"` porque
+  se comparaban códigos de carácter— y resta los números en vez de compararlos como texto.
+  El CSV exportado gana `Nombres` y `Apellidos` junto al nombre completo.
+- **Nombres y apellidos en dos campos para TODOS los roles**, no solo docentes: alta y edición
+  en `Usuarios.tsx` y el registro público de `Login.tsx`, con mayúsculas automáticas al teclear.
+  `nombre` sigue siendo el nombre completo canónico —lo leen horarios, avatares y el índice
+  único de docentes— y se **compone** siempre con `componerNombreCompleto`. Al editar una ficha
+  vieja los dos campos salen vacíos y son obligatorios: se muestra el nombre guardado para que
+  el admin lo reparta a mano, porque en un nombre de 3 términos el sistema no puede saber dónde
+  empieza el apellido (mismo criterio del backfill de la 0021). El título académico sigue
+  siendo solo de docentes. **Falta el lado servidor**: el trigger `on_auth_user_created`
+  (migración 0016) copia `nombre` pero no conoce `nombres`/`apellidos`, así que para las
+  cuentas con login los dos campos viajan en la metadata y `syncPerfilOnLogin` los guarda en el
+  primer acceso. Si se quiere que la fila nazca ya repartida hay que rehacer ese trigger.
 - **`AcentoTarjeta`**: la franja de color del borde superior de las tarjetas estaba copiada a
   mano en 7 pantallas con la misma cadena larga de clases. Ahora es un componente, usado por
   esas 7 más las tablas de Reportes y el listado de carreras, que no la tenían. La tarjeta que

@@ -5,13 +5,26 @@ import { aNumeroOpcional, normalizarTexto } from '../lib/texto';
 
 export type Rol = 'admin' | 'tecnico' | 'student';
 
+/**
+ * Texto del rol para mostrar en pantalla.
+ *
+ * Antes se guardaba en un campo `rol` aparte de `role`, con los dos derivados del mismo dato:
+ * dos nombres que se diferencian en una letra para la misma información. La etiqueta se
+ * calcula, así que no puede desincronizarse del rol funcional.
+ */
+export const ETIQUETA_ROL: Record<Rol, string> = {
+  admin: 'Administrador',
+  tecnico: 'Técnico',
+  student: 'Estudiante',
+};
+
 export interface AuthUser {
   id: string;
   nombre: string;
   email: string;
-  rol: string;       // etiqueta visible (Administrador / Técnico / Estudiante)
   avatar: string | null;
-  role: Rol;         // rol funcional para routing/permisos
+  /** Rol funcional, para routing y permisos. Su etiqueta se obtiene con ETIQUETA_ROL. */
+  role: Rol;
   tecnicoId?: string;
   facultadNombre?: string;
   carreraId?: string;     // carrera del estudiante (de metadata de registro) → horario automático
@@ -47,7 +60,7 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   // todavía vacíos durante el primer acceso; nunca reemplaza una edición administrativa.
   const { data: perfilActual } = await supabase
     .from('usuarios')
-    .select('codigo_institucional, facultad_nombre, carrera_nombre, departamento, pao')
+    .select('codigo_institucional, facultad_nombre, carrera_nombre, departamento, pao, nombres, apellidos')
     .eq('id', userId)
     .maybeSingle();
 
@@ -56,6 +69,14 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   const patch: Record<string, any> = {
     ultima_conexion: new Date().toISOString(),
   };
+  // El trigger de auth.users copia `nombre`; los dos campos separados llegan por metadata,
+  // así que se completan aquí en el primer acceso y ya no se vuelven a tocar.
+  if (!perfilActual?.nombres && meta.nombres) {
+    patch.nombres = meta.nombres;
+  }
+  if (!perfilActual?.apellidos && meta.apellidos) {
+    patch.apellidos = meta.apellidos;
+  }
   if (!perfilActual?.codigo_institucional && meta.codigo_institucional) {
     patch.codigo_institucional = meta.codigo_institucional;
   }
@@ -98,7 +119,6 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
         id: authData.user.id,
         nombre: meta?.nombre || authData.user.email?.split('@')[0] || 'Usuario',
         email: authData.user.email || '',
-        rol: 'Estudiante',
         avatar: null,
         role: 'student',
       };
@@ -110,7 +130,6 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
 
   // 2. Cargar el rol por separado
   let rolFuncional: Rol = 'student';
-  let rolVisible = 'Estudiante';
 
   const { data: rolData } = await supabase
     .from('roles')
@@ -118,14 +137,19 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
     .eq('id', data.id_rol)
     .single();
 
+  // Los docentes TODAVÍA NO inician sesión: se registran como fichas, sin cuenta de acceso.
+  // Cuando eso se habilite hay que hacer tres cosas, y ninguna es opcional:
+  //   1. agregar 'docente' al tipo Rol y su etiqueta a ETIQUETA_ROL,
+  //   2. mapearlo en este if,
+  //   3. darle ruta de entrada propia en el router y en los guards.
+  // Sin los tres, un docente con cuenta cae en el `else` de abajo, queda como 'student' y el
+  // sistema entero lo trata como estudiante.
   if (rolData) {
     const nombreRol = rolData.nombre.toLowerCase();
     if (nombreRol.includes('admin')) {
       rolFuncional = 'admin';
-      rolVisible = 'Administrador';
     } else if (nombreRol.includes('tecnico') || nombreRol.includes('técnico')) {
       rolFuncional = 'tecnico';
-      rolVisible = 'Técnico';
     }
   }
 
@@ -166,7 +190,6 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
     id: data.id,
     nombre: data.nombre,
     email: data.email || '',
-    rol: rolVisible,
     avatar: data.avatar_url,
     role: rolFuncional,
     ...(rolFuncional === 'tecnico' ? { tecnicoId: data.id } : {}),

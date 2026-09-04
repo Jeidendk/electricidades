@@ -7,7 +7,7 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { ConfigModal } from '../../../components/ui/ConfigModal';
 import { ProfileModal } from '../../../components/ui/ProfileModal';
 import { CambiarPasswordModal } from '../../../components/ui/CambiarPasswordModal';
-import { useAuthStore } from '../../../store/authStore';
+import { useAuthStore, ETIQUETA_ROL } from '../../../store/authStore';
 import { useEffect } from 'react';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
@@ -30,7 +30,7 @@ export const StudentLayout = () => {
 
   const student = {
     nombre: authUser?.nombre || 'Estudiante',
-    rol: authUser?.rol || 'Estudiante',
+    rol: authUser ? ETIQUETA_ROL[authUser.role] : 'Estudiante',
     avatar: authUser?.avatar || null,
   };
 

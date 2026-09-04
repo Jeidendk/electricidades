@@ -13,9 +13,11 @@ import {
 import Swal from 'sweetalert2';
 import { supabase } from '../../lib/supabase';
 import { uploadImage } from '../../lib/upload';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore, ETIQUETA_ROL } from '../../store/authStore';
 import { useExclusiveModal } from '../../hooks/useExclusiveModal';
 import { Avatar } from './Avatar';
+import { enMayusculas } from '../../lib/texto';
+import { componerNombreCompleto } from '../../modules/admin/data/docentesData';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -60,7 +62,8 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   const user = useAuthStore(state => state.user);
   const setUser = useAuthStore(state => state.setUser);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [nombre, setNombre] = useState('');
+  const [nombres, setNombres] = useState('');
+  const [apellidos, setApellidos] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [details, setDetails] = useState<ProfileDetails>(emptyDetails);
@@ -73,7 +76,10 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   useEffect(() => {
     if (!isOpen || !user) return;
 
-    setNombre(user.nombre);
+    // Se dejan vacíos y los llena la consulta: el nombre completo del store no se puede
+    // partir sin adivinar dónde termina el nombre y empieza el apellido.
+    setNombres('');
+    setApellidos('');
     setPhotoFile(null);
     setPhotoPreview(user.avatar);
     setError('');
@@ -89,12 +95,14 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     void (async () => {
       const { data, error: profileError } = await supabase
         .from('usuarios')
-        .select('codigo_institucional, facultad_nombre, carrera_nombre, pao')
+        .select('codigo_institucional, facultad_nombre, carrera_nombre, pao, nombres, apellidos')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!active) return;
       if (data) {
+        setNombres(data.nombres || '');
+        setApellidos(data.apellidos || '');
         setDetails({
           codigoInstitucional: data.codigo_institucional || '',
           facultad: data.facultad_nombre || user.facultadNombre || '',
@@ -126,9 +134,8 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
             { icon: Building2, label: 'Facultad', value: details.facultad },
             { icon: GraduationCap, label: 'Carrera', value: details.carrera },
           ]
-        : user.rol.toLocaleLowerCase('es').includes('docente')
-          ? [{ icon: Building2, label: 'Facultad', value: details.facultad }]
-          : [];
+        // Administrador: sin asignación académica que mostrar.
+        : [];
 
   const handlePhoto = (file?: File) => {
     if (!file) return;
@@ -149,9 +156,11 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   };
 
   const handleSave = async () => {
-    const cleanName = nombre.trim();
-    if (!cleanName) {
-      setError('Ingresa tu nombre completo.');
+    // `nombre` no se teclea: se compone, para que no pueda quedar en un orden distinto del
+    // que muestran los dos campos ni desincronizarse de ellos.
+    const cleanName = componerNombreCompleto(nombres, apellidos);
+    if (!nombres.trim() || !apellidos.trim()) {
+      setError('Ingresa tus nombres y tus apellidos.');
       return;
     }
 
@@ -166,12 +175,17 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
 
       const { error: profileError } = await supabase
         .from('usuarios')
-        .update({ nombre: cleanName, avatar_url: avatarUrl })
+        .update({
+          nombre: cleanName,
+          nombres: nombres.trim(),
+          apellidos: apellidos.trim(),
+          avatar_url: avatarUrl,
+        })
         .eq('id', user.id);
       if (profileError) throw profileError;
 
       const { error: authError } = await supabase.auth.updateUser({
-        data: { nombre: cleanName },
+        data: { nombre: cleanName, nombres: nombres.trim(), apellidos: apellidos.trim() },
       });
       if (authError) throw authError;
 
@@ -214,7 +228,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
         <div className="overflow-y-auto px-6 py-5 custom-scrollbar">
           <div className="mb-5 flex flex-col items-center">
             <div className="relative">
-              <Avatar nombre={nombre || user.nombre} src={photoPreview} className="h-24 w-24 text-2xl" />
+              <Avatar nombre={componerNombreCompleto(nombres, apellidos) || user.nombre} src={photoPreview} className="h-24 w-24 text-2xl" />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -231,25 +245,37 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
                 onChange={event => handlePhoto(event.target.files?.[0])}
               />
             </div>
-            <p className="mt-3 text-[13px] font-bold text-gray-900">{user.rol}</p>
+            <p className="mt-3 text-[13px] font-bold text-gray-900">{ETIQUETA_ROL[user.role]}</p>
             <p className="text-[10px] font-medium text-gray-400">PNG, JPG o WEBP · máximo 5 MB</p>
           </div>
 
           <div className="space-y-4">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Nombre completo</span>
-              <div className="relative">
-                <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Nombres</span>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={nombres}
+                    onChange={event => setNombres(enMayusculas(event.target.value))}
+                    placeholder="Ej. JUAN CARLOS"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-3 pl-10 pr-4 text-[13px] font-semibold text-gray-900 outline-none transition-colors focus:border-indigo-400 focus:bg-white"
+                  />
+                </div>
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Apellidos</span>
                 <input
-                  value={nombre}
-                  onChange={event => setNombre(event.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-3 pl-10 pr-4 text-[13px] font-semibold text-gray-900 outline-none transition-colors focus:border-indigo-400 focus:bg-white"
+                  value={apellidos}
+                  onChange={event => setApellidos(enMayusculas(event.target.value))}
+                  placeholder="Ej. PÉREZ MORENO"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-3 px-4 text-[13px] font-semibold text-gray-900 outline-none transition-colors focus:border-indigo-400 focus:bg-white"
                 />
-              </div>
-            </label>
+              </label>
+            </div>
 
             <ReadOnlyField icon={Mail} label="Correo electrónico" value={user.email || 'Sin correo asociado'} />
-            <ReadOnlyField icon={ShieldCheck} label="Tipo / Rol" value={user.rol} />
+            <ReadOnlyField icon={ShieldCheck} label="Tipo / Rol" value={ETIQUETA_ROL[user.role]} />
           </div>
 
           {institutionalFields.length > 0 && (

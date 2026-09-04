@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronUp, Settings, ShieldCheck, KeyRound, User, LogOut, Eye, Users, Wrench, GraduationCap, Bell } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore, ETIQUETA_ROL } from '../../store/authStore';
 import { useUiPrefsStore } from '../../store/uiPrefsStore';
 import { Avatar } from './Avatar';
 import { ConfigModal } from './ConfigModal';
@@ -109,7 +109,7 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
           <>
             <div className="flex flex-col min-w-0 flex-1 text-left">
               <span className="text-[11px] font-bold text-white truncate leading-tight">{nombre}</span>
-              <span className="text-[9px] text-gray-500 font-semibold capitalize">{usuario?.rol || ''}</span>
+              <span className="text-[9px] text-gray-500 font-semibold capitalize">{usuario ? ETIQUETA_ROL[usuario.role] : ''}</span>
             </div>
             <ChevronUp className={`w-3.5 h-3.5 text-gray-500 shrink-0 transition-transform ${abierto ? '' : 'rotate-180'}`} />
           </>

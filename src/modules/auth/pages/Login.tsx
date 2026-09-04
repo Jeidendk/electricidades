@@ -6,6 +6,8 @@ import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { supabase } from '../../../lib/supabase';
+import { componerNombreCompleto } from '../../admin/data/docentesData';
+import { enMayusculas } from '../../../lib/texto';
 import {
   consultarBloqueo, limpiarIntentos, mensajeBloqueo, mensajeIntentosRestantes, registrarIntentoFallido,
 } from '../../../lib/bloqueoLogin';
@@ -37,7 +39,10 @@ export const Login = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Campos del formulario de registro
-  const [registerNombre, setRegisterNombre] = useState('');
+  // Nombres y apellidos por separado, igual que en el alta administrativa: es lo que evita
+  // que cada quien los escriba en un orden distinto. `nombre` se compone al guardar.
+  const [registerNombres, setRegisterNombres] = useState('');
+  const [registerApellidos, setRegisterApellidos] = useState('');
   const [registerCodigo, setRegisterCodigo] = useState('');
   const [registerFacultad, setRegisterFacultad] = useState('');
   const [registerCarrera, setRegisterCarrera] = useState('');
@@ -207,8 +212,8 @@ export const Login = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!registerNombre.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'Por favor ingresa tu nombre completo.', confirmButtonColor: '#B00020' });
+    if (!registerNombres.trim() || !registerApellidos.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Nombre incompleto', text: 'Ingresa tus nombres y tus apellidos.', confirmButtonColor: '#B00020' });
       return;
     }
     if (registerPassword !== registerConfirmPassword) {
@@ -230,7 +235,9 @@ export const Login = () => {
     const facultadSel = facultades.find((f) => f.id === registerFacultad);
     const carreraSel = carreras.find((c) => c.id === registerCarrera);
     const payload = {
-      nombre: registerNombre.trim(),
+      nombre: componerNombreCompleto(registerNombres, registerApellidos),
+      nombres: registerNombres.trim(),
+      apellidos: registerApellidos.trim(),
       codigo_institucional: registerCodigo.trim(),
       facultad_id: registerFacultad,
       facultad_nombre: facultadSel?.nombre || '',
@@ -304,7 +311,8 @@ export const Login = () => {
       confirmButtonColor: '#B00020',
     }).then(() => {
       setView('login');
-      setRegisterNombre('');
+      setRegisterNombres('');
+      setRegisterApellidos('');
       setRegisterEmail('');
       setRegisterPassword('');
       setRegisterConfirmPassword('');
@@ -399,7 +407,7 @@ export const Login = () => {
                   <div className="relative">
                     <input 
                       type="email" 
-                      placeholder="Ej. usuario@espoch.edu.ec o admin@espoch.edu.ec" 
+                      placeholder="usuario@espoch.edu.ec" 
                       required
                       value={loginEmail}
                       onChange={(e) => handleEmailChange(e, setLoginEmail, loginEmail)}
@@ -477,10 +485,17 @@ export const Login = () => {
                   <div>
                     <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest mb-3.5 transition-colors">Datos Personales e Institucionales</h3>
                     <div className="flex flex-col gap-3.5">
-                      <div>
-                        <label className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Nombres Completos</label>
-                        <input type="text" placeholder="Ej. Juan Pérez" required value={registerNombre} onChange={(e) => setRegisterNombre(e.target.value)}
-                          className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 transition-all placeholder:font-normal placeholder:text-gray-400" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                          <label className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Nombres</label>
+                          <input type="text" placeholder="Ej. JUAN CARLOS" required value={registerNombres} onChange={(e) => setRegisterNombres(enMayusculas(e.target.value))}
+                            className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 transition-all placeholder:font-normal placeholder:text-gray-400" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Apellidos</label>
+                          <input type="text" placeholder="Ej. PÉREZ MORENO" required value={registerApellidos} onChange={(e) => setRegisterApellidos(enMayusculas(e.target.value))}
+                            className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 transition-all placeholder:font-normal placeholder:text-gray-400" />
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3.5">
                         <div>
