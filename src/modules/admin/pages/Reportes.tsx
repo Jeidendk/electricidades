@@ -293,23 +293,6 @@ export const Reportes = () => {
               ))}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-x-8 gap-y-3 min-w-0">
-              <div className="flex flex-col shrink-0">
-                <span className="text-[13px] font-bold text-gray-900">Reparto de horas</span>
-                <span className="text-[10px] font-medium text-gray-500">Por docente, según el horario</span>
-              </div>
-              {[
-                { etiqueta: 'Mínimo', valor: metricas.horasMinimas },
-                { etiqueta: 'Promedio', valor: metricas.horasPromedio },
-                { etiqueta: 'Máximo', valor: metricas.horasMaximas },
-              ].map(({ etiqueta, valor }) => (
-                <div key={etiqueta} className="flex items-baseline gap-2">
-                  <span className="text-[16px] font-extrabold text-gray-900">{valor} h</span>
-                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{etiqueta}</span>
-                </div>
-              ))}
-            </div>
-
             <ReporteDocentes
               seleccionados={docentesSeleccionados}
               onCambiarSeleccion={setDocentesSeleccionados}

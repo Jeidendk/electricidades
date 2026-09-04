@@ -118,10 +118,6 @@ export interface MetricasDocentes {
   totalDocentes: number;
   totalMaterias: number;
   totalHoras: number;
-  /** Horas semanales: mínimo, promedio y máximo del conjunto. */
-  horasMinimas: number;
-  horasPromedio: number;
-  horasMaximas: number;
 }
 
 /**
@@ -138,16 +134,10 @@ export const metricasDocentes = (resumenes: ResumenDocente[]): MetricasDocentes 
     for (const materia of resumen.materias) materias.add(materia);
   }
 
-  const horas = resumenes.map(resumen => resumen.horasSemana);
-  const totalHoras = horas.reduce((suma, valor) => suma + valor, 0);
-
   return {
     totalDocentes: resumenes.length,
     totalMaterias: materias.size,
-    totalHoras,
-    horasMinimas: horas.length ? Math.min(...horas) : 0,
-    horasPromedio: horas.length ? Math.round(totalHoras / horas.length) : 0,
-    horasMaximas: horas.length ? Math.max(...horas) : 0,
+    totalHoras: resumenes.reduce((suma, resumen) => suma + resumen.horasSemana, 0),
   };
 };
 
