@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronUp, Settings, ShieldCheck, KeyRound, User, LogOut, Eye, Users, Wrench, GraduationCap, Bell } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -171,10 +172,20 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
         </>
       )}
 
-      <ProfileModal isOpen={perfilAbierto} onClose={() => setPerfilAbierto(false)} />
-      <MfaSetupModal isOpen={mfaAbierto} onClose={() => setMfaAbierto(false)} />
-      <CambiarPasswordModal isOpen={passwordAbierto} onClose={() => setPasswordAbierto(false)} />
-      <ConfigModal isOpen={configAbierta} onClose={() => setConfigAbierta(false)} />
+      {/* Los modales se montan en <body> y no aquí dentro.
+          El sidebar lleva `translate-x-0`, y un `transform` en un ancestro convierte a ese
+          ancestro en el bloque contenedor de todo `position: fixed` que haya debajo: los
+          modales quedaban encajados en los 260px del sidebar —o en 72px al contraerlo— en vez
+          de ocupar la pantalla. Sacarlos por un portal los devuelve al viewport. */}
+      {createPortal(
+        <>
+          <ProfileModal isOpen={perfilAbierto} onClose={() => setPerfilAbierto(false)} />
+          <MfaSetupModal isOpen={mfaAbierto} onClose={() => setMfaAbierto(false)} />
+          <CambiarPasswordModal isOpen={passwordAbierto} onClose={() => setPasswordAbierto(false)} />
+          <ConfigModal isOpen={configAbierta} onClose={() => setConfigAbierta(false)} />
+        </>,
+        document.body,
+      )}
     </div>
   );
 };

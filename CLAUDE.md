@@ -71,6 +71,12 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Fix: los modales del menú de cuenta salían aplastados dentro del sidebar.** El sidebar
+  lleva `translate-x-0` para su animación, y **un `transform` en un ancestro lo convierte en el
+  bloque contenedor de todo `position: fixed` que cuelgue debajo**: Configuración, Mi Perfil,
+  2FA y Cambiar contraseña se dibujaban dentro de los 260px del sidebar —72px al contraerlo—
+  en vez de ocupar la pantalla. Ahora se montan en `<body>` con `createPortal`. Verificado en
+  el navegador con una reproducción del caso.
 - **Reporte de carga docente en Reportes (migración 0024, HAY QUE EJECUTARLA).** Por cada
   docente: horas/semana, materias que dicta y su horario completo (día, hora, materia, PAO y
   paralelo, carrera, aula y edificio), con búsqueda por docente o materia y exportación a CSV.
