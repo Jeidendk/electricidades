@@ -169,8 +169,7 @@ export const Reportes = () => {
         <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 flex-1 min-h-0">
           
           {/* LEFT: Generador de Reportes */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-h-0 relative overflow-hidden">
-            <AcentoTarjeta />
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-h-0">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-lg bg-red-50 text-espoch-red flex items-center justify-center shrink-0">
                 <FileText className="w-4 h-4" />

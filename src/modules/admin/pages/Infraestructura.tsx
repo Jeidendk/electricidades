@@ -10,6 +10,7 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Popup } from 're
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { PageHero } from '../../../components/ui/PageHero';
+import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { ViewToggle } from '../../../components/ui/ViewToggle';
 import { DataTable } from '../../../components/ui/DataTable';
@@ -572,7 +573,8 @@ export const Infraestructura = () => {
           </div>
 
           {/* RIGHT: BUILDING DETAIL */}
-          <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in">
+          <div className="relative flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in">
+            <AcentoTarjeta />
             {!selectedEdificio ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50">
                 <Building2 className="w-16 h-16 text-gray-200 mb-4" />
