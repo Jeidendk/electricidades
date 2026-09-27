@@ -11,7 +11,7 @@ export interface RecursoActa {
 export interface TecnicoActa {
   nombre: string;
   email: string;
-  departamento: string;
+  facultad: string;
 }
 
 const ROJO = '#b00000';
@@ -33,8 +33,8 @@ const infoTecnico = (doc: jsPDF, tecnico: TecnicoActa, y: number) => {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold'); doc.text('Técnico responsable:', 20, y);
   doc.setFont('helvetica', 'normal'); doc.text(tecnico.nombre, 70, y);
-  doc.setFont('helvetica', 'bold'); doc.text('Departamento:', 20, y + 7);
-  doc.setFont('helvetica', 'normal'); doc.text(tecnico.departamento, 70, y + 7);
+  doc.setFont('helvetica', 'bold'); doc.text('Facultad:', 20, y + 7);
+  doc.setFont('helvetica', 'normal'); doc.text(tecnico.facultad, 70, y + 7);
   doc.setFont('helvetica', 'bold'); doc.text('Correo:', 20, y + 14);
   doc.setFont('helvetica', 'normal'); doc.text(tecnico.email, 70, y + 14);
   doc.setFont('helvetica', 'bold'); doc.text('Fecha:', 130, y);

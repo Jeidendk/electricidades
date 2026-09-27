@@ -72,7 +72,8 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
         // los técnicos identificados por su nombre de pila.
         nombre: componerNombreCompleto(u.nombre, (u as any).apellido),
         email: u.email || '',
-        departamento: u.departamento || 'General',
+        // `facultad` duplicaba `facultad_nombre` y está en retirada (migración 0032).
+        facultad: (u as any).facultad_nombre || 'General',
         avatar: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(componerNombreCompleto(u.nombre, (u as any).apellido))}&background=475569&color=fff`,
       }));
   }, [rawUsers]);
@@ -317,7 +318,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
     return out;
   }, [invItems, espacios, edificios, asignaciones, selectedTecnico]);
 
-  const tecnicoActa = tecnico ? { nombre: tecnico.nombre, email: tecnico.email, departamento: tecnico.departamento } : null;
+  const tecnicoActa = tecnico ? { nombre: tecnico.nombre, email: tecnico.email, facultad: tecnico.facultad } : null;
   const sinRecursos = () => Swal.fire({ icon: 'info', title: 'Sin recursos', text: 'Este técnico no tiene recursos asignados.' });
 
   const handleActa = () => { if (!tecnicoActa) return; if (assignedFull.length === 0) return sinRecursos(); generarActaAsignacion(tecnicoActa, assignedFull); };
@@ -454,7 +455,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
                   <img src={t.avatar} className={`w-10 h-10 rounded-full object-cover shrink-0 border-2 ${isSelected ? 'border-indigo-200' : 'border-gray-200'}`} alt={t.nombre} />
                   <div className="flex-1 min-w-0">
                     <p className={`text-[12px] font-bold truncate leading-tight ${isSelected ? 'text-indigo-900' : 'text-gray-800'}`}>{t.nombre}</p>
-                    <p className={`text-[10px] truncate mt-0.5 ${isSelected ? 'text-indigo-400' : 'text-gray-500'}`}>{t.departamento}</p>
+                    <p className={`text-[10px] truncate mt-0.5 ${isSelected ? 'text-indigo-400' : 'text-gray-500'}`}>{t.facultad}</p>
                   </div>
                   <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 flex items-center gap-1 ${
                     isSelected ? 'bg-white text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500'
@@ -486,7 +487,7 @@ export const Asignaciones = ({ embedded = false }: { embedded?: boolean } = {}) 
                 </div>
                 <div className="flex items-center gap-4 text-[11px] text-gray-500 font-medium flex-wrap">
                   <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-gray-400" /> {tecnico.email}</span>
-                  <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-gray-400" /> {tecnico.departamento}</span>
+                  <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-gray-400" /> {tecnico.facultad}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">

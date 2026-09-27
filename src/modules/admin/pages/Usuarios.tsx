@@ -51,7 +51,7 @@ export const Usuarios = () => {
   const usuarios = useMemo(() => items.map((u: any) => {
     const rol = u.roles?.nombre || 'Sin rol';
     const esDocente = rol === 'Docente';
-    const nombreFacultad = u.facultad_nombre || u.departamento || '';
+    const nombreFacultad = u.facultad_nombre || '';
     const facultad = facultades.find((item: any) =>
       item.nombre === nombreFacultad || item.siglas === nombreFacultad,
     );
@@ -70,7 +70,6 @@ export const Usuarios = () => {
       email: esDocente ? '' : u.email || '',
       rol,
       estado: u.estado,
-      departamento: nombreFacultad,
       codigo: u.codigo_institucional || '',
       facultad: nombreFacultad,
       facultadId: facultad?.id || '',
@@ -115,7 +114,7 @@ export const Usuarios = () => {
 
   // Form
   const defaultFormValues = {
-    nombre: '', email: '', rol: 'Estudiante', departamento: 'FIE', estado: 'activo', avatar_url: '', fotoFile: null as File | null,
+    nombre: '', email: '', rol: 'Estudiante', estado: 'activo', avatar_url: '', fotoFile: null as File | null,
     codigo: '', facultadId: '', carreraId: '', pao: '',
     titulo: '', apellido: '',
   };
@@ -139,7 +138,7 @@ export const Usuarios = () => {
       result = result.filter(u => 
         u.nombreCompleto.toLowerCase().includes(q) || 
         u.email.toLowerCase().includes(q) ||
-        u.departamento.toLowerCase().includes(q)
+        u.facultad.toLowerCase().includes(q)
       );
     }
     if (sortCol) {
@@ -244,7 +243,6 @@ export const Usuarios = () => {
             email: null,
             id_rol: rolDocente.id,
             estado: formValues.estado,
-            departamento: nombreFacultad,
             facultad_nombre: nombreFacultad,
           });
           setModalType(null);
@@ -293,7 +291,7 @@ export const Usuarios = () => {
         rol: formValues.rol,
       };
       if (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') {
-        if (fac) { meta.facultad_nombre = fac.siglas || fac.nombre; meta.departamento = fac.siglas || fac.nombre; }
+        if (fac) meta.facultad_nombre = fac.siglas || fac.nombre;
         if (car) meta.carrera_nombre = car.nombre;
       }
       if (formValues.rol === 'Estudiante') {
@@ -342,7 +340,6 @@ export const Usuarios = () => {
             nombre: formValues.nombre.trim(),
             apellido: formValues.apellido.trim(),
             titulo: formValues.titulo || null,
-            departamento: nombreFacultad,
             facultad_nombre: nombreFacultad,
             estado: formValues.estado,
           } as any);
@@ -389,7 +386,6 @@ export const Usuarios = () => {
           nombre: formValues.nombre.trim(),
           apellido: formValues.apellido.trim(),
           estado: formValues.estado as any,
-          departamento: tieneAsignacionAcademica ? nombreFacultad : '',
           facultad_nombre: tieneAsignacionAcademica ? nombreFacultad || null : null,
           carrera_nombre: tieneAsignacionAcademica ? carrera?.nombre || null : null,
           codigo_institucional:
@@ -491,8 +487,8 @@ export const Usuarios = () => {
 
   const exportCsv = () => {
     const rows = selectedIds.length > 0 ? usuarios.filter(u => selectedIds.includes(u.id)) : filteredData;
-    const head = ['ID', 'Nombre', 'Apellido', 'Nombre completo', 'Email', 'Rol', 'Estado', 'Departamento', 'Código', 'Facultad', 'Carrera', 'PAO', 'Última conexión'];
-    const body = rows.map(u => [u.id, u.nombre, u.apellido, u.nombreCompleto, u.email, u.rol, u.estado, u.departamento, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.ultimaConexion]);
+    const head = ['ID', 'Nombre', 'Apellido', 'Nombre completo', 'Email', 'Rol', 'Estado', 'Código', 'Facultad', 'Carrera', 'PAO', 'Última conexión'];
+    const body = rows.map(u => [u.id, u.nombre, u.apellido, u.nombreCompleto, u.email, u.rol, u.estado, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.ultimaConexion]);
     const csv = [head, ...body].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -651,7 +647,7 @@ export const Usuarios = () => {
             <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>NOMBRE <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('apellido')}>APELLIDO <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / DEPARTAMENTO <ArrowUpDown className="w-3 h-3" /></div>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / FACULTAD <ArrowUpDown className="w-3 h-3" /></div>
             {showCarrera && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>}
             {showPao && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>}
             {showCodigo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('codigo')}>CÓDIGO <ArrowUpDown className="w-3 h-3" /></div>}
@@ -678,7 +674,7 @@ export const Usuarios = () => {
                   </div>
                   <div className="flex flex-col min-w-0 gap-1 w-max">
                       {getRolBadge(u.rol)}
-                      <span className="text-[10px] font-semibold text-gray-500 truncate pl-1">{u.departamento}</span>
+                      <span className="text-[10px] font-semibold text-gray-500 truncate pl-1">{u.facultad}</span>
                   </div>
                   {showCarrera && <div className="min-w-0"><span className="text-[11px] font-semibold text-gray-700 truncate block" title={u.carrera}>{u.carrera || '—'}</span></div>}
                   {showPao && <div className="min-w-0">{u.pao ? <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md w-max">PAO {u.pao}</span> : <span className="text-gray-300 text-[11px]">—</span>}</div>}
@@ -686,7 +682,7 @@ export const Usuarios = () => {
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
-                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, apellido: u.apellido, titulo: u.titulo || '', email: u.email, rol: u.rol, departamento: u.departamento, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, apellido: u.apellido, titulo: u.titulo || '', email: u.email, rol: u.rol, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
               </div>

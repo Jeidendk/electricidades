@@ -61,7 +61,7 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   // todavía vacíos durante el primer acceso; nunca reemplaza una edición administrativa.
   const { data: perfilActual } = await supabase
     .from('usuarios')
-    .select('codigo_institucional, facultad_nombre, carrera_nombre, departamento, pao, nombre, apellido')
+    .select('codigo_institucional, facultad_nombre, carrera_nombre, pao, nombre, apellido')
     .eq('id', userId)
     .maybeSingle();
 
@@ -86,9 +86,6 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   }
   if (!perfilActual?.carrera_nombre && meta.carrera_nombre) {
     patch.carrera_nombre = meta.carrera_nombre;
-  }
-  if (!perfilActual?.departamento && meta.departamento) {
-    patch.departamento = meta.departamento;
   }
   if (
     (perfilActual?.pao == null || perfilActual.pao === '') &&

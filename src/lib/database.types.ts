@@ -42,8 +42,6 @@ export interface Database {
           email: string | null
           id_rol: number
           estado: string
-          departamento: string
-          especialidad: string | null
           avatar_url: string | null
           ultima_conexion: string | null
           codigo_institucional: string | null
@@ -61,8 +59,6 @@ export interface Database {
           email: string | null
           id_rol: number
           estado?: string
-          departamento?: string
-          especialidad?: string | null
           avatar_url?: string | null
           ultima_conexion?: string | null
           codigo_institucional?: string | null
@@ -79,8 +75,6 @@ export interface Database {
           email?: string | null
           id_rol?: number
           estado?: string
-          departamento?: string
-          especialidad?: string | null
           avatar_url?: string | null
           ultima_conexion?: string | null
           codigo_institucional?: string | null
