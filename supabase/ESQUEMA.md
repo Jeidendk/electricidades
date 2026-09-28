@@ -30,7 +30,7 @@ no da error, simplemente no devuelve nada**.
 | `estado_usuario` | `activo`, `inactivo` |
 | `prioridad_ot` | `baja`, `media`, `alta` |
 | `tipo_espacio` | `Académica`, `Laboratorio Técnico`, `Laboratorio de Informática` |
-| `tipo_formato` | `DINAMICO` ⚠️ sin tilde y en mayúsculas, `PDF` |
+| `tipo_formato` | `DINAMICO` ⚠️ sin tilde y en mayúsculas, `PDF`, `ENLACE` (migración 0038) |
 | `tipo_recurso` | `libro`, `software` |
 | `tipo_recurso_rel` | `recomendado`, `obligatorio` |
 | `tipo_solicitud_admin` | `Uso de laboratorio`, `Reporte de daño`, `Oficio`, `Mantenimiento`, `Préstamo especial` |

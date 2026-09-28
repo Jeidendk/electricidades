@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { 
   FileText, Search, Trash2, X, AlertTriangle, Layers, Download, ArrowUpDown, Settings, Image as ImageIcon, ChevronDown, User, FileEdit, PenTool, Edit2, FileDown, CheckCircle, RotateCcw,
-  Folder, FolderPlus, Plus, ChevronRight, Home, MoreVertical, Link2 as LinkIcon, FolderTree
+  Folder, FolderPlus, Plus, ChevronRight, Home, MoreVertical, Link2 as LinkIcon, FolderTree, ExternalLink
 } from 'lucide-react';
 import { generatePreviewDOCX, generatePreviewPDF, type DocumentParams } from '../utils/documentGenerator';
 import { useFormatosStore } from '../../../store/formatosStore';
@@ -22,8 +22,24 @@ import { enMayusculas } from '../../../lib/texto';
 /** Valor de `tipo` de las plantillas que genera el sistema; el resto son archivos subidos. */
 const TIPO_DINAMICO = 'DINAMICO';
 
+/** Valor de `tipo` de los documentos que viven fuera (OneDrive, Drive): se guarda la URL. */
+const TIPO_ENLACE = 'ENLACE';
+
 /** Clave del chip "Archivos". No es un valor de `tipo`: agrupa todo lo que no es dinámico. */
 const FILTRO_ARCHIVOS = 'ARCHIVOS';
+
+/**
+ * Solo se abren enlaces http/https. Un `javascript:` guardado en la tabla se ejecutaría en la
+ * sesión de quien lo abra, así que el esquema se comprueba al guardar y otra vez al abrir: la
+ * fila pudo entrar por la API, no por este formulario.
+ */
+const esUrlSegura = (url: string) => {
+  try {
+    return ['http:', 'https:'].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+};
 
 export const Formatos = () => {
   const { formatos, fetchFormatos, addFormato, updateFormato, removeFormato, error: errorFormatos } = useFormatosStore();
@@ -48,9 +64,13 @@ export const Formatos = () => {
     // Peso real del archivo. Antes esta columna mostraba un guion fijo para todas las filas.
     tamanoBytes: f.tamano_bytes ?? null,
     size: formatearTamano(f.tamano_bytes),
+    enlace: f.enlace ?? null,
     esDinamico: f.tipo === TIPO_DINAMICO,
-    /** Lo que se ve en la columna TIPO: "Dinámico", o la extensión real del archivo. */
-    etiquetaTipo: f.tipo === TIPO_DINAMICO ? 'Dinámico' : extensionDe(f.archivo_nombre),
+    esEnlace: f.tipo === TIPO_ENLACE,
+    /** Lo que se ve en la columna TIPO: "Dinámico", "Enlace", o la extensión del archivo. */
+    etiquetaTipo: f.tipo === TIPO_DINAMICO ? 'Dinámico'
+      : f.tipo === TIPO_ENLACE ? 'Enlace'
+      : extensionDe(f.archivo_nombre),
   })), [formatos]);
 
   /** Categoría abierta. `null` = todas, que es como arranca la pantalla. */
@@ -440,12 +460,16 @@ export const Formatos = () => {
     const nombre = nombreEnlace.trim();
     const url = urlEnlace.trim();
     if (!nombre || !url) return;
-    setSubiendo(true);
     const S = (await import('sweetalert2')).default;
+    if (!esUrlSegura(url)) {
+      S.fire({ icon: 'warning', title: 'Enlace no válido', text: 'Pega la dirección completa del documento, empezando por https://', confirmButtonColor: '#B00020' });
+      return;
+    }
+    setSubiendo(true);
     try {
       await addFormato({
         nombre,
-        tipo: 'ENLACE',
+        tipo: TIPO_ENLACE,
         estado: 'activo',
         id_serie: serieDestino || null,
         enlace: url,
@@ -457,6 +481,16 @@ export const Formatos = () => {
     } finally {
       setSubiendo(false);
     }
+  };
+
+  /** El documento vive fuera del sistema: se abre en otra pestaña, no se descarga de aquí. */
+  const abrirEnlace = async (url: string) => {
+    if (!esUrlSegura(url)) {
+      const S = (await import('sweetalert2')).default;
+      S.fire({ icon: 'error', title: 'Enlace no válido', text: 'La dirección guardada no es una URL web.', confirmButtonColor: '#B00020' });
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   /** El bucket es privado: la descarga necesita un enlace firmado que caduca al minuto. */
@@ -924,6 +958,15 @@ export const Formatos = () => {
                 <div className="text-[11px] text-gray-500 font-medium">{f.size}</div>
                 <div><span className={`text-[9px] font-extrabold px-2.5 py-1 rounded-full border flex items-center gap-1 w-max bg-green-50 text-green-600 border-green-200/50`}><span className={`w-1.5 h-1.5 rounded-full bg-green-500`}></span>Activo</span></div>
                 <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                  {f.enlace && (
+                    <button
+                      onClick={() => void abrirEnlace(f.enlace!)}
+                      title="Abrir el documento"
+                      className="w-7 h-7 flex items-center justify-center rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   {f.archivoPath && (
                     <button
                       onClick={() => descargarArchivo(f.archivoPath!)}
@@ -979,10 +1022,28 @@ export const Formatos = () => {
                   {renderVistaDocumento({ ...defaultGenValues, ...(selectedFormatForDetail.data || {}) }, true)}
                 </div>
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center relative bg-gray-50/50 rounded-lg z-10">
-                  <FileText className="w-12 h-12 text-red-300 mb-2" strokeWidth={1.5} />
-                  <span className="text-[9px] font-bold text-red-500 tracking-widest bg-red-50 px-2 py-0.5 rounded-md border border-red-100">PDF ESTATICO</span>
-                  <span className="text-[8px] text-gray-400 mt-2 text-center px-4">Esta plantilla es un documento estático subido al sistema.</span>
+                <div className="w-full h-full flex flex-col items-center justify-center relative bg-gray-50/50 rounded-lg z-10 px-4">
+                  {selectedFormatForDetail.enlace ? (
+                    <>
+                      <ExternalLink className="w-12 h-12 text-blue-300 mb-2" strokeWidth={1.5} />
+                      <span className="text-[9px] font-bold text-blue-500 tracking-widest bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">ENLACE</span>
+                      {/* La URL completa, no solo el botón: quien administra necesita ver a dónde
+                          apunta antes de abrirla, y copiarla para corregirla si está mal. */}
+                      <span className="text-[8px] text-gray-400 mt-2 text-center break-all">{selectedFormatForDetail.enlace}</span>
+                      <button
+                        onClick={() => void abrirEnlace(selectedFormatForDetail.enlace)}
+                        className="mt-3 flex items-center gap-1.5 rounded-lg bg-[#0f172a] px-3 py-2 text-[11px] font-bold text-white transition-colors hover:bg-black"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Abrir documento
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-12 h-12 text-red-300 mb-2" strokeWidth={1.5} />
+                      <span className="text-[9px] font-bold text-red-500 tracking-widest bg-red-50 px-2 py-0.5 rounded-md border border-red-100">ARCHIVO</span>
+                      <span className="text-[8px] text-gray-400 mt-2 text-center">Este documento es un archivo estático subido al sistema.</span>
+                    </>
+                  )}
                 </div>
               )}
                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/10 pointer-events-none rounded-xl"></div>

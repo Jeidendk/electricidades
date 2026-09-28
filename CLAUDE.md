@@ -71,6 +71,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Documentos por ENLACE, no por archivo subido (migración 0038, EJECUTARLA).** Guardar un
+  documento con su URL fallaba con `invalid input value for enum tipo_formato: "ENLACE"`:
+  `formatos.tipo` es un enum y solo tenía `DINAMICO` y `PDF`. Se agregó la etiqueta en vez de
+  reutilizar `PDF` porque no es lo mismo —un enlace no tiene archivo, ni peso, y se abre en
+  otra pestaña en lugar de descargarse—; marcarlo `PDF` obligaría a adivinar el origen
+  mirando si `archivo_path` está vacío. La misma migración **registra la columna `enlace`**,
+  que existía en la base sin constar en ninguna migración.
+  El enlace se valida como http/https **al guardar y otra vez al abrir**: la fila pudo entrar
+  por la API y no por el formulario, y un `javascript:` se ejecutaría en la sesión de quien lo
+  abra. Se abre con `noopener,noreferrer`. La columna TIPO dice "Enlace", la fila gana un botón
+  de abrir y el panel de detalle muestra la URL completa —quien administra necesita ver a dónde
+  apunta antes de abrirla— en vez del cartel "PDF ESTÁTICO".
 - **Formatos: series documentales con subseries, y archivos de verdad (migración 0033,
   EJECUTARLA ANTES DE DESPLEGAR).** La lista era plana —28 plantillas sin agrupar— y la columna
   TAMAÑO mostraba un guion fijo (`size: '-'`), porque `formatos` guardaba definiciones de
