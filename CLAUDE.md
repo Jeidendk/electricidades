@@ -71,6 +71,15 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **La asignatura de una solicitud de equipos sale de la malla, no del teclado.** Era un input
+  libre con "Ej: Circuitos Eléctricos I" de marcador; ahora es un `<select>` con las materias
+  de la **carrera y el PAO del estudiante** (`materias.id_carrera` + `semestre`, los mismos dos
+  campos con los que ya se arma su horario automático). Escribir el nombre a mano produce
+  grafías distintas para la misma asignatura y deja los informes sin agrupar.
+  **Se conserva el campo libre como respaldo** cuando el estudiante no tiene carrera o PAO
+  asignados, o su nivel aún no tiene materias cargadas: quedarse sin poder pedir un equipo es
+  peor que un nombre escrito a mano. Sin migración: `materias` ya es legible para el
+  estudiante —su horario la consulta con `!inner`— y la solicitud sigue guardando el nombre.
 - **El estudiante ve los documentos enlazados (migración 0039, EJECUTARLA tras la 0038).**
   Los documentos de tipo `ENLACE` no aparecían en "Modelos de oficio" por DOS filtros, no uno:
   el cliente pedía `tipo === 'DINAMICO'` y **la política RLS de la 0037 exigía lo mismo**, así

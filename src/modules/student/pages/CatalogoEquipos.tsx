@@ -6,6 +6,7 @@ import { FirmaModal } from '../components/FirmaModal';
 import { generarPDFComprobante } from '../../../utils/pdfGenerator';
 import { supabase } from '../../../lib/supabase';
 import { useAuthStore } from '../../../store/authStore';
+import { useMateriasStore } from '../../../store/materiasStore';
 import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
@@ -13,6 +14,7 @@ export const CatalogoEquipos = () => {
   const { cart, cartOpen, setCartOpen, addToCart, updateQty, removeFromCart, clearCart } = useCartStore();
   const { items: catalogoData, fetchItems, loading, error } = useCatalogoEquiposStore();
   const authUser = useAuthStore(s => s.user);
+  const { materias, fetchMaterias } = useMateriasStore();
   const [search, setSearch] = useState('');
 
   // La BD guarda las imágenes en fotos_json (array). Devuelve la primera o un placeholder.
@@ -24,6 +26,19 @@ export const CatalogoEquipos = () => {
   useEffect(() => {
     fetchItems({ forzar: true });
   }, [fetchItems]);
+
+  // Las asignaturas de la malla del estudiante. El store filtra por carrera en la consulta;
+  // el PAO se filtra aquí porque la misma lista sirve para todos los niveles de la carrera.
+  useEffect(() => {
+    if (authUser?.carreraId) fetchMaterias(authUser.carreraId);
+  }, [authUser?.carreraId, fetchMaterias]);
+
+  const materiasDelPao = useMemo(() => {
+    if (!authUser?.carreraId || authUser.pao == null) return [];
+    return materias
+      .filter(materia => materia.id_carrera === authUser.carreraId && materia.semestre === authUser.pao)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [materias, authUser?.carreraId, authUser?.pao]);
   
   // Filters
   const [catFilters, setCatFilters] = useState<string[]>([]);
@@ -583,7 +598,20 @@ export const CatalogoEquipos = () => {
         <div className="p-5 border-t border-gray-100 bg-white shrink-0 space-y-4 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Asignatura *</label>
-            <input type="text" value={asignatura} onChange={e => setAsignatura(e.target.value)} placeholder="Ej: Circuitos Eléctricos I" className="bg-white text-[13px] text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/60 focus:ring-2 focus:ring-espoch-yellow/10 font-medium placeholder:text-gray-300 transition-all" />
+            {/* Con la malla cargada se elige de una lista; escribir a mano el nombre de una
+                materia produce grafías distintas para la misma asignatura. Si el estudiante no
+                tiene carrera o PAO asignados, o su nivel aún no tiene materias, se deja el campo
+                libre: quedarse sin poder pedir un equipo es peor que un nombre escrito a mano. */}
+            {materiasDelPao.length > 0 ? (
+              <select value={asignatura} onChange={e => setAsignatura(e.target.value)} className="bg-white text-[13px] text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/60 focus:ring-2 focus:ring-espoch-yellow/10 font-medium appearance-none cursor-pointer transition-all">
+                <option value="">Selecciona la asignatura…</option>
+                {materiasDelPao.map(materia => (
+                  <option key={materia.id} value={materia.nombre}>{materia.nombre}</option>
+                ))}
+              </select>
+            ) : (
+              <input type="text" value={asignatura} onChange={e => setAsignatura(e.target.value)} placeholder="Ej: Circuitos Eléctricos I" className="bg-white text-[13px] text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/60 focus:ring-2 focus:ring-espoch-yellow/10 font-medium placeholder:text-gray-300 transition-all" />
+            )}
           </div>
           <div className="flex gap-4">
             <div className="flex flex-col gap-1.5 flex-1">
