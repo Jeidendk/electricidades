@@ -75,7 +75,7 @@ export const StudentLayout = () => {
               to="/student/requests" 
               className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
             >
-              Mis Solicitudes
+              Solicitudes de equipos
             </NavLink>
             <NavLink
               to="/student/horarios"
@@ -94,6 +94,12 @@ export const StudentLayout = () => {
               className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
             >
               Recursos
+            </NavLink>
+            <NavLink
+              to="/student/oficios"
+              className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+            >
+              Oficios
             </NavLink>
           </nav>
 
@@ -209,10 +215,11 @@ export const StudentLayout = () => {
         <nav className="lg:hidden flex items-center gap-2 overflow-x-auto custom-scrollbar px-4 py-2 bg-white/90 border-b border-gray-200/50">
           {[
             { to: '/student/catalog', label: 'Catálogo' },
-            { to: '/student/requests', label: 'Mis Solicitudes' },
+            { to: '/student/requests', label: 'Solicitudes de equipos' },
             { to: '/student/horarios', label: 'Horarios' },
             { to: '/student/map', label: 'Ubicaciones' },
             { to: '/student/recursos', label: 'Recursos' },
+            { to: '/student/oficios', label: 'Oficios' },
           ].map(item => (
             <NavLink
               key={item.to}

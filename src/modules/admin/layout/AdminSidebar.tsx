@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
     LayoutGrid, FileText, MonitorSpeaker, ChevronLeft,
     GraduationCap, ChevronDown, Building2,
-    Users, BarChart2, Clock, Library, Landmark, Inbox
+    Users, BarChart2, Clock, Library, Landmark, Inbox, MessageSquare
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
@@ -13,11 +13,12 @@ export const AdminSidebar = () => {
   const mobileOpen = useSidebarStore(s => s.mobileOpen);
   const setMobileOpen = useSidebarStore(s => s.setMobileOpen);
   const [recursosOpen, setRecursosOpen] = useState(false);
+  const [repositorioOpen, setRepositorioOpen] = useState(false);
   const location = useLocation();
   const currentPage = location.pathname;
 
   // Cierra el drawer móvil al cambiar de página.
-  useEffect(() => { setMobileOpen(false); }, [location.pathname, setMobileOpen]);
+  useEffect(() => { setMobileOpen(false); }, [location.pathname, location.search, setMobileOpen]);
 
   const [time, setTime] = useState('--:--');
   const [day, setDay] = useState('CARGANDO');
@@ -37,10 +38,10 @@ export const AdminSidebar = () => {
   }, []);
 
   const isRecursosSection = ['/admin/recursos', '/admin/formatos'].includes(currentPage);
-
-  useEffect(() => {
-    if (isRecursosSection) setRecursosOpen(true);
-  }, [isRecursosSection]);
+  const recursosVisible = recursosOpen || isRecursosSection;
+  const isRepositorioSection = currentPage === '/admin/formatos';
+  const repositorioVisible = repositorioOpen || isRepositorioSection;
+  const perfilRepositorio = new URLSearchParams(location.search).get('perfil') || 'todos';
 
   const toggleSubmenu = (menu: 'recursos') => {
     if (collapsed) setCollapsed(false);
@@ -51,6 +52,11 @@ export const AdminSidebar = () => {
     `flex items-center gap-4 px-6 py-3 transition-colors text-sm font-medium ${
       isActive ? 'text-white bg-espoch-sidebarhover border-l-[3px] border-espoch-yellow font-bold' : 'text-gray-400 hover:text-white hover:bg-espoch-sidebarhover'
     } ${collapsed ? 'justify-center px-0' : ''}`;
+
+  const perfilRepositorioClass = (perfil: string) =>
+    `ml-1 rounded-lg px-3 py-2 text-[10.5px] font-semibold transition-colors ${
+      perfilRepositorio === perfil ? 'bg-white/10 text-white font-extrabold' : 'text-gray-500 hover:bg-white/5 hover:text-white'
+    }`;
 
   return (
     <>
@@ -144,16 +150,29 @@ export const AdminSidebar = () => {
                 <Library className="w-5 h-5 shrink-0" />
                 {!collapsed && <span className="whitespace-nowrap">RECURSOS</span>}
               </div>
-              {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${recursosOpen ? 'rotate-180' : ''}`} />}
+              {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${recursosVisible ? 'rotate-180' : ''}`} />}
             </button>
-            {(!collapsed && recursosOpen) && (
+            {(!collapsed && recursosVisible) && (
               <div className="flex flex-col ml-[34px] border-l border-gray-800 mt-1 mb-2 space-y-1 py-1 pr-4 animate-fade-in">
                 <NavLink to="/admin/recursos" className={({isActive}) => `flex items-center gap-3 pl-5 pr-4 py-2.5 text-[11px] font-semibold hover:text-white transition-all ml-1 ${isActive ? 'bg-espoch-red text-white font-extrabold rounded-lg shadow-sm' : 'text-gray-400'}`}>
                   <Library className="w-4 h-4 shrink-0" /> <span>MATERIAL ACAD.</span>
                 </NavLink>
-                <NavLink to="/admin/formatos" className={({isActive}) => `flex items-center gap-3 pl-5 pr-4 py-2.5 text-[11px] font-semibold hover:text-white transition-all ml-1 ${isActive ? 'bg-espoch-red text-white font-extrabold rounded-lg shadow-sm' : 'text-gray-400'}`}>
-                  <FileText className="w-4 h-4 shrink-0" /> <span>FORMATOS</span>
-                </NavLink>
+                <button
+                  type="button"
+                  onClick={() => setRepositorioOpen(abierto => !abierto)}
+                  className={`ml-1 flex items-center gap-3 rounded-lg py-2.5 pl-5 pr-3 text-[11px] font-semibold transition-all hover:text-white ${isRepositorioSection ? 'bg-espoch-red text-white font-extrabold shadow-sm' : 'text-gray-400'}`}
+                >
+                  <FileText className="w-4 h-4 shrink-0" />
+                  <span>REPOSITORIO</span>
+                  <ChevronDown className={`ml-auto h-3.5 w-3.5 transition-transform ${repositorioVisible ? 'rotate-180' : ''}`} />
+                </button>
+                {repositorioVisible && (
+                  <div className="ml-7 flex flex-col border-l border-gray-700 py-1 pl-2 animate-fade-in">
+                    <NavLink to="/admin/formatos?perfil=estudiantes" className={perfilRepositorioClass('estudiantes')}>ESTUDIANTES</NavLink>
+                    <NavLink to="/admin/formatos?perfil=docentes" className={perfilRepositorioClass('docentes')}>DOCENTES</NavLink>
+                    <NavLink to="/admin/formatos?perfil=gestion" className={perfilRepositorioClass('gestion')}>GESTIÓN DE CALIDAD</NavLink>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -170,6 +189,11 @@ export const AdminSidebar = () => {
           <NavLink to="/admin/reportes" className={navLinkClass} title={collapsed ? "REPORTES" : ""}>
             <BarChart2 className="w-5 h-5 shrink-0" />
             {!collapsed && <span className="whitespace-nowrap overflow-hidden">REPORTES</span>}
+          </NavLink>
+
+          <NavLink to="/admin/asistente" className={navLinkClass} title={collapsed ? "ASISTENTE" : ""}>
+            <MessageSquare className="w-5 h-5 shrink-0" />
+            {!collapsed && <span className="whitespace-nowrap overflow-hidden">ASISTENTE</span>}
           </NavLink>
         </nav>
 

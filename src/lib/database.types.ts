@@ -696,6 +696,33 @@ export interface Database {
           activa?: boolean
         }
       }
+      series_formatos: {
+        Row: {
+          id: string
+          nombre: string
+          descripcion: string | null
+          id_padre: string | null
+          orden: number
+          publico: 'estudiantes' | 'docentes' | 'gestion' | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          nombre: string
+          descripcion?: string | null
+          id_padre?: string | null
+          orden?: number
+          publico?: 'estudiantes' | 'docentes' | 'gestion' | null
+        }
+        Update: {
+          nombre?: string
+          descripcion?: string | null
+          id_padre?: string | null
+          orden?: number
+          publico?: 'estudiantes' | 'docentes' | 'gestion' | null
+        }
+      }
       formatos: {
         Row: {
           id: string
@@ -704,6 +731,12 @@ export interface Database {
           estado: string
           descripcion: string | null
           datos: Json
+          id_serie: string | null
+          archivo_path: string | null
+          enlace: string | null
+          archivo_nombre: string | null
+          tamano_bytes: number | null
+          tipo_mime: string | null
           creado_por: string | null
           created_at: string
           updated_at: string
@@ -715,6 +748,12 @@ export interface Database {
           estado?: string
           descripcion?: string | null
           datos?: Json
+          id_serie?: string | null
+          archivo_path?: string | null
+          enlace?: string | null
+          archivo_nombre?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
           creado_por?: string | null
           created_at?: string
           updated_at?: string
@@ -725,6 +764,12 @@ export interface Database {
           estado?: string
           descripcion?: string | null
           datos?: Json
+          id_serie?: string | null
+          archivo_path?: string | null
+          enlace?: string | null
+          archivo_nombre?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
           creado_por?: string | null
           updated_at?: string
         }

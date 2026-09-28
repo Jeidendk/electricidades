@@ -1,16 +1,37 @@
 import { useState, useMemo, useEffect } from 'react';
 import { 
-  FileText, Search, Trash2, X, AlertTriangle, Layers, Download, ArrowUpDown, Settings, Image as ImageIcon, ChevronDown, User, FileEdit, PenTool, Upload, Edit2, UploadCloud, FileDown, CheckCircle, RotateCcw
+  FileText, Search, Trash2, X, AlertTriangle, Layers, Download, ArrowUpDown, Settings, Image as ImageIcon, ChevronDown, User, FileEdit, PenTool, Edit2, FileDown, CheckCircle, RotateCcw,
+  Folder, FolderPlus, Plus, ChevronRight, Home, MoreVertical, Link2 as LinkIcon, FolderTree
 } from 'lucide-react';
-import { generatePreviewPDF } from '../utils/documentGenerator';
+import { generatePreviewDOCX, generatePreviewPDF, type DocumentParams } from '../utils/documentGenerator';
 import { useFormatosStore } from '../../../store/formatosStore';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 import { Pagination } from '../../../components/ui/Pagination';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { normalizarTexto } from '../../../lib/texto';
+import {
+  useSeriesFormatosStore, construirArbol, idsConDescendientes, rutaHasta,
+  type SerieConHijas,
+} from '../../../store/seriesFormatosStore';
+import {
+  urlDescargaFormato, borrarArchivoFormato, formatearTamano, extensionDe,
+} from '../../../lib/archivosFormatos';
+import { perfilesRepositorio, type PerfilRepositorioId } from '../data/repositorioElectricidad';
+import { enMayusculas } from '../../../lib/texto';
+
+/** Valor de `tipo` de las plantillas que genera el sistema; el resto son archivos subidos. */
+const TIPO_DINAMICO = 'DINAMICO';
+
+/** Clave del chip "Archivos". No es un valor de `tipo`: agrupa todo lo que no es dinámico. */
+const FILTRO_ARCHIVOS = 'ARCHIVOS';
 
 export const Formatos = () => {
-  const { formatos, fetchFormatos, addFormato, updateFormato, removeFormato } = useFormatosStore();
+  const { formatos, fetchFormatos, addFormato, updateFormato, removeFormato, error: errorFormatos } = useFormatosStore();
+  const { series, fetchSeries, addSerie, renameSerie, removeSerie, error: errorSeries } = useSeriesFormatosStore();
+  const [params, setParams] = useSearchParams();
+  const prefijoRuta = useLocation().pathname.startsWith('/tecnico') ? '/tecnico' : '/admin';
 
-  useEffect(() => { fetchFormatos(); }, []);
+  useEffect(() => { fetchFormatos(); fetchSeries(); }, []);
 
   // Mapear campos de BD al formato del componente
   const data = useMemo(() => formatos.map((f: any) => ({
@@ -18,23 +39,180 @@ export const Formatos = () => {
     nombre: f.nombre,
     tipo: f.tipo,
     fecha: f.created_at?.slice(0, 10) || '',
-    size: '-',
     estado: f.estado,
     descripcion: f.descripcion || '',
     data: f.datos ?? null,
+    idSerie: f.id_serie ?? null,
+    archivoPath: f.archivo_path ?? null,
+    archivoNombre: f.archivo_nombre ?? null,
+    // Peso real del archivo. Antes esta columna mostraba un guion fijo para todas las filas.
+    tamanoBytes: f.tamano_bytes ?? null,
+    size: formatearTamano(f.tamano_bytes),
+    esDinamico: f.tipo === TIPO_DINAMICO,
+    /** Lo que se ve en la columna TIPO: "Dinámico", o la extensión real del archivo. */
+    etiquetaTipo: f.tipo === TIPO_DINAMICO ? 'Dinámico' : extensionDe(f.archivo_nombre),
   })), [formatos]);
 
-  const kpi = useMemo(() => ({
-    total: data.length, activos: data.filter(f => f.estado === 'activo').length,
-    dinamicos: data.filter(f => f.tipo === 'DINAMICO').length, estaticos: data.filter(f => f.tipo !== 'DINAMICO').length,
-  }), [data]);
+  /** Categoría abierta. `null` = todas, que es como arranca la pantalla. */
+  const [serieSel, setSerieSel] = useState<string | null>(params.get('carpeta'));
+  const perfilParam = params.get('perfil');
+  const perfilSel: PerfilRepositorioId = perfilesRepositorio.some(perfil => perfil.id === perfilParam)
+    ? perfilParam as PerfilRepositorioId
+    : 'todos';
+  const [busquedaSerie, setBusquedaSerie] = useState('');
+  /**
+   * El árbol de categorías se SUPERPONE en vez de empujar la tabla, igual que el panel
+   * "Ubicaciones" de Horarios: se consulta un momento y se cierra, así que no tiene por qué
+   * quitarle 280px de ancho a la tabla de forma permanente.
+   */
+  const [panelCategoriasAbierto, setPanelCategoriasAbierto] = useState(false);
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
+  const [modalSerie, setModalSerie] = useState<null | 'crear' | 'menu' | 'renombrar' | 'borrar'>(null);
+  const [serieEnEdicion, setSerieEnEdicion] = useState<SerieConHijas | null>(null);
+  const [nombreSerie, setNombreSerie] = useState('');
+  const [padreNuevaSerie, setPadreNuevaSerie] = useState<string | null>(null);
+  const [guardandoSerie, setGuardandoSerie] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [modalEnlace, setModalEnlace] = useState(false);
+  const [nombreEnlace, setNombreEnlace] = useState('');
+  const [urlEnlace, setUrlEnlace] = useState('');
+  const [serieDestino, setSerieDestino] = useState('');
+  const [subiendo, setSubiendo] = useState(false);
+
+  const perfilActual = perfilesRepositorio.find(perfil => perfil.id === perfilSel) ?? perfilesRepositorio[0];
+
+  /** Categorías del perfil más sus ancestros, para conservar el camino completo en el árbol. */
+  const idsCategoriasPerfil = useMemo(() => {
+    if (perfilSel === 'todos') return null;
+    const permitidas = new Set<string>();
+    for (const serie of series) {
+      const codigo = serie.codigo || '';
+      // En categorías personalizadas manda el público guardado. Las categorías institucionales
+      // conservan su clasificación por código porque varias pertenecen a más de una vista.
+      const perteneceAlPerfil = serie.publico
+        ? serie.publico === perfilSel
+        : perfilActual.codigos.some(base => codigo === base || codigo.startsWith(`${base}.`));
+      if (perteneceAlPerfil) {
+        permitidas.add(serie.id);
+        for (const ancestro of rutaHasta(series, serie.id)) permitidas.add(ancestro.id);
+      }
+    }
+    return permitidas;
+  }, [perfilActual, perfilSel, series]);
+
+  const arbolSeriesCompleto = useMemo(() => construirArbol(series), [series]);
+  const arbolSeries = useMemo(() => {
+    if (!idsCategoriasPerfil) return arbolSeriesCompleto;
+    const filtrar = (nodos: SerieConHijas[]): SerieConHijas[] => nodos.flatMap(nodo => {
+      const hijas = filtrar(nodo.hijas);
+      return idsCategoriasPerfil.has(nodo.id) || hijas.length ? [{ ...nodo, hijas }] : [];
+    });
+    return filtrar(arbolSeriesCompleto);
+  }, [arbolSeriesCompleto, idsCategoriasPerfil]);
+
+  const dataPerfil = useMemo(
+    // Un documento SIN categoría no pertenece a ningún perfil, así que este filtro lo escondía
+    // en todos: lo que sale del Generador nace sin clasificar y desaparecía nada más crearlo.
+    () => idsCategoriasPerfil
+      ? data.filter(formato => !formato.idSerie || idsCategoriasPerfil.has(formato.idSerie))
+      : data,
+    [data, idsCategoriasPerfil],
+  );
+
+  const kpi = useMemo(() => ({
+    total: dataPerfil.length,
+    activos: dataPerfil.filter(f => f.estado === 'activo').length,
+    dinamicos: dataPerfil.filter(f => f.esDinamico).length,
+    estaticos: dataPerfil.filter(f => !f.esDinamico).length,
+  }), [dataPerfil]);
+
+  /** Aplanado con su profundidad, que es como se dibuja el árbol y como se llena el select. */
+  const seriesPlanas = useMemo(() => {
+    const salida: { serie: SerieConHijas; nivel: number }[] = [];
+    const recorrer = (nodos: SerieConHijas[], nivel: number) => {
+      for (const serie of nodos) {
+        salida.push({ serie, nivel });
+        recorrer(serie.hijas, nivel + 1);
+      }
+    };
+    recorrer(arbolSeries, 0);
+    return salida;
+  }, [arbolSeries]);
+
+  /**
+   * Qué filas del árbol se ven.
+   *
+   * Sin búsqueda, una serie se muestra si todos sus ancestros están desplegados. Con búsqueda
+   * se aplana: se listan las coincidencias sin importar si su padre está abierto, porque
+   * obligar a desplegar para encontrar algo es justo lo contrario de buscar.
+   */
+  const filasArbol = useMemo(() => {
+    const q = busquedaSerie.trim().toLowerCase();
+    if (q) {
+      return seriesPlanas
+        .filter(({ serie }) => serie.nombre.toLowerCase().includes(q))
+        .map(fila => ({ ...fila, nivel: 0 }));
+    }
+    const visibles = new Set(arbolSeries.map(s => s.id));
+    for (const { serie } of seriesPlanas) {
+      if (visibles.has(serie.id) && expandidas.has(serie.id)) for (const hija of serie.hijas) visibles.add(hija.id);
+    }
+    return seriesPlanas.filter(({ serie }) => visibles.has(serie.id));
+  }, [seriesPlanas, arbolSeries, expandidas, busquedaSerie]);
+
+  /**
+   * Cuántos formatos cuelgan de cada serie, contando los de sus subseries.
+   * Es lo que espera quien ve el número: el total de lo que hay dentro, no solo el primer nivel.
+   */
+  const conteoPorSerie = useMemo(() => {
+    const directos = new Map<string, number>();
+    for (const formato of dataPerfil) {
+      if (formato.idSerie) directos.set(formato.idSerie, (directos.get(formato.idSerie) || 0) + 1);
+    }
+    const total = new Map<string, number>();
+    const sumar = (serie: SerieConHijas): number => {
+      const suma = (directos.get(serie.id) || 0) + serie.hijas.reduce((acc, h) => acc + sumar(h), 0);
+      total.set(serie.id, suma);
+      return suma;
+    };
+    for (const raiz of arbolSeries) sumar(raiz);
+    return total;
+  }, [dataPerfil, arbolSeries]);
+
+  /** Serie abierta y su camino desde la raíz, para el rastro de navegación. */
+  const rutaSerie = useMemo(() => rutaHasta(series, serieSel), [series, serieSel]);
+
+  /** Abrir una serie muestra también lo de sus subseries, como haría cualquier carpeta. */
+  const idsDeLaSeleccion = useMemo(() => {
+    if (!serieSel) return null;
+    const nodo = seriesPlanas.find(({ serie }) => serie.id === serieSel)?.serie;
+    return nodo ? new Set(idsConDescendientes(nodo)) : new Set([serieSel]);
+  }, [serieSel, seriesPlanas]);
+
+  const alternarExpandida = (id: string) => {
+    setExpandidas(previas => {
+      const siguientes = new Set(previas);
+      if (siguientes.has(id)) siguientes.delete(id); else siguientes.add(id);
+      return siguientes;
+    });
+  };
+
+  const [searchQuery, setSearchQuery] = useState(params.get('q') || '');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [sortCol, setSortCol] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
   const [tipoFilter, setTipoFilter] = useState('Todos');
+
+  const abrirRepositorio = (id: string | null, busqueda = '') => {
+    setSerieSel(id);
+    setSearchQuery(busqueda);
+    setTipoFilter('Todos');
+    setCurrentPage(1);
+    setSelectedIds([]);
+    setExpandidas(prev => new Set([...prev, ...rutaHasta(series, id).map(s => s.id)]));
+
+  };
 
   // Settings: Imágenes institucionales (Base64)
   const [headerImg, setHeaderImg] = useState<string>('');
@@ -55,9 +233,10 @@ export const Formatos = () => {
   };
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [modalType, setModalType] = useState<null | 'create' | 'delete' | 'bulkDelete' | 'view' | 'settings' | 'edit' | 'import'>(null);
+  const [modalType, setModalType] = useState<null | 'create' | 'delete' | 'bulkDelete' | 'view' | 'settings' | 'edit'>(null);
   const [selectedFmt, setSelectedFmt] = useState<any>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [categoriaGenerador, setCategoriaGenerador] = useState('');
   
   // New state for Detail Side Panel
   const [selectedFormatForDetail, setSelectedFormatForDetail] = useState<any>(null);
@@ -95,14 +274,13 @@ export const Formatos = () => {
     setGenValues(defaultGenValues);
   };
 
-  const buildBodyString = () => {
-    return `Reciba un cordial saludo. Por la presente, Yo, ${genValues.nombresApellidos}, con C.I: ${genValues.ci} y código estudiantil ${genValues.codigoEstudiantil}, estudiante del ${genValues.numeroPao} de la carrera de ${genValues.carrera} correspondiente a la ${genValues.facultad}, solicito amablemente, ${genValues.descripcion || 'lo que se solicita.'}`;
+  const buildBodyString = (values = genValues) => {
+    return `Reciba un cordial saludo. Por la presente, Yo, ${values.nombresApellidos}, con C.I: ${values.ci} y código estudiantil ${values.codigoEstudiantil}, estudiante del ${values.numeroPao} de la carrera de ${values.carrera} correspondiente a la ${values.facultad}, solicito amablemente, ${values.descripcion || 'lo que se solicita.'}`;
   };
 
   const formattedLugarFecha = `${genValues.ciudadOficio}, ${new Date(genValues.fechaOficio + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
-  const downloadGeneratedPDF = () => {
-    const blob = generatePreviewPDF({
+  const parametrosDocumentoActual = (): DocumentParams => ({
       headerImgBase64: headerImg,
       footerImgBase64: footerImg,
       tituloAutoridad: genValues.tituloAutoridad === 'Otro' ? genValues.tituloAutoridadOtro : genValues.tituloAutoridad,
@@ -112,25 +290,87 @@ export const Formatos = () => {
       cuerpo: buildBodyString(),
       studentName: genValues.nombreFirma,
       studentCI: genValues.ciFirma
-    });
+  });
+
+  const descargarBlob = (blob: Blob, nombre: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Oficio_${genValues.nombresApellidos.replace(/\s+/g, '_')}.pdf`;
+    a.download = nombre;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const downloadGenerated = async (formato: 'pdf' | 'docx') => {
+    const nombre = `Oficio_${genValues.nombresApellidos.replace(/\s+/g, '_')}`;
+    const parametros = parametrosDocumentoActual();
+    const blob = formato === 'pdf'
+      ? generatePreviewPDF(parametros)
+      : await generatePreviewDOCX(parametros);
+    descargarBlob(blob, `${nombre}.${formato}`);
+  };
+
+  /** La misma maqueta se usa en el panel de detalle y en el generador. */
+  const renderVistaDocumento = (values: typeof defaultGenValues, compacta = false) => {
+    const fecha = `${values.ciudadOficio}, ${new Date(values.fechaOficio + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    const titulo = values.tituloAutoridad === 'Otro' ? values.tituloAutoridadOtro : values.tituloAutoridad;
+    return (
+      <div className={`flex min-h-full w-full flex-col bg-white font-serif text-gray-800 ${compacta ? 'p-5 text-[10px] leading-[1.5]' : 'p-12 lg:p-16 text-[13px] leading-relaxed'}`}>
+        <div className={`flex items-center justify-between border-b border-gray-300 ${compacta ? 'pb-3 mb-4' : 'pb-5 mb-7'}`}>
+          <div className={`${compacta ? 'h-10 w-10' : 'h-20 w-24'} flex shrink-0 items-center justify-center rounded bg-gray-50`}>
+            {headerImg ? <img src={headerImg} alt="Sello institucional" className="max-h-full max-w-full object-contain" /> : <ImageIcon className={`${compacta ? 'h-5 w-5' : 'h-8 w-8'} text-gray-300`} />}
+          </div>
+          <div className={`${compacta ? 'px-2' : 'px-6'} flex-1 text-center font-sans`}>
+            <div className={`${compacta ? 'text-[12px]' : 'text-[16px]'} font-extrabold leading-tight`}>ESCUELA SUPERIOR<br className={compacta ? '' : 'hidden'} /> POLITÉCNICA DE CHIMBORAZO</div>
+            <div className={`${compacta ? 'text-[10px]' : 'mt-1 text-[11px]'} uppercase text-gray-500`}>{values.facultad}</div>
+          </div>
+          <div className={`${compacta ? 'h-10 w-10' : 'h-20 w-24'} flex shrink-0 items-center justify-center rounded bg-gray-50`}>
+            {headerImg ? <img src={headerImg} alt="Sello institucional" className="max-h-full max-w-full object-contain" /> : <ImageIcon className={`${compacta ? 'h-5 w-5' : 'h-8 w-8'} text-gray-300`} />}
+          </div>
+        </div>
+
+        <div className={compacta ? 'mb-6 text-right' : 'mb-10 text-right'}>{fecha}</div>
+        <div className={compacta ? 'mb-6' : 'mb-8 leading-tight'}>
+          <div>{titulo} {values.nombreAutoridad}</div>
+          <div className="font-bold">{values.cargoDestinatario}</div>
+          <div>{values.enSuDespacho}</div>
+        </div>
+        <div className={compacta ? 'mb-6' : 'mb-6'}>De mi consideración:</div>
+        <div className={`${compacta ? 'mb-6' : 'mb-8 leading-[1.5]'} whitespace-pre-wrap text-justify`}>{buildBodyString(values)}</div>
+        <div className={compacta ? 'mb-8' : 'mb-8'}>{values.despedida}</div>
+        <div className="mt-auto text-center">
+          <div className={compacta ? 'mb-6' : 'mb-8'}>{values.cierre}</div>
+          <div className={`${compacta ? 'w-32' : 'w-60'} mx-auto mb-1.5 border-b border-gray-800`} />
+          <div className="font-bold">{values.nombreFirma}</div>
+          <div>C.I: {values.ciFirma}</div>
+        </div>
+        {footerImg && (
+          <div className={`${compacta ? 'mt-8 pt-2' : 'mt-10 pt-3'} flex justify-center border-t border-gray-300`}>
+            <img src={footerImg} alt="Pie institucional" className={`${compacta ? 'h-6' : 'h-12'} max-w-full object-contain`} />
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Filtering & Sorting
   const filteredData = useMemo(() => {
-    let result = [...data];
+    let result = [...dataPerfil];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(f => f.nombre.toLowerCase().includes(q) || f.id.toLowerCase().includes(q));
+      const palabras = normalizarTexto(searchQuery).split(/\s+/);
+      result = result.filter(f => {
+        const texto = normalizarTexto(`${f.nombre} ${f.descripcion} ${f.id} ${series.find(s => s.id === f.idSerie)?.nombre || ''}`);
+        return palabras.every(p => texto.includes(p));
+      });
     }
-    if (tipoFilter !== 'Todos') {
-      result = result.filter(f => f.tipo === tipoFilter);
+    if (idsDeLaSeleccion) {
+      result = result.filter(f => f.idSerie && idsDeLaSeleccion.has(f.idSerie));
     }
+    // El chip "Archivos" agrupa todo lo que NO es dinámico. Antes comparaba `tipo === 'PDF'`
+    // mientras el contador usaba `tipo !== 'DINAMICO'`: con un .docx real, el KPI lo contaba
+    // y el filtro no lo mostraba.
+    if (tipoFilter === TIPO_DINAMICO) result = result.filter(f => f.esDinamico);
+    else if (tipoFilter === FILTRO_ARCHIVOS) result = result.filter(f => !f.esDinamico);
     if (sortCol) {
       result.sort((a: any, b: any) => {
         const va = a[sortCol] || '';
@@ -139,13 +379,96 @@ export const Formatos = () => {
       });
     }
     return result;
-  }, [data, searchQuery, sortCol, sortAsc, tipoFilter]);
+  }, [dataPerfil, searchQuery, sortCol, sortAsc, tipoFilter, idsDeLaSeleccion, series]);
 
   const totalPages = Math.ceil(filteredData.length / perPage) || 1;
   const start = (currentPage - 1) * perPage;
   const pageData = filteredData.slice(start, start + perPage);
 
 
+
+  const guardarSerie = async () => {
+    const nombre = nombreSerie.trim();
+    if (!nombre) return;
+    setGuardandoSerie(true);
+    try {
+      if (modalSerie === 'renombrar' && serieEnEdicion) await renameSerie(serieEnEdicion.id, nombre);
+      else {
+        const publicoPadre = series.find(serie => serie.id === padreNuevaSerie)?.publico ?? null;
+        const publico = publicoPadre || (perfilSel === 'todos' ? null : perfilSel);
+        await addSerie(nombre, padreNuevaSerie, publico);
+      }
+      if (padreNuevaSerie) setExpandidas(prev => new Set(prev).add(padreNuevaSerie));
+      setModalSerie(null);
+      setSerieEnEdicion(null);
+      setNombreSerie('');
+    } catch {
+      // El store ya avisó del motivo (nombre repetido, permisos…).
+    } finally {
+      setGuardandoSerie(false);
+    }
+  };
+
+  /**
+   * Borra la serie, no sus formatos: la clave foránea es `on delete set null`, así que quedan
+   * sin clasificar y siguen visibles en "Todas". Si tiene subseries, la base lo rechaza
+   * (`on delete restrict`) y aquí ni se ofrece: llevarse un subárbol por delante desde un menú
+   * es demasiado fácil de hacer por error.
+   */
+  const borrarSerie = async () => {
+    if (!serieEnEdicion) return;
+    setGuardandoSerie(true);
+    try {
+      await removeSerie(serieEnEdicion.id);
+      if (serieSel === serieEnEdicion.id) setSerieSel(null);
+      setModalSerie(null);
+      setSerieEnEdicion(null);
+      await fetchFormatos();
+    } catch {
+      // Ya avisado por el store.
+    } finally {
+      setGuardandoSerie(false);
+    }
+  };
+
+  /** Sube el archivo al bucket privado y crea su fila. El nombre visible es el del archivo. */
+  /**
+   * Registra un documento que vive en OneDrive. El repositorio guarda el ENLACE, no el archivo:
+   * los documentos ya están allí, y copiarlos aquí obligaría a mantener dos versiones al día.
+   */
+  const guardarEnlace = async () => {
+    const nombre = nombreEnlace.trim();
+    const url = urlEnlace.trim();
+    if (!nombre || !url) return;
+    setSubiendo(true);
+    const S = (await import('sweetalert2')).default;
+    try {
+      await addFormato({
+        nombre,
+        tipo: 'ENLACE',
+        estado: 'activo',
+        id_serie: serieDestino || null,
+        enlace: url,
+      } as any);
+      setModalEnlace(false);
+      S.fire({ icon: 'success', title: 'Documento agregado', timer: 1500, showConfirmButton: false });
+    } catch (error: any) {
+      S.fire({ icon: 'error', title: 'No se pudo agregar', text: error?.message || 'Inténtalo otra vez.', confirmButtonColor: '#B00020' });
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  /** El bucket es privado: la descarga necesita un enlace firmado que caduca al minuto. */
+  const descargarArchivo = async (path: string) => {
+    const S = (await import('sweetalert2')).default;
+    try {
+      const url = await urlDescargaFormato(path);
+      window.open(url, '_blank');
+    } catch {
+      S.fire({ icon: 'error', title: 'No se pudo descargar', text: 'El archivo ya no está disponible.', confirmButtonColor: '#B00020' });
+    }
+  };
 
   const handleSort = (col: string) => {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -181,6 +504,10 @@ export const Formatos = () => {
       alert("Por favor, ingrese un nombre para el formato/modelo antes de guardar.");
       return;
     }
+    if (!categoriaGenerador) {
+      alert("Seleccione la categoría documental donde se guardará la plantilla.");
+      return;
+    }
 
     const descripcion = `Oficio para: ${genValues.descripcion.substring(0, 50)}...`;
 
@@ -189,7 +516,8 @@ export const Formatos = () => {
       await updateFormato(editingId, {
         nombre: genValues.nombreFormato,
         descripcion,
-        datos: { ...genValues },
+        datos: { ...genValues, headerImg, footerImg },
+        id_serie: categoriaGenerador,
       });
     } else {
       // Crear nuevo modelo (id y created_at los genera la BD)
@@ -198,7 +526,8 @@ export const Formatos = () => {
         tipo: 'DINAMICO',
         estado: 'activo',
         descripcion,
-        datos: { ...genValues },
+        datos: { ...genValues, headerImg, footerImg },
+        id_serie: categoriaGenerador,
       });
     }
     setModalType(null);
@@ -232,15 +561,16 @@ export const Formatos = () => {
       estado: format.estado,
       descripcion: format.descripcion,
       datos: format.data ?? null,
+      id_serie: format.idSerie ?? null,
     });
   };
 
-  const downloadFormat = (format: any) => {
+  const downloadFormat = async (format: any, formato: 'pdf' | 'docx') => {
     if (format.tipo === 'DINAMICO') {
       const gv = format.data || { ...defaultGenValues, nombreFormato: format.nombre };
-      const blob = generatePreviewPDF({
-        headerImgBase64: headerImg,
-        footerImgBase64: footerImg,
+      const parametros: DocumentParams = {
+        headerImgBase64: gv.headerImg || headerImg,
+        footerImgBase64: gv.footerImg || footerImg,
         tituloAutoridad: gv.tituloAutoridad === 'Otro' ? gv.tituloAutoridadOtro : gv.tituloAutoridad,
         nombreAutoridad: gv.nombreAutoridad,
         cargo: gv.cargoDestinatario,
@@ -248,15 +578,13 @@ export const Formatos = () => {
         cuerpo: `Reciba un cordial saludo. Por la presente, Yo, ${gv.nombresApellidos}, con C.I: ${gv.ci} y código estudiantil ${gv.codigoEstudiantil}, estudiante del ${gv.numeroPao} de la carrera de ${gv.carrera} correspondiente a la ${gv.facultad}, solicito amablemente, ${gv.descripcion || 'lo que se solicita.'}`,
         studentName: gv.nombreFirma,
         studentCI: gv.ciFirma
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Plantilla_${gv.nombreFormato.replace(/\s+/g, '_')}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      };
+      const blob = formato === 'pdf'
+        ? generatePreviewPDF(parametros)
+        : await generatePreviewDOCX(parametros);
+      descargarBlob(blob, `Plantilla_${gv.nombreFormato.replace(/\s+/g, '_')}.${formato}`);
     } else {
-      alert("Descarga de PDF estático no implementada en el demo.");
+      alert("Las opciones Word y PDF corresponden a las plantillas dinámicas.");
     }
   };
 
@@ -273,10 +601,26 @@ export const Formatos = () => {
                 <FileText className="w-7 h-7" strokeWidth={2} />
               </div>
               <div className="flex flex-col">
-                <h2 className="text-[12px] font-extrabold text-white tracking-tight leading-none mb-1.5">
-                  Modelos y Plantillas
-                </h2>
-                <p className="text-[11px] text-gray-400 font-medium">Gestione plantillas estáticas y genere oficios dinámicos.</p>
+                <nav aria-label="Ubicación actual" className="mb-1.5 flex max-w-[720px] items-center gap-1.5 overflow-hidden text-[9px] font-extrabold uppercase tracking-widest text-gray-400">
+                  <Link to={`${prefijoRuta}/recursos`} className="shrink-0 transition-colors hover:text-white">Recursos</Link>
+                  <ChevronRight className="h-3 w-3 shrink-0" />
+                  <Link to={`${prefijoRuta}/formatos${perfilSel === 'todos' ? '' : `?perfil=${perfilSel}`}`} className="shrink-0 transition-colors hover:text-white">Repositorio</Link>
+                  {perfilSel !== 'todos' && (
+                    <>
+                      <ChevronRight className="h-3 w-3 shrink-0" />
+                      <span className="shrink-0 text-espoch-yellow">{perfilActual.nombre}</span>
+                    </>
+                  )}
+                  {rutaSerie.length > 0 && (
+                    <>
+                      <ChevronRight className="h-3 w-3 shrink-0" />
+                      <span className="truncate text-white" title={rutaSerie[rutaSerie.length - 1].nombre}>{rutaSerie[rutaSerie.length - 1].nombre}</span>
+                    </>
+                  )}
+                </nav>
+                <p className="text-[11px] text-gray-400 font-medium">
+                  {perfilSel === 'todos' ? 'Organiza documentos, normativa y evidencias en un solo lugar.' : perfilActual.descripcion}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-6 bg-[#212730] rounded-xl px-6 py-3 border border-white/5 shadow-inner hidden md:flex">
@@ -294,7 +638,7 @@ export const Formatos = () => {
                 <FileEdit className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
                 <div className="flex flex-col">
                   <span className="text-[15px] font-bold text-white leading-tight">{kpi.dinamicos}</span>
-                  <span className="text-[10px] font-medium text-gray-400 leading-none">Dinámicos</span>
+                  <span className="text-[10px] font-medium text-gray-400 leading-none">Plantillas</span>
                 </div>
               </div>
               <div className="w-px h-8 bg-white/10 mx-1"></div>
@@ -303,7 +647,7 @@ export const Formatos = () => {
                 <FileText className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
                 <div className="flex flex-col">
                   <span className="text-[15px] font-bold text-white leading-tight">{kpi.estaticos}</span>
-                  <span className="text-[10px] font-medium text-gray-400 leading-none">PDF</span>
+                  <span className="text-[10px] font-medium text-gray-400 leading-none">Archivos</span>
                 </div>
               </div>
               <div className="w-px h-8 bg-white/10 mx-1"></div>
@@ -320,58 +664,213 @@ export const Formatos = () => {
         </div>
 
       {/* PANEL SPLIT */}
-      <div className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0 relative bg-[#f4f7fb]/90 backdrop-blur-xl h-full animate-fade-in flex flex-col">
-        <div className="flex-1 flex flex-row min-h-0 gap-6 relative">
+
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 min-h-0 relative bg-[#f4f7fb]/90 backdrop-blur-xl h-full animate-fade-in flex flex-col">
+        <div className="flex flex-1 flex-row min-h-0 gap-4 relative">
         
+        {/* PANEL DE CATEGORÍAS · capa flotante sobre la tabla, no ocupa sitio en la fila.
+            El fondo cierra al pulsar fuera, que es lo que espera cualquiera con un panel así. */}
+        {panelCategoriasAbierto && (
+          <button
+            aria-label="Cerrar categorías"
+            onClick={() => setPanelCategoriasAbierto(false)}
+            className="absolute inset-0 z-20 cursor-default rounded-[20px] bg-black/5"
+          />
+        )}
+        <div className={`absolute inset-y-0 left-0 z-30 w-[280px] flex-col overflow-hidden rounded-[20px] border border-gray-200/60 bg-white shadow-2xl transition-all duration-200 ${panelCategoriasAbierto ? 'flex opacity-100 translate-x-0' : 'hidden -translate-x-3 opacity-0'}`}>
+          <AcentoTarjeta />
+          <div className="p-5 pb-3 shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[13px] font-extrabold text-gray-900">Categorías de documentos</h3>
+              <button
+                onClick={() => setPanelCategoriasAbierto(false)}
+                title="Cerrar"
+                className="ml-auto mr-1 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => { setNombreSerie(''); setPadreNuevaSerie(null); setSerieEnEdicion(null); setModalSerie('crear'); }}
+                title="Nueva categoría"
+                className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={busquedaSerie}
+                onChange={e => setBusquedaSerie(e.target.value)}
+                placeholder="Buscar categoría..."
+                className="w-full bg-gray-50 border border-gray-200 text-[12px] rounded-lg pl-9 pr-3 py-2 outline-none focus:border-blue-400 transition-colors placeholder:text-gray-400"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5 min-h-0 custom-scrollbar">
+            <button
+              onClick={() => { setSerieSel(null); setCurrentPage(1); }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors ${serieSel === null ? 'bg-red-50/80 border-l-4 border-espoch-red pl-3 -ml-1' : 'hover:bg-gray-50'}`}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Layers className={`w-4 h-4 shrink-0 ${serieSel === null ? 'text-espoch-red' : 'text-gray-400'}`} />
+                <span className={`text-[12.5px] truncate ${serieSel === null ? 'font-bold text-espoch-red' : 'font-medium text-gray-700'}`}>Todas</span>
+              </span>
+              <span className="bg-gray-100 text-gray-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0">{dataPerfil.length}</span>
+            </button>
+
+            {filasArbol.map(({ serie, nivel }) => {
+              const activa = serieSel === serie.id;
+              const tieneHijas = serie.hijas.length > 0;
+              const abierta = expandidas.has(serie.id);
+              return (
+                <div
+                  key={serie.id}
+                  onClick={() => { setSerieSel(serie.id); setCurrentPage(1); setPanelCategoriasAbierto(false); }}
+                  style={{ paddingLeft: `${nivel * 14 + 8}px` }}
+                  className={`flex items-center justify-between py-2 pr-2 rounded-lg cursor-pointer group transition-colors ${activa ? 'bg-red-50/80 border-l-4 border-espoch-red -ml-1' : 'hover:bg-gray-50'}`}
+                >
+                  <span className="flex items-center gap-1 min-w-0">
+                    {tieneHijas ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); alternarExpandida(serie.id); }}
+                        title={abierta ? 'Contraer' : 'Desplegar'}
+                        className="p-0.5 rounded text-gray-400 hover:text-gray-700 transition-colors shrink-0"
+                      >
+                        <ChevronRight className={`w-3 h-3 transition-transform ${abierta ? 'rotate-90' : ''}`} />
+                      </button>
+                    ) : (
+                      <span className="w-4 shrink-0" />
+                    )}
+                    <Folder className="w-4 h-4 text-espoch-yellow shrink-0" />
+                    <span className={`text-[12.5px] truncate ml-1 ${activa ? 'font-bold text-espoch-red' : 'font-medium text-gray-600'}`} title={serie.nombre}>{serie.nombre}</span>
+                  </span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="bg-gray-100 text-gray-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full">{conteoPorSerie.get(serie.id) || 0}</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); setSerieEnEdicion(serie); setNombreSerie(serie.nombre); setModalSerie('menu'); }}
+                      title="Opciones de la categoría"
+                      className="p-0.5 rounded text-gray-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-gray-700 transition-opacity"
+                    >
+                      <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
+
+            {series.length === 0 && (
+              <div className="px-2 py-8 text-center">
+                <FolderPlus className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                <p className="text-[11px] text-gray-400 font-medium">Todavía no hay categorías.</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Crea una con el botón de arriba.</p>
+              </div>
+            )}
+            {series.length > 0 && filasArbol.length === 0 && (
+              <p className="px-2 py-6 text-center text-[11px] text-gray-400 font-medium">Ninguna categoría coincide.</p>
+            )}
+          </div>
+        </div>
+
         {/* PANEL IZQUIERDO */}
         <div className="bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-6 flex flex-col relative overflow-hidden flex-1 min-w-0 transition-all duration-300">
           <AcentoTarjeta />
-        
-        {/* TOOLBAR */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-6 shrink-0">
-          <div className="flex items-center gap-3 w-full xl:w-auto flex-wrap justify-center">
-            <div className="relative w-[260px] shrink-0">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input type="text" placeholder="Buscar modelo o plantilla..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="w-full bg-white text-[13px] text-gray-700 rounded-xl py-2 pl-10 pr-4 outline-none border border-gray-200 focus:border-blue-500 transition-all font-medium placeholder:text-gray-400 shadow-sm" />
-            </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[
-                { key: 'Todos', label: 'Todos', count: kpi.total },
-                { key: 'DINAMICO', label: 'Dinámicos', count: kpi.dinamicos },
-                { key: 'PDF', label: 'PDF', count: kpi.estaticos }
-              ].map(({ key, label, count }) => {
-                const isActive = tipoFilter === key;
-                return (
-                  <button key={key} onClick={() => { setTipoFilter(key); setCurrentPage(1); }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11.5px] font-bold border transition-all ${isActive ? 'bg-[#1e2733] text-white border-transparent shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'}`}>
-                    {label}
-                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold ${isActive ? 'bg-espoch-yellow text-gray-900' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Dónde estoy: RECURSOS / FORMATOS / serie / subserie */}
+          <label className="mb-4 block shrink-0 text-xs font-bold text-gray-600 lg:hidden">Categoría
+            <select value={serieSel || ''} onChange={e => abrirRepositorio(e.target.value || null)} className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
+              <option value="">Todas las categorías</option>
+              {seriesPlanas.map(({ serie, nivel }) => <option key={serie.id} value={serie.id}>{'— '.repeat(nivel)}{serie.nombre}</option>)}
+            </select>
+          </label>
+          {(errorSeries || errorFormatos) && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-xs text-red-700">No se pudo cargar el repositorio. <button className="font-bold underline" onClick={() => { void fetchSeries(); void fetchFormatos(); }}>Reintentar</button></p>}
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 shrink-0 flex-wrap">
+            <Home className="w-3 h-3" />
+            <span>Recursos</span>
+            <ChevronRight className="w-3 h-3" />
+            <button onClick={() => abrirRepositorio(null)} className="hover:text-gray-600 transition-colors uppercase">Repositorio</button>
+            {rutaSerie.map((serie, indice) => (
+              <span key={serie.id} className="flex items-center gap-1.5">
+                <ChevronRight className="w-3 h-3" />
+                <button
+                  onClick={() => setSerieSel(serie.id)}
+                  className={`truncate max-w-[200px] uppercase transition-colors ${indice === rutaSerie.length - 1 ? 'text-espoch-yellow' : 'hover:text-gray-600'}`}
+                  title={serie.nombre}
+                >
+                  {serie.nombre}
+                </button>
+              </span>
+            ))}
+          </div>
 
-            <button 
-              onClick={() => { setSearchQuery(''); setTipoFilter('Todos'); setCurrentPage(1); }}
-              className="flex items-center gap-1.5 text-[12px] text-gray-500 font-medium hover:text-gray-700 transition-colors"
+        {/* TOOLBAR
+            Dos grupos que se envuelven COMO BLOQUES: antes cada uno llevaba `flex-wrap` dentro
+            de un `justify-between`, así que se partían por su cuenta y las líneas se
+            entrelazaban —el buscador arriba con los botones, y los chips abajo con el botón
+            principal—. Ahora, o caben en una fila, o filtros arriba y acciones debajo. */}
+        <div className="mb-6 flex shrink-0 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+
+          {/* Filtrar */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setPanelCategoriasAbierto(a => !a)}
+              title="Categorías de documentos"
+              className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border transition-colors ${panelCategoriasAbierto ? 'border-transparent bg-[#0f172a] text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Limpiar filtros
+              <FolderTree className="h-4 w-4" />
+            </button>
+            <div className="relative w-full shrink-0 sm:w-[240px]">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input type="text" placeholder="Buscar documentos..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="w-full bg-white text-[13px] text-gray-700 rounded-xl py-2 pl-10 pr-4 outline-none border border-gray-200 focus:border-blue-500 transition-all font-medium placeholder:text-gray-400 shadow-sm" />
+            </div>
+
+            {[
+              { key: 'Todos', label: 'Todos', count: kpi.total },
+              { key: TIPO_DINAMICO, label: 'Plantillas', count: kpi.dinamicos },
+              { key: FILTRO_ARCHIVOS, label: 'Archivos', count: kpi.estaticos }
+            ].map(({ key, label, count }) => {
+              const isActive = tipoFilter === key;
+              return (
+                <button key={key} onClick={() => { setTipoFilter(key); setCurrentPage(1); }}
+                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-[11.5px] font-bold transition-all ${isActive ? 'bg-[#1e2733] text-white border-transparent shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'}`}>
+                  {label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${isActive ? 'bg-espoch-yellow text-gray-900' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => { setParams(perfilSel === 'todos' ? {} : { perfil: perfilSel }); setSearchQuery(''); setTipoFilter('Todos'); setSerieSel(null); setCurrentPage(1); setSelectedIds([]); }}
+              className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-gray-500 transition-colors hover:text-gray-700"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Limpiar filtros
             </button>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <button onClick={handleExportSelected} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-              <Download className="w-3.5 h-3.5" /> Exportar {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}
+          {/* Hacer. Mismo tamaño en las cuatro secundarias -antes mezclaban px-5/px-4 y
+              text-xs/text-[12px]- y la acción principal, oscura, al final. */}
+          <div className="flex flex-wrap items-center justify-end gap-2 2xl:shrink-0">
+            <button onClick={handleExportSelected} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
+              <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
             </button>
-            <button onClick={() => setModalType('import')} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-              <Upload className="w-3.5 h-3.5" /> Importar
-            </button>
-            <button onClick={() => setModalType('settings')} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+            <button onClick={() => setModalType('settings')} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
               <Settings className="w-3.5 h-3.5" /> Logos y Sellos
             </button>
-            <button onClick={() => { clearForm(); setEditingId(null); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800 xl:ml-2">
+            <button
+              onClick={() => {
+                if (!serieSel) { alert('Seleccione una categoría antes de agregar un documento.'); return; }
+                setNombreEnlace(''); setUrlEnlace(''); setSerieDestino(serieSel); setModalEnlace(true);
+              }}
+              className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              <LinkIcon className="w-3.5 h-3.5" /> Agregar enlace
+            </button>
+            <button onClick={() => {
+              if (!serieSel) { alert('Seleccione una categoría antes de crear una plantilla.'); return; }
+              clearForm(); setEditingId(null); setCategoriaGenerador(serieSel); setModalType('create');
+            }} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-800 bg-[#0f172a] px-5 py-2.5 text-[12px] font-bold text-white shadow-lg transition-all hover:bg-black">
               <FileText className="w-3.5 h-3.5" /> Generador de Oficios
             </button>
           </div>
@@ -420,16 +919,26 @@ export const Formatos = () => {
                   <span className="text-[13px] font-bold text-gray-900 truncate">{f.nombre}</span>
                   <span className="text-[10px] text-gray-400 font-mono">{f.id}</span>
                 </div>
-                <div><span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${f.tipo === 'DINAMICO' ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-red-50 text-red-600 border-red-200'}`}>{f.tipo}</span></div>
+                <div><span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${f.esDinamico ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-red-50 text-red-600 border-red-200'}`}>{f.etiquetaTipo}</span></div>
                 <div className="text-[11px] text-gray-500 font-medium">{new Date(f.fecha).toLocaleDateString('es-ES')}</div>
                 <div className="text-[11px] text-gray-500 font-medium">{f.size}</div>
                 <div><span className={`text-[9px] font-extrabold px-2.5 py-1 rounded-full border flex items-center gap-1 w-max bg-green-50 text-green-600 border-green-200/50`}><span className={`w-1.5 h-1.5 rounded-full bg-green-500`}></span>Activo</span></div>
                 <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                  {f.archivoPath && (
+                    <button
+                      onClick={() => descargarArchivo(f.archivoPath!)}
+                      title={`Descargar ${f.archivoNombre}`}
+                      className="w-7 h-7 flex items-center justify-center rounded-md bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button onClick={() => { 
                     setSelectedFmt(f); 
-                    if (f.tipo === 'DINAMICO') {
+                    if (f.esDinamico) {
                       setGenValues(f.data || { ...defaultGenValues, nombreFormato: f.nombre });
                       setEditingId(f.id);
+                      setCategoriaGenerador(f.idSerie || '');
                       setModalType('create');
                     } else {
                       setModalType('edit'); 
@@ -466,49 +975,8 @@ export const Formatos = () => {
 
             <div className="w-full flex-1 bg-white rounded-xl border border-gray-200 flex flex-col mb-6 relative overflow-hidden shadow-sm p-3 min-h-0">
               {selectedFormatForDetail.tipo === 'DINAMICO' ? (
-                <div className="w-full h-full bg-white p-5 overflow-y-auto text-[10px] leading-[1.5] text-gray-800 border border-gray-100 shadow-inner rounded-sm custom-scrollbar relative z-10 pointer-events-auto">
-                  {/* Real HTML Preview */}
-                  <div className="flex justify-between items-center border-b border-gray-300 pb-3 mb-4">
-                    <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded">
-                      {headerImg ? <img src={headerImg} className="max-w-full max-h-full object-contain" /> : <ImageIcon className="w-5 h-5 text-gray-300"/>}
-                    </div>
-                    <div className="text-center flex-1 px-2">
-                      <div className="font-bold text-[12px]">ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</div>
-                      <div className="text-[10px] uppercase">{(selectedFormatForDetail.data?.facultad || 'FACULTAD DE INFORMÁTICA Y ELECTRÓNICA')}</div>
-                    </div>
-                    <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded">
-                      {headerImg ? <img src={headerImg} className="max-w-full max-h-full object-contain" /> : <ImageIcon className="w-5 h-5 text-gray-300"/>}
-                    </div>
-                  </div>
-                  
-                  <div className="text-right mb-6">
-                    {selectedFormatForDetail.data?.ciudadOficio || 'Riobamba'}, {new Date((selectedFormatForDetail.data?.fechaOficio || new Date().toISOString().split('T')[0]) + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </div>
-
-                  <div className="mb-6">
-                    <div>{(selectedFormatForDetail.data?.tituloAutoridad === 'Otro' ? selectedFormatForDetail.data?.tituloAutoridadOtro : selectedFormatForDetail.data?.tituloAutoridad) || 'Ing.'} {selectedFormatForDetail.data?.nombreAutoridad || 'NOMBRE DE LA AUTORIDAD'}</div>
-                    <div className="font-bold">{selectedFormatForDetail.data?.cargoDestinatario || 'CARGO'}</div>
-                    <div>{selectedFormatForDetail.data?.enSuDespacho || 'En su despacho,'}</div>
-                  </div>
-
-                  <div className="text-justify mb-6 opacity-90">
-                    Reciba un cordial saludo. Por la presente, Yo, <strong>{selectedFormatForDetail.data?.nombresApellidos || 'NOMBRES Y APELLIDOS'}</strong>, con C.I: <strong>{selectedFormatForDetail.data?.ci || '1234567890'}</strong> y código estudiantil <strong>{selectedFormatForDetail.data?.codigoEstudiantil || '123'}</strong>, estudiante del <strong>{selectedFormatForDetail.data?.numeroPao || 'PAO 1'}</strong> de la carrera de <strong>{selectedFormatForDetail.data?.carrera || 'CARRERA'}</strong> correspondiente a la <strong>{selectedFormatForDetail.data?.facultad || 'FACULTAD'}</strong>, solicito amablemente, {selectedFormatForDetail.data?.descripcion || 'lo que se solicita.'}
-                  </div>
-
-                  <div className="mb-8">{selectedFormatForDetail.data?.despedida || 'Agradezco de antemano la atención brindada.'}</div>
-
-                  <div className="mt-10 text-center">
-                    <div className="mb-6">{selectedFormatForDetail.data?.cierre || 'Atentamente,'}</div>
-                    <div className="w-32 border-b border-gray-800 mx-auto mb-1.5"></div>
-                    <div className="font-bold">{selectedFormatForDetail.data?.nombreFirma || 'NOMBRE DEL ESTUDIANTE'}</div>
-                    <div>C.I: {selectedFormatForDetail.data?.ciFirma || '1234567890'}</div>
-                  </div>
-                  
-                  {footerImg && (
-                    <div className="mt-8 border-t border-gray-300 pt-2 flex justify-center">
-                      <img src={footerImg} className="h-6 object-contain" />
-                    </div>
-                  )}
+                <div className="w-full h-full bg-white overflow-y-auto border border-gray-100 shadow-inner rounded-sm custom-scrollbar relative z-10 pointer-events-auto">
+                  {renderVistaDocumento({ ...defaultGenValues, ...(selectedFormatForDetail.data || {}) }, true)}
                 </div>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center relative bg-gray-50/50 rounded-lg z-10">
@@ -527,6 +995,7 @@ export const Formatos = () => {
                     if (selectedFormatForDetail.tipo === 'DINAMICO') {
                       setGenValues(selectedFormatForDetail.data || { ...defaultGenValues, nombreFormato: selectedFormatForDetail.nombre });
                       setEditingId(selectedFormatForDetail.id);
+                      setCategoriaGenerador(selectedFormatForDetail.idSerie || '');
                       setModalType('create');
                     } else {
                       setModalType('edit');
@@ -540,9 +1009,16 @@ export const Formatos = () => {
                   <Layers className="w-3.5 h-3.5" /> Duplicar
                </button>
             </div>
-            <button onClick={() => downloadFormat(selectedFormatForDetail)} className="w-full mt-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
-              <Download className="w-3.5 h-3.5" /> Descargar Plantilla
-            </button>
+            {selectedFormatForDetail.tipo === 'DINAMICO' && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button onClick={() => void downloadFormat(selectedFormatForDetail, 'pdf')} className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
+                <button onClick={() => void downloadFormat(selectedFormatForDetail, 'docx')} className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
+                  <FileText className="w-3.5 h-3.5" /> Word
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -571,6 +1047,17 @@ export const Formatos = () => {
                         <div className="flex flex-col gap-1.5 mb-2 bg-blue-50 p-3 rounded-lg border border-blue-100">
                           <label className="text-[10px] font-bold text-blue-800">Nombre para guardar esta plantilla / modelo *</label>
                           <input name="nombreFormato" value={genValues.nombreFormato} onChange={handleGenChange} placeholder="Ej. Oficio de retiro de carrera" className="text-xs p-2.5 border border-blue-200 rounded-lg outline-none focus:border-blue-400 bg-white text-blue-900 font-bold" />
+                          {editingId && (
+                            <>
+                              <label className="mt-1 text-[10px] font-bold text-blue-800">Categoría documental *</label>
+                              <select value={categoriaGenerador} onChange={e => setCategoriaGenerador(e.target.value)} className="cursor-pointer rounded-lg border border-blue-200 bg-white p-2.5 text-xs font-bold text-blue-900 outline-none focus:border-blue-400">
+                                <option value="">Seleccione una categoría</option>
+                                {seriesPlanas.map(({ serie, nivel }) => (
+                                  <option key={serie.id} value={serie.id}>{'— '.repeat(nivel)}{serie.nombre}</option>
+                                ))}
+                              </select>
+                            </>
+                          )}
                         </div>
                         <div className="grid grid-cols-[1fr_150px] gap-4">
                           <div className="flex flex-col gap-1.5">
@@ -697,31 +1184,17 @@ export const Formatos = () => {
                 <div className="flex-1 bg-[#f1f5f9] p-6 lg:p-10 flex flex-col items-center overflow-y-auto custom-scrollbar relative">
                   <div className="w-full max-w-[700px] flex justify-between items-center mb-4">
                     <h4 className="font-extrabold text-sm text-gray-700">Vista Previa del Documento</h4>
-                    <button onClick={downloadGeneratedPDF} className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 shadow-sm transition-colors">
-                      <Download className="w-3.5 h-3.5" /> Descargar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => void downloadGenerated('pdf')} className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 shadow-sm transition-colors">
+                        <Download className="w-3.5 h-3.5" /> PDF
+                      </button>
+                      <button onClick={() => void downloadGenerated('docx')} className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 shadow-sm transition-colors">
+                        <FileText className="w-3.5 h-3.5" /> Word
+                      </button>
+                    </div>
                   </div>
-                  <div className="w-full max-w-[700px] aspect-[1/1.414] bg-white shadow-xl relative p-12 lg:p-16 text-[13px] text-gray-900 font-serif leading-relaxed">
-                    {headerImg && <img src={headerImg} alt="Header" className="absolute top-0 left-6 h-[100px] w-auto object-contain object-left-top" />}
-                    {footerImg && <img src={footerImg} alt="Footer" className="absolute bottom-6 left-6 right-6 h-[50px] w-[calc(100%-48px)] object-contain object-bottom" />}
-                    <div className="text-right mb-12">{formattedLugarFecha}</div>
-                    <div className="mb-10 leading-tight">
-                      <p>{genValues.tituloAutoridad === 'Otro' ? genValues.tituloAutoridadOtro : genValues.tituloAutoridad}</p>
-                      <p>{genValues.nombreAutoridad.toUpperCase()}</p>
-                      <p className="font-bold">{genValues.cargoDestinatario.toUpperCase()}</p>
-                      <p>{genValues.enSuDespacho}</p>
-                    </div>
-                    <div className="mb-6">De mi consideración:</div>
-                    <div className="text-justify whitespace-pre-wrap flex-1 mb-8 leading-[1.5]">{buildBodyString()}</div>
-                    <div className="mt-8">
-                      <p>{genValues.despedida}</p>
-                      <p className="mt-6">{genValues.cierre}</p>
-                    </div>
-                    <div className="absolute bottom-32 left-1/2 -translate-x-1/2 text-center text-xs">
-                      <p>_________________________________</p>
-                      <p className="font-bold mt-1">{genValues.nombreFirma}</p>
-                      <p className="font-bold">C.I: {genValues.ciFirma}</p>
-                    </div>
+                  <div className="w-full max-w-[700px] aspect-[1/1.414] bg-white shadow-xl relative overflow-hidden text-gray-900">
+                    {renderVistaDocumento(genValues)}
                   </div>
                 </div>
               </div>
@@ -741,7 +1214,7 @@ export const Formatos = () => {
             <div className="bg-white rounded-[20px] p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[500px] relative animate-scale-in">
               <button onClick={() => setModalType(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors bg-transparent p-1 z-10"><X className="w-5 h-5" /></button>
               <h3 className="text-lg font-extrabold text-gray-900 mb-1">Logos y Sellos Oficiales</h3>
-              <p className="text-xs text-gray-500 mb-6">Suba las imágenes institucionales para el motor de PDFs.</p>
+              <p className="text-xs text-gray-500 mb-6">Suba las imágenes institucionales para los documentos PDF y Word.</p>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -800,13 +1273,20 @@ export const Formatos = () => {
                   nombre: fd.get('nombre') as string,
                   descripcion: fd.get('descripcion') as string,
                   estado: fd.get('estado') as string,
+                  id_serie: (fd.get('id_serie') as string) || null,
                 });
                 setModalType(null);
               }} className="flex flex-col gap-4 text-left">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nombre del Formato</label>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nombre del documento</label>
                   <input name="nombre" defaultValue={selectedFmt.nombre} required className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-blue-400 font-medium" />
                 </div>
+                <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-600">Categoría documental
+                  <select name="id_serie" defaultValue={selectedFmt.idSerie || ''} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm">
+                    <option value="">Sin clasificar</option>
+                    {seriesPlanas.map(({ serie, nivel }) => <option key={serie.id} value={serie.id}>{'— '.repeat(nivel)}{serie.nombre}</option>)}
+                  </select>
+                </label>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Descripción</label>
                   <textarea name="descripcion" defaultValue={selectedFmt.descripcion} required rows={3} className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-blue-400 font-medium resize-none"></textarea>
@@ -826,49 +1306,164 @@ export const Formatos = () => {
             </div>
           )}
 
-          {modalType === 'import' && (
-            <div className="bg-white rounded-[20px] p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[400px] relative animate-scale-in text-center">
-              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Importar Modelos</h3>
-              <p className="text-xs text-gray-500 mb-6">Cargue un archivo CSV con nuevos modelos o plantillas.</p>
-              <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center hover:border-espoch-yellow/50 transition-colors cursor-pointer relative" onClick={() => document.getElementById('import-input')?.click()}>
-                <UploadCloud className="w-10 h-10 text-gray-300 mb-3" />
-                <p className="text-sm font-bold text-gray-600">Haga clic o arrastre un archivo</p>
-                <p className="text-[10px] text-gray-400 mt-1">Formatos: CSV (.csv)</p>
-                <input type="file" id="import-input" accept=".csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) { alert('Archivo simulado: ' + e.target.files[0].name); setModalType(null); } }} />
-              </div>
-              <div className="flex items-center justify-between mt-6">
-                <button type="button" className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 underline underline-offset-2">
-                  <FileDown className="w-3.5 h-3.5" /> Descargar formato de ejemplo
-                </button>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setModalType(null)} className="px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">Cancelar</button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {(modalType === 'delete' || modalType === 'bulkDelete') && (
             <div className="bg-white rounded-[20px] p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[420px] relative animate-scale-in text-center py-3">
               <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
                 <AlertTriangle className="w-7 h-7 text-amber-500" />
               </div>
-              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar Modelo</h3>
+              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar documento</h3>
               <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
                 {modalType === 'bulkDelete' 
-                  ? `Se eliminarán permanentemente los ${selectedIds.length} modelos seleccionados.`
+                  ? `Se eliminarán permanentemente los ${selectedIds.length} documentos seleccionados.`
                   : `¿Está seguro que desea eliminar "${selectedFmt?.nombre}" permanentemente?`}
               </p>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                 <button onClick={async () => {
+                  // Primero la fila y despues el archivo: al reves, si fallara el borrado de
+                  // la fila quedaria apuntando a un archivo que ya no existe.
+                  const rutas = modalType === 'bulkDelete'
+                    ? data.filter(f => selectedIds.includes(f.id)).map(f => f.archivoPath)
+                    : [data.find(f => f.id === selectedFmt.id)?.archivoPath];
                   if (modalType === 'bulkDelete') { await Promise.all(selectedIds.map(id => removeFormato(id))); setSelectedIds([]); }
                   else { await removeFormato(selectedFmt.id); }
+                  for (const ruta of rutas) if (ruta) await borrarArchivoFormato(ruta);
                   setModalType(null);
                 }} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Confirmar</button>
               </div>
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* MODALES DE CATEGORÍA */}
+      {modalSerie && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-[420px] p-8 shadow-2xl animate-scale-in">
+            {modalSerie === 'menu' ? (
+              <>
+                <h3 className="text-[17px] font-extrabold text-gray-900 mb-1 truncate">{serieEnEdicion?.nombre}</h3>
+                <p className="text-[12px] text-gray-500 mb-6">
+                  {serieEnEdicion?.hijas.length
+                    ? `Contiene ${serieEnEdicion.hijas.length} ${serieEnEdicion.hijas.length === 1 ? 'subcategoría' : 'subcategorías'}.`
+                    : 'Sin subcategorías.'}
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => { setNombreSerie(''); setPadreNuevaSerie(serieEnEdicion?.id ?? null); setModalSerie('crear'); }} className="w-full py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                    <FolderPlus className="w-3.5 h-3.5" /> Nueva subcategoría aquí
+                  </button>
+                  <button onClick={() => setModalSerie('renombrar')} className="w-full py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                    <Edit2 className="w-3.5 h-3.5" /> Renombrar
+                  </button>
+                  {serieEnEdicion?.hijas.length ? (
+                    <p className="text-[11px] text-gray-400 text-center leading-relaxed px-2 py-1">
+                      Para eliminarla, borra antes sus subcategorías.
+                    </p>
+                  ) : (
+                    <button onClick={() => setModalSerie('borrar')} className="w-full py-3 rounded-xl border border-red-100 bg-red-50 font-bold text-[13px] text-espoch-red hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
+                      <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                    </button>
+                  )}
+                  <button onClick={() => { setModalSerie(null); setSerieEnEdicion(null); }} className="w-full py-3 rounded-xl font-bold text-[13px] text-gray-500 hover:bg-gray-50 transition-colors">Cancelar</button>
+                </div>
+              </>
+            ) : modalSerie === 'borrar' ? (
+              <>
+                <div className="w-14 h-14 rounded-2xl bg-red-50 text-espoch-red flex items-center justify-center mb-4 mx-auto">
+                  <AlertTriangle className="w-7 h-7" />
+                </div>
+                <h3 className="text-[17px] font-extrabold text-gray-900 text-center mb-2">Eliminar categoría</h3>
+                <p className="text-[12px] text-gray-500 text-center mb-6 leading-relaxed">
+                  Se eliminará <b>{serieEnEdicion?.nombre}</b>. Los documentos que contiene <b>no se borran</b>:
+                  quedan sin clasificar y siguen apareciendo en Todas.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setModalSerie('menu')} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                  <button onClick={borrarSerie} disabled={guardandoSerie} className="flex-1 py-3 rounded-xl bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] transition-colors disabled:opacity-60">
+                    {guardandoSerie ? 'Eliminando...' : 'Eliminar'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-[17px] font-extrabold text-gray-900 mb-1">
+                  {modalSerie === 'renombrar' ? 'Renombrar categoría' : 'Nueva categoría'}
+                </h3>
+                <p className="text-[12px] text-gray-500 mb-6">Organiza documentos relacionados dentro del repositorio.</p>
+
+                <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre</label>
+                <input
+                  autoFocus
+                  value={nombreSerie}
+                  onChange={e => setNombreSerie(enMayusculas(e.target.value))}
+                  onKeyDown={e => { if (e.key === 'Enter') guardarSerie(); }}
+                  placeholder="Ej. 02_SILABOS"
+                  className="w-full mt-1.5 mb-5 bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium transition-all"
+                />
+
+                {modalSerie === 'crear' && (
+                  <>
+                    <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Categoría superior</label>
+                    <select
+                      value={padreNuevaSerie ?? ''}
+                      onChange={e => setPadreNuevaSerie(e.target.value || null)}
+                      className="w-full mt-1.5 mb-6 bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer transition-all"
+                    >
+                      <option value="">Primer nivel</option>
+                      {seriesPlanas.map(({ serie, nivel }) => (
+                        <option key={serie.id} value={serie.id}>{'\u00A0'.repeat(nivel * 3)}{serie.nombre}</option>
+                      ))}
+                    </select>
+                  </>
+                )}
+
+                <div className="flex gap-3">
+                  <button onClick={() => { setModalSerie(null); setSerieEnEdicion(null); }} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                  <button onClick={guardarSerie} disabled={!nombreSerie.trim() || guardandoSerie} className="flex-1 py-3 rounded-xl bg-[#0f172a] hover:bg-black text-white font-bold text-[13px] transition-colors disabled:opacity-40">
+                    {guardandoSerie ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE SUBIDA */}
+      {modalEnlace && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-[460px] p-8 shadow-2xl animate-scale-in">
+            <h3 className="text-[17px] font-extrabold text-gray-900 mb-1">Agregar documento</h3>
+            <p className="text-[12px] text-gray-500 mb-6">
+              Pega el enlace de OneDrive. El repositorio guarda la dirección, no una copia del archivo.
+            </p>
+
+            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre</label>
+            <input
+              autoFocus
+              value={nombreEnlace}
+              onChange={e => setNombreEnlace(enMayusculas(e.target.value))}
+              placeholder="Ej. ANEXO A SOLICITUD"
+              className="w-full mt-1.5 mb-5 bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium transition-all"
+            />
+
+            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Enlace</label>
+            <input
+              type="url"
+              value={urlEnlace}
+              onChange={e => setUrlEnlace(e.target.value)}
+              placeholder="https://espoch-my.sharepoint.com/..."
+              className="w-full mt-1.5 mb-5 bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium transition-all"
+            />
+
+            <div className="flex gap-3">
+              <button onClick={() => setModalEnlace(false)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+              <button onClick={guardarEnlace} disabled={!nombreEnlace.trim() || !urlEnlace.trim() || subiendo} className="flex-1 py-3 rounded-xl bg-[#0f172a] hover:bg-black text-white font-bold text-[13px] transition-colors disabled:opacity-40">
+                {subiendo ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
         </div>

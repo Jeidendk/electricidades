@@ -43,12 +43,14 @@ const MisSolicitudes = lazy(() => cargarPagina(() => import('../modules/student/
 const MapaEstudiantil = lazy(() => cargarPagina(() => import('../modules/student/pages/MapaEstudiantil').then(m => ({ default: m.MapaEstudiantil }))));
 const HorariosEstudiante = lazy(() => cargarPagina(() => import('../modules/student/pages/HorariosEstudiante').then(m => ({ default: m.HorariosEstudiante }))));
 const RecursosEstudiante = lazy(() => cargarPagina(() => import('../modules/student/pages/RecursosEstudiante').then(m => ({ default: m.RecursosEstudiante }))));
+const ModelosOficio = lazy(() => cargarPagina(() => import('../modules/student/pages/ModelosOficio').then(m => ({ default: m.ModelosOficio }))));
 const AdminLayout = lazy(() => cargarPagina(() => import('../modules/admin/layout/AdminLayout').then(m => ({ default: m.AdminLayout }))));
 const TecnicoLayout = lazy(() => cargarPagina(() => import('../modules/tecnico/layout/TecnicoLayout').then(m => ({ default: m.TecnicoLayout }))));
 const TecnicoDashboard = lazy(() => cargarPagina(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard }))));
 const Dashboard = lazy(() => cargarPagina(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard }))));
 const Solicitudes = lazy(() => cargarPagina(() => import('../modules/admin/pages/Solicitudes').then(m => ({ default: m.Solicitudes }))));
 const Formatos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Formatos').then(m => ({ default: m.Formatos }))));
+const Asistente = lazy(() => cargarPagina(() => import('../modules/admin/pages/Asistente').then(m => ({ default: m.Asistente }))));
 const Mantenimiento = lazy(() => cargarPagina(() => import('../modules/admin/pages/Mantenimiento').then(m => ({ default: m.Mantenimiento }))));
 const Prestamos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Prestamos').then(m => ({ default: m.Prestamos }))));
 const Infraestructura = lazy(() => cargarPagina(() => import('../modules/admin/pages/Infraestructura').then(m => ({ default: m.Infraestructura }))));
@@ -174,6 +176,7 @@ export const AppRouter = () => {
             <Route path="map" element={<MapaEstudiantil />} />
             <Route path="horarios" element={<HorariosEstudiante />} />
             <Route path="recursos" element={<RecursosEstudiante />} />
+            <Route path="oficios" element={<ModelosOficio />} />
           </Route>
         </Route>
 
@@ -185,6 +188,7 @@ export const AppRouter = () => {
             <Route path="tramites" element={<Tramites />} />
             <Route path="solicitudes" element={<Navigate to="/admin/tramites" replace />} />
             <Route path="formatos" element={<Formatos />} />
+            <Route path="asistente" element={<Asistente />} />
             <Route path="activos" element={<Activos />} />
             <Route path="inventario" element={<Navigate to="/admin/activos" replace />} />
             <Route path="mantenimiento" element={<Navigate to="/admin/activos?tab=mantenimiento" replace />} />
@@ -225,6 +229,7 @@ export const AppRouter = () => {
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="recursos" element={<Recursos />} />
             <Route path="formatos" element={<Formatos />} />
+            <Route path="asistente" element={<Asistente />} />
             <Route path="reportes" element={<Reportes />} />
           </Route>
         </Route>

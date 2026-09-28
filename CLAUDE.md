@@ -71,6 +71,36 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Formatos: series documentales con subseries, y archivos de verdad (migración 0033,
+  EJECUTARLA ANTES DE DESPLEGAR).** La lista era plana —28 plantillas sin agrupar— y la columna
+  TAMAÑO mostraba un guion fijo (`size: '-'`), porque `formatos` guardaba definiciones de
+  plantilla pero nunca un archivo.
+  **Se llaman series y no carpetas** a propósito: la numeración que ya usa la facultad
+  (`01_PROGRAMAS_ANALITICOS`, `02_SILABOS`, `03_POA`…) es un cuadro de clasificación documental,
+  donde una *serie* agrupa documentos de la misma función y se divide en *subseries* — que es
+  justo el anidamiento que hacía falta. "Carpeta" describe el dibujo, no lo que la cosa es.
+  `series_formatos` tiene `id_padre` con **`on delete restrict`**: borrar una serie con
+  subseries falla en vez de llevarse el subárbol, y la pantalla ni siquiera ofrece el botón.
+  Un **trigger recorre la cadena de padres** antes de guardar: el CHECK solo impide que una
+  serie sea su propio padre, pero un ciclo A→B→A dejaría al árbol recorriéndose para siempre y
+  colgaría el navegador.
+  `formatos` gana `id_serie` (`on delete set null`: borrar la serie NO borra los documentos,
+  quedan sin clasificar), `archivo_path`, `archivo_nombre`, `tamano_bytes` y `tipo_mime`. Los
+  archivos viven en un bucket **privado** con descargas por **URL firmada** de 60 s. No se
+  reutilizó `uploadImage`: esa convierte a WebP y sube al bucket público `imagenes`, que
+  devuelve URLs eternas y que el linter ya marcó por permitir listar todo su contenido.
+  **Dos orígenes conviven a propósito**: `tipo = 'DINAMICO'` no tiene archivo y se edita en el
+  Generador de Oficios; el resto son archivos subidos y se descargan.
+  El contador de cada serie **incluye sus subseries**, y abrir una muestra también lo que hay
+  dentro de ellas: es lo que espera quien ve el número. Al borrar un formato se borra su
+  archivo, y en ese orden —fila primero, archivo después—, porque un archivo huérfano cuesta
+  espacio y una fila huérfana rompe la descarga.
+  **Bug corregido de paso**: el chip "PDF" filtraba `tipo === 'PDF'` mientras el KPI contaba
+  `tipo !== 'DINAMICO'`. Con un `.docx` real el contador lo sumaba y el filtro no lo mostraba.
+  Ahora el chip es "Archivos" y agrupa todo lo que no es dinámico.
+  **Pendiente**: `formatos` sigue con la política `allow_all`, como otras 12 tablas.
+  Cuota del plan gratuito: 1 GB de almacenamiento (sobra) y **2 GB de transferencia al mes**,
+  que es el límite que puede apretar si esto pasa a ser la biblioteca oficial de la facultad.
 - **`usuarios` guarda `nombre` y `apellido`, y nada más (migración 0030, VA CON EL DESPLIEGUE).**
   Se eliminó la columna `nombre` que guardaba el nombre completo —un derivado que el trigger de
   la 0025 mantenía sincronizado— y `nombres`/`apellidos` pasaron a singular. El completo se

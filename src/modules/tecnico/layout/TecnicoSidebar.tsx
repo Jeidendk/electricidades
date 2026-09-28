@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   FileText, ChevronLeft, GraduationCap, ChevronDown, LayoutGrid,
-  Clock, Library, UserCog, Inbox, Wrench, ArrowLeftRight, GraduationCap as GradCap, BarChart2
+  Clock, Library, UserCog, Inbox, Wrench, ArrowLeftRight, GraduationCap as GradCap, BarChart2, MessageSquare
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
@@ -43,10 +43,9 @@ export const TecnicoSidebar = () => {
   const isTramitesSection = ['/tecnico/solicitudes', '/tecnico/prestamos'].includes(currentPage);
   const isSoporteSection = ['/tecnico/mantenimiento', '/tecnico/asignaciones'].includes(currentPage);
   const isRecursosSection = ['/tecnico/recursos', '/tecnico/formatos'].includes(currentPage);
-
-  useEffect(() => { if (isTramitesSection) setTramitesOpen(true); }, [isTramitesSection]);
-  useEffect(() => { if (isSoporteSection) setSoporteOpen(true); }, [isSoporteSection]);
-  useEffect(() => { if (isRecursosSection) setRecursosOpen(true); }, [isRecursosSection]);
+  const tramitesVisible = tramitesOpen || isTramitesSection;
+  const soporteVisible = soporteOpen || isSoporteSection;
+  const recursosVisible = recursosOpen || isRecursosSection;
 
   const toggleSubmenu = (menu: 'tramites' | 'soporte' | 'recursos') => {
     if (collapsed) setCollapsed(false);
@@ -115,9 +114,9 @@ export const TecnicoSidebar = () => {
               <div className="flex flex-col relative">
                 <button onClick={() => toggleSubmenu('tramites')} className={sectionBtnClass(isTramitesSection)} title={collapsed ? 'TRÁMITES' : ''}>
                   <div className="flex items-center gap-4"><Inbox className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap">TRÁMITES</span>}</div>
-                  {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${tramitesOpen ? 'rotate-180' : ''}`} />}
+                  {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${tramitesVisible ? 'rotate-180' : ''}`} />}
                 </button>
-                {(!collapsed && tramitesOpen) && (
+                {(!collapsed && tramitesVisible) && (
                   <div className="flex flex-col ml-[34px] border-l border-gray-800 mt-1 mb-2 space-y-1 py-1 pr-4 animate-fade-in">
                     <NavLink to="/tecnico/solicitudes" className={subLinkClass}><FileText className="w-4 h-4 shrink-0" /> <span>SOLICITUDES</span></NavLink>
                     <NavLink to="/tecnico/prestamos" className={subLinkClass}><ArrowLeftRight className="w-4 h-4 shrink-0" /> <span>PRÉSTAMOS</span></NavLink>
@@ -130,6 +129,10 @@ export const TecnicoSidebar = () => {
           {/* HORARIOS */}
           <NavLink to="/tecnico/horarios" className={navLinkClass} title={collapsed ? 'HORARIOS' : ''}>
             <Clock className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">HORARIOS</span>}
+          </NavLink>
+
+          <NavLink to="/tecnico/asistente" className={navLinkClass} title={collapsed ? 'ASISTENTE' : ''}>
+            <MessageSquare className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">ASISTENTE</span>}
           </NavLink>
 
           {/* ESTRUCTURA ACADÉMICA */}
@@ -147,9 +150,9 @@ export const TecnicoSidebar = () => {
               <div className="flex flex-col relative">
                 <button onClick={() => toggleSubmenu('soporte')} className={sectionBtnClass(isSoporteSection)} title={collapsed ? 'SOPORTE' : ''}>
                   <div className="flex items-center gap-4"><Wrench className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap">SOPORTE</span>}</div>
-                  {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${soporteOpen ? 'rotate-180' : ''}`} />}
+                  {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${soporteVisible ? 'rotate-180' : ''}`} />}
                 </button>
-                {(!collapsed && soporteOpen) && (
+                {(!collapsed && soporteVisible) && (
                   <div className="flex flex-col ml-[34px] border-l border-gray-800 mt-1 mb-2 space-y-1 py-1 pr-4 animate-fade-in">
                     <NavLink to="/tecnico/mantenimiento" className={subLinkClass}><Wrench className="w-4 h-4 shrink-0" /> <span>MANTENIMIENTO</span></NavLink>
                     <NavLink to="/tecnico/asignaciones" className={subLinkClass}><UserCog className="w-4 h-4 shrink-0" /> <span>MIS ASIGNACIONES</span></NavLink>
@@ -160,12 +163,12 @@ export const TecnicoSidebar = () => {
               <div className="flex flex-col relative">
                 <button onClick={() => toggleSubmenu('recursos')} className={sectionBtnClass(isRecursosSection)} title={collapsed ? 'RECURSOS' : ''}>
                   <div className="flex items-center gap-4"><Library className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap">RECURSOS</span>}</div>
-                  {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${recursosOpen ? 'rotate-180' : ''}`} />}
+                  {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${recursosVisible ? 'rotate-180' : ''}`} />}
                 </button>
-                {(!collapsed && recursosOpen) && (
+                {(!collapsed && recursosVisible) && (
                   <div className="flex flex-col ml-[34px] border-l border-gray-800 mt-1 mb-2 space-y-1 py-1 pr-4 animate-fade-in">
                     <NavLink to="/tecnico/recursos" className={subLinkClass}><Library className="w-4 h-4 shrink-0" /> <span>MATERIAL ACAD.</span></NavLink>
-                    <NavLink to="/tecnico/formatos" className={subLinkClass}><FileText className="w-4 h-4 shrink-0" /> <span>FORMATOS</span></NavLink>
+                    <NavLink to="/tecnico/formatos" className={subLinkClass}><FileText className="w-4 h-4 shrink-0" /> <span>REPOSITORIO</span></NavLink>
                   </div>
                 )}
               </div>

@@ -2,7 +2,7 @@ import {
   LayoutGrid,
   FileText, Package, Users,
   BookMarked, BarChart2, Building2, CalendarDays,
-  BookOpen, Inbox, Menu
+  BookOpen, Inbox, Menu, MessageSquare
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useSidebarStore } from '../../../store/sidebarStore';
@@ -29,8 +29,13 @@ const ROUTES: Record<string, RouteConfig> = {
   },
   '/admin/formatos': {
     icon: FileText, iconBg: 'bg-blue-50', iconBorder: 'border-blue-200', iconColor: 'text-blue-600',
-    section: 'Trámites', title: 'Formatos',
-    subtitle: 'Plantillas y documentos descargables.',
+    section: 'Recursos', title: 'Repositorio',
+    subtitle: 'Documentos, procesos académicos y evidencias.',
+  },
+  '/admin/asistente': {
+    icon: MessageSquare, iconBg: 'bg-red-50', iconBorder: 'border-red-200', iconColor: 'text-red-600',
+    section: 'Ayuda', title: 'Asistente',
+    subtitle: 'Orientación y acceso directo a documentos y disponibilidad de espacios.',
   },
   '/admin/horarios': {
     icon: CalendarDays, iconBg: 'bg-emerald-50', iconBorder: 'border-emerald-200', iconColor: 'text-emerald-600',

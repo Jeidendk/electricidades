@@ -55,8 +55,16 @@ export function friendlyDbError(err: any): FriendlyError {
   }
 
   // 23502: falta un valor obligatorio.
+  // Postgres SÍ dice cuál en el mensaje ("null value in column \"nombre\" ..."); decir solo
+  // "falta un campo obligatorio" obliga a adivinar cuál de veinte es, revisándolos a mano.
   if (code === '23502' || /not-null constraint/i.test(msg)) {
-    return { title: 'Datos incompletos', text: 'Falta completar un campo obligatorio.' };
+    const columna = msg.match(/null value in column "([^"]+)"/i)?.[1];
+    return {
+      title: 'Datos incompletos',
+      text: columna
+        ? `Falta completar el campo «${columna}».`
+        : 'Falta completar un campo obligatorio.',
+    };
   }
 
   // Sin mensaje útil o respuesta cruda del servidor.
