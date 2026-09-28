@@ -299,11 +299,11 @@ export const ModelosOficio = () => {
       <div className="flex min-h-0 flex-1 gap-5 p-5 lg:gap-6 lg:p-8">
         {/* Barra lateral de categorías. Reemplaza al rastro de migas: con pocas categorías, una
             lista siempre visible ahorra el ida y vuelta de entrar y volver para comparar. */}
-        <aside className="hidden w-[230px] shrink-0 flex-col gap-1 overflow-y-auto lg:flex">
+        <aside className="hidden w-[240px] shrink-0 flex-col gap-1 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm lg:flex">
           <button
             type="button"
             onClick={() => setCategoriaActiva(null)}
-            className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-[12px] font-bold transition ${!categoriaActiva ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-white'}`}
+            className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-[12px] font-bold transition ${!categoriaActiva ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
           >
             <Folder className="h-4 w-4 shrink-0" />
             <span className="flex-1 truncate">Todas las categorías</span>
@@ -318,7 +318,7 @@ export const ModelosOficio = () => {
                 key={categoria.id}
                 onClick={() => setCategoriaActiva(categoria.id)}
                 style={{ paddingLeft: `${14 + categoria.nivel * 12}px` }}
-                className={`flex items-center gap-2.5 rounded-xl py-2.5 pr-3.5 text-left text-[12px] font-bold transition ${activa ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-white'}`}
+                className={`flex items-center gap-2.5 rounded-xl py-2.5 pr-3.5 text-left text-[12px] font-bold transition ${activa ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
               >
                 <Folder className={`h-4 w-4 shrink-0 ${activa ? '' : 'text-gray-400'}`} />
                 <span className="flex-1 truncate" title={categoria.nombre}>{categoria.nombre}</span>
