@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Download, ExternalLink, FileText, Folder, GraduationCap, Home, Printer, Search, UserRound, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Download, ExternalLink, Eye, FileText, Folder, GraduationCap, LayoutGrid, List, Printer, Search, UserRound, X } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useFormatosStore } from '../../../store/formatosStore';
-import { construirArbol, idsConDescendientes, rutaHasta, useSeriesFormatosStore } from '../../../store/seriesFormatosStore';
+import { construirArbol, idsConDescendientes, useSeriesFormatosStore } from '../../../store/seriesFormatosStore';
 import { perfilesRepositorio } from '../../admin/data/repositorioElectricidad';
 import { generatePreviewDOCX, generatePreviewPDF, type DocumentParams } from '../../admin/utils/documentGenerator';
 import type { Database } from '../../../lib/database.types';
@@ -18,6 +18,23 @@ type FormatoRow = Database['public']['Tables']['formatos']['Row'];
  * documento enlazado dentro de una categoría suya no aparecía en ninguna parte.
  */
 const TIPOS_VISIBLES = ['DINAMICO', 'ENLACE'];
+
+/** Colores de la insignia de categoría. Se elige por el NOMBRE y no por su posición en la
+ *  lista, para que crear una categoría nueva no recoloree a todas las demás. */
+const COLORES_CATEGORIA = [
+  { fondo: 'bg-red-50', texto: 'text-espoch-red' },
+  { fondo: 'bg-blue-50', texto: 'text-blue-600' },
+  { fondo: 'bg-emerald-50', texto: 'text-emerald-600' },
+  { fondo: 'bg-amber-50', texto: 'text-amber-600' },
+  { fondo: 'bg-purple-50', texto: 'text-purple-600' },
+  { fondo: 'bg-sky-50', texto: 'text-sky-600' },
+];
+
+const indiceEstable = (texto: string) => {
+  let suma = 0;
+  for (const caracter of texto) suma = (suma + caracter.codePointAt(0)!) % COLORES_CATEGORIA.length;
+  return suma;
+};
 
 interface Destinatario {
   id: string;
@@ -74,6 +91,8 @@ export const ModelosOficio = () => {
   const { formatos, loading, error, fetchFormatos } = useFormatosStore();
   const { series, fetchSeries } = useSeriesFormatosStore();
   const [busqueda, setBusqueda] = useState('');
+  const [orden, setOrden] = useState<'recientes' | 'nombre'>('recientes');
+  const [vista, setVista] = useState<'tarjetas' | 'lista'>('tarjetas');
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null);
   const [plantillaActiva, setPlantillaActiva] = useState<FormatoRow | null>(null);
   const [values, setValues] = useState<OficioValues>(valoresIniciales);
@@ -148,48 +167,45 @@ export const ModelosOficio = () => {
     () => categoriasEstudiantes.find(serie => serie.id === categoriaActiva) || null,
     [categoriaActiva, categoriasEstudiantes],
   );
-  const subcategorias = useMemo(() => {
-    if (!categoriaActiva) return arbolCategorias;
-    const buscar = (ramas: typeof arbolCategorias): typeof arbolCategorias => {
-      for (const rama of ramas) {
-        if (rama.id === categoriaActiva) return rama.hijas;
-        const resultado = buscar(rama.hijas);
-        if (resultado.length) return resultado;
-      }
-      return [];
-    };
-    return buscar(arbolCategorias);
-  }, [arbolCategorias, categoriaActiva]);
-  const rutaCategorias = useMemo(() => rutaHasta(categoriasEstudiantes, categoriaActiva), [categoriaActiva, categoriasEstudiantes]);
-
   const plantillasEstudiantes = useMemo(() => formatos.filter(formato => TIPOS_VISIBLES.includes(formato.tipo)
     && formato.estado === 'activo'
     && !!formato.id_serie
     && idsEstudiantes.has(formato.id_serie)), [formatos, idsEstudiantes]);
 
+  /**
+   * El árbol aplanado para la barra lateral: cada categoría con su nivel de anidamiento y el
+   * número de modelos que contiene, **contando los de sus subcategorías**. Es lo que espera
+   * quien lee el número: si una categoría dice 4, abrirla tiene que mostrar 4.
+   */
+  const categoriasPlanas = useMemo(() => {
+    const filas: { id: string; nombre: string; nivel: number; ids: string[] }[] = [];
+    const recorrer = (ramas: typeof arbolCategorias, nivel: number) => {
+      for (const rama of ramas) {
+        filas.push({ id: rama.id, nombre: rama.nombre, nivel, ids: idsConDescendientes(rama) });
+        recorrer(rama.hijas, nivel + 1);
+      }
+    };
+    recorrer(arbolCategorias, 0);
+    return filas.map(fila => {
+      const ids = new Set(fila.ids);
+      return { ...fila, cantidad: plantillasEstudiantes.filter(f => f.id_serie && ids.has(f.id_serie)).length };
+    });
+  }, [arbolCategorias, plantillasEstudiantes]);
+
   const plantillas = useMemo(() => {
     const consulta = busqueda.trim().toLocaleLowerCase('es');
-    if (consulta) return plantillasEstudiantes.filter(formato => `${formato.nombre} ${formato.descripcion || ''}`.toLocaleLowerCase('es').includes(consulta));
-    if (!categoriaActiva) return [];
-    return plantillasEstudiantes.filter(formato => formato.id_serie === categoriaActiva);
-  }, [busqueda, categoriaActiva, plantillasEstudiantes]);
-
-  const cantidadModelos = (categoriaId: string) => {
-    const nodo = (() => {
-      const buscar = (ramas: typeof arbolCategorias): (typeof arbolCategorias)[number] | null => {
-        for (const rama of ramas) {
-          if (rama.id === categoriaId) return rama;
-          const hallada = buscar(rama.hijas);
-          if (hallada) return hallada;
-        }
-        return null;
-      };
-      return buscar(arbolCategorias);
-    })();
-    if (!nodo) return 0;
-    const ids = new Set(idsConDescendientes(nodo));
-    return plantillasEstudiantes.filter(formato => formato.id_serie && ids.has(formato.id_serie)).length;
-  };
+    const seleccionada = categoriasPlanas.find(fila => fila.id === categoriaActiva);
+    // Sin categoría se ven todas; con una, también lo que hay en sus subcategorías.
+    const ids = seleccionada ? new Set(seleccionada.ids) : null;
+    const visibles = plantillasEstudiantes.filter(formato => {
+      if (ids && !(formato.id_serie && ids.has(formato.id_serie))) return false;
+      if (!consulta) return true;
+      return `${formato.nombre} ${formato.descripcion || ''}`.toLocaleLowerCase('es').includes(consulta);
+    });
+    return [...visibles].sort((a, b) => orden === 'nombre'
+      ? a.nombre.localeCompare(b.nombre, 'es')
+      : (b.updated_at || '').localeCompare(a.updated_at || ''));
+  }, [busqueda, categoriaActiva, categoriasPlanas, orden, plantillasEstudiantes]);
 
   /** El documento vive fuera del sistema: se abre en otra pestaña, no se descarga de aquí. */
   const abrirEnlace = (url: string | null) => {
@@ -197,10 +213,11 @@ export const ModelosOficio = () => {
     window.open(url!, '_blank', 'noopener,noreferrer');
   };
 
-  const abrirPlantilla = (plantilla: FormatoRow) => {
+  /** Los valores de un modelo, ya completados con los datos del estudiante. */
+  const valoresDe = (plantilla: FormatoRow): OficioValues => {
     const datos = (plantilla.datos && typeof plantilla.datos === 'object' ? plantilla.datos : {}) as unknown as Partial<OficioValues>;
     const nombre = usuario?.nombre || datos.nombresApellidos || '';
-    setValues({
+    return {
       ...valoresIniciales,
       ...datos,
       nombreFormato: plantilla.nombre,
@@ -212,24 +229,41 @@ export const ModelosOficio = () => {
       numeroPao: usuario?.pao ? `PAO ${usuario.pao}` : (datos.numeroPao || ''),
       headerImg: datos.headerImg || localStorage.getItem('espoch_header_img') || '',
       footerImg: datos.footerImg || localStorage.getItem('espoch_footer_img') || '',
-    });
+    };
+  };
+
+  const abrirPlantilla = (plantilla: FormatoRow) => {
+    setValues(valoresDe(plantilla));
     setPlantillaActiva(plantilla);
   };
 
-  const cuerpo = `Reciba un cordial saludo. Por la presente, Yo, ${values.nombresApellidos}, con C.I: ${values.ci} y código estudiantil ${values.codigoEstudiantil}, estudiante del ${values.numeroPao} de la carrera de ${values.carrera} correspondiente a la ${values.facultad}, solicito amablemente, ${values.descripcion || 'lo que se solicita.'}`;
-  const fechaFormateada = `${values.ciudadOficio}, ${new Date(values.fechaOficio + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  /** Muestra el modelo tal como saldrá impreso, sin abrir el formulario ni pisar lo escrito. */
+  const vistaPrevia = (plantilla: FormatoRow) => {
+    const url = URL.createObjectURL(generatePreviewPDF(parametrosDe(valoresDe(plantilla))));
+    window.open(url, '_blank', 'noopener,noreferrer');
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
 
-  const parametrosDocumento = (): DocumentParams => ({
-    headerImgBase64: values.headerImg,
-    footerImgBase64: values.footerImg,
-    tituloAutoridad: values.tituloAutoridad === 'Otro' ? values.tituloAutoridadOtro : values.tituloAutoridad,
-    nombreAutoridad: values.nombreAutoridad,
-    cargo: values.cargoDestinatario,
-    lugarFecha: fechaFormateada,
-    cuerpo,
-    studentName: values.nombreFirma,
-    studentCI: values.ciFirma,
+  const cuerpoDe = (v: OficioValues) => `Reciba un cordial saludo. Por la presente, Yo, ${v.nombresApellidos}, con C.I: ${v.ci} y código estudiantil ${v.codigoEstudiantil}, estudiante del ${v.numeroPao} de la carrera de ${v.carrera} correspondiente a la ${v.facultad}, solicito amablemente, ${v.descripcion || 'lo que se solicita.'}`;
+  const fechaDe = (v: OficioValues) => `${v.ciudadOficio}, ${new Date(v.fechaOficio + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+
+  /** Los parámetros del documento para UNOS valores, no necesariamente los del formulario:
+   *  así la vista previa de una tarjeta no pisa lo que el estudiante esté escribiendo. */
+  const parametrosDe = (v: OficioValues): DocumentParams => ({
+    headerImgBase64: v.headerImg,
+    footerImgBase64: v.footerImg,
+    tituloAutoridad: v.tituloAutoridad === 'Otro' ? v.tituloAutoridadOtro : v.tituloAutoridad,
+    nombreAutoridad: v.nombreAutoridad,
+    cargo: v.cargoDestinatario,
+    lugarFecha: fechaDe(v),
+    cuerpo: cuerpoDe(v),
+    studentName: v.nombreFirma,
+    studentCI: v.ciFirma,
   });
+
+  const cuerpo = cuerpoDe(values);
+  const fechaFormateada = fechaDe(values);
+  const parametrosDocumento = (): DocumentParams => parametrosDe(values);
 
   const descargar = async (tipo: 'pdf' | 'docx') => {
     const base = (values.nombreFormato || 'Oficio').replace(/[^a-z0-9áéíóúñ]+/gi, '_');
@@ -262,81 +296,185 @@ export const ModelosOficio = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 lg:p-8">
-        <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
-          <Search className="ml-2 h-4 w-4 text-gray-400" />
-          <input value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Buscar un modelo de oficio…" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
-          <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-bold text-gray-500">{busqueda ? plantillas.length : plantillasEstudiantes.length} modelos</span>
-        </div>
+      <div className="flex min-h-0 flex-1 gap-5 p-5 lg:gap-6 lg:p-8">
+        {/* Barra lateral de categorías. Reemplaza al rastro de migas: con pocas categorías, una
+            lista siempre visible ahorra el ida y vuelta de entrar y volver para comparar. */}
+        <aside className="hidden w-[230px] shrink-0 flex-col gap-1 overflow-y-auto lg:flex">
+          <button
+            type="button"
+            onClick={() => setCategoriaActiva(null)}
+            className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-[12px] font-bold transition ${!categoriaActiva ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-white'}`}
+          >
+            <Folder className="h-4 w-4 shrink-0" />
+            <span className="flex-1 truncate">Todas las categorías</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${!categoriaActiva ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>{plantillasEstudiantes.length}</span>
+          </button>
 
-        {loading ? <div className="py-20 text-center text-sm text-gray-400">Cargando modelos…</div> : error ? (
-          <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-sm font-semibold text-red-700">No se pudieron consultar los modelos disponibles.</div>
-        ) : categoriasEstudiantes.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center">
-            <Folder className="mb-4 h-12 w-12 text-gray-300" /><h2 className="font-extrabold text-gray-700">No hay modelos publicados</h2><p className="mt-2 max-w-md text-xs text-gray-400">El administrador debe publicar una plantilla o un documento dentro de una categoría para estudiantes.</p>
+          {categoriasPlanas.map(categoria => {
+            const activa = categoria.id === categoriaActiva;
+            return (
+              <button
+                type="button"
+                key={categoria.id}
+                onClick={() => setCategoriaActiva(categoria.id)}
+                style={{ paddingLeft: `${14 + categoria.nivel * 12}px` }}
+                className={`flex items-center gap-2.5 rounded-xl py-2.5 pr-3.5 text-left text-[12px] font-bold transition ${activa ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-white'}`}
+              >
+                <Folder className={`h-4 w-4 shrink-0 ${activa ? '' : 'text-gray-400'}`} />
+                <span className="flex-1 truncate" title={categoria.nombre}>{categoria.nombre}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${activa ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>{categoria.cantidad}</span>
+              </button>
+            );
+          })}
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
+              <Search className="h-4 w-4 shrink-0 text-gray-400" />
+              <input value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Buscar modelos de oficio…" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
+            </div>
+
+            {/* En pantallas chicas la barra lateral no cabe: el mismo filtro viaja aquí. */}
+            <select
+              value={categoriaActiva || ''}
+              onChange={event => setCategoriaActiva(event.target.value || null)}
+              className="rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[12px] font-bold text-gray-600 shadow-sm outline-none lg:hidden"
+            >
+              <option value="">Todas las categorías</option>
+              {categoriasPlanas.map(categoria => (
+                <option key={categoria.id} value={categoria.id}>{' '.repeat(categoria.nivel * 3)}{categoria.nombre} ({categoria.cantidad})</option>
+              ))}
+            </select>
+
+            <select
+              value={orden}
+              onChange={event => setOrden(event.target.value as typeof orden)}
+              className="rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[12px] font-bold text-gray-600 shadow-sm outline-none"
+            >
+              <option value="recientes">Más recientes</option>
+              <option value="nombre">Nombre (A-Z)</option>
+            </select>
+
+            <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+              {([['tarjetas', LayoutGrid], ['lista', List]] as const).map(([modo, Icono]) => (
+                <button
+                  key={modo}
+                  type="button"
+                  onClick={() => setVista(modo)}
+                  aria-label={modo === 'tarjetas' ? 'Ver en tarjetas' : 'Ver en lista'}
+                  className={`rounded-lg p-2 transition ${vista === modo ? 'bg-espoch-red text-white' : 'text-gray-400 hover:bg-gray-50'}`}
+                >
+                  <Icono className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
           </div>
-        ) : (
-          <div className="space-y-5">
-            {!busqueda && (
-              <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-gray-500" aria-label="Ruta de categorías">
-                {categoriaActiva && <button type="button" onClick={() => setCategoriaActiva(categoriaSeleccionada?.idPadre || null)} className="mr-2 flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 hover:bg-gray-50"><ArrowLeft className="h-3.5 w-3.5" /> Volver</button>}
-                <button type="button" onClick={() => setCategoriaActiva(null)} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-white hover:text-gray-800"><Home className="h-3.5 w-3.5" /> Categorías</button>
-                {rutaCategorias.map(categoria => <span key={categoria.id} className="flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-gray-300" /><button type="button" onClick={() => setCategoriaActiva(categoria.id)} className={`rounded-md px-2 py-1 hover:bg-white hover:text-gray-800 ${categoria.id === categoriaActiva ? 'font-extrabold text-gray-900' : ''}`}>{categoria.nombre}</button></span>)}
-              </nav>
-            )}
 
-            {!busqueda && subcategorias.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-500">{categoriaActiva ? 'Subcategorías' : 'Categorías de documentos'}</h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {subcategorias.map(categoria => {
-                    const cantidad = cantidadModelos(categoria.id);
-                    return <button type="button" key={categoria.id} onClick={() => setCategoriaActiva(categoria.id)} className="group flex min-h-[112px] items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-md">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Folder className="h-5 w-5" /></div>
-                      <div className="min-w-0 flex-1"><h3 className="line-clamp-2 text-sm font-extrabold text-gray-800">{categoria.nombre}</h3><p className="mt-1 text-[10px] font-semibold text-gray-400">{cantidad} {cantidad === 1 ? 'modelo' : 'modelos'}</p></div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-espoch-red" />
-                    </button>;
-                  })}
-                </div>
-              </section>
-            )}
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-[15px] font-extrabold text-gray-900">{categoriaSeleccionada?.nombre || 'Todas las categorías'}</h2>
+              <p className="mt-0.5 text-[11px] text-gray-500">Selecciona un modelo, complétalo y genera tu oficio.</p>
+            </div>
+            <span className="text-[11px] font-semibold text-gray-400">Mostrando {plantillas.length} {plantillas.length === 1 ? 'modelo' : 'modelos'}</span>
+          </div>
 
-            {plantillas.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-500">{busqueda ? 'Resultados de búsqueda' : 'Modelos de esta categoría'}</h2>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {plantillas.map(plantilla => {
-                    const categoria = series.find(serie => serie.id === plantilla.id_serie)?.nombre || 'Oficios';
-                    const esEnlace = plantilla.tipo === 'ENLACE';
-                    return <article key={plantilla.id} className="flex min-h-[190px] flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-                      <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${esEnlace ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-espoch-red'}`}>
+          {loading ? <div className="py-20 text-center text-sm text-gray-400">Cargando modelos…</div> : error ? (
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-sm font-semibold text-red-700">No se pudieron consultar los modelos disponibles.</div>
+          ) : plantillas.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center">
+              <Folder className="mb-4 h-12 w-12 text-gray-300" />
+              <h3 className="font-extrabold text-gray-700">{busqueda ? 'No encontramos modelos con esa búsqueda' : 'Todavía no hay modelos aquí'}</h3>
+              <p className="mt-2 max-w-md text-xs text-gray-400">
+                {busqueda ? 'Prueba con otra palabra o elige otra categoría.' : 'El administrador debe publicar una plantilla o un documento dentro de una categoría para estudiantes.'}
+              </p>
+            </div>
+          ) : (
+            <div className={vista === 'tarjetas' ? 'grid grid-cols-1 gap-4 pb-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'flex flex-col gap-2.5 pb-2'}>
+              {plantillas.map(plantilla => {
+                const categoria = series.find(serie => serie.id === plantilla.id_serie)?.nombre || 'Oficios';
+                const esEnlace = plantilla.tipo === 'ENLACE';
+                const color = COLORES_CATEGORIA[indiceEstable(categoria)];
+                const actualizado = (plantilla.updated_at || plantilla.created_at || '').slice(0, 10);
+                const descripcion = plantilla.descripcion || (esEnlace ? 'Documento publicado por la facultad.' : 'Modelo institucional listo para completar.');
+
+                if (vista === 'lista') {
+                  return (
+                    <article key={plantilla.id} className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color.fondo} ${color.texto}`}>
+                        {esEnlace ? <ExternalLink className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-[13px] font-extrabold text-gray-900">{plantilla.nombre}</h3>
+                        <p className="truncate text-[11px] text-gray-500">{descripcion}</p>
+                      </div>
+                      <span className={`hidden shrink-0 rounded-md px-2 py-1 text-[10px] font-bold sm:inline ${color.fondo} ${color.texto}`}>{categoria}</span>
+                      {esEnlace ? (
+                        <button onClick={() => abrirEnlace(plantilla.enlace)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-espoch-red px-3.5 py-2 text-[11px] font-bold text-white hover:bg-[#8b0000]">
+                          <ExternalLink className="h-3.5 w-3.5" /> Abrir
+                        </button>
+                      ) : (
+                        <button onClick={() => abrirPlantilla(plantilla)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-espoch-red px-3.5 py-2 text-[11px] font-bold text-white hover:bg-[#8b0000]">
+                          <FileText className="h-3.5 w-3.5" /> Usar modelo
+                        </button>
+                      )}
+                    </article>
+                  );
+                }
+
+                return (
+                  <article key={plantilla.id} className="flex flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+                    <div className="flex items-start gap-3">
+                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${color.fondo} ${color.texto}`}>
                         {esEnlace ? <ExternalLink className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                       </div>
-                      <h2 className="text-sm font-extrabold text-gray-900">{plantilla.nombre}</h2>
-                      <p className="mt-1 line-clamp-2 text-[11px] text-gray-500">
-                        {plantilla.descripcion || (esEnlace ? 'Documento publicado por la facultad.' : 'Modelo institucional listo para completar.')}
-                      </p>
-                      <div className="mt-auto flex items-center justify-between pt-5">
-                        <span className="max-w-[55%] truncate text-[9px] font-bold uppercase tracking-wide text-gray-400">{categoria}</span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="line-clamp-2 text-[13px] font-extrabold text-gray-900">{plantilla.nombre}</h3>
+                        <span className={`mt-1.5 inline-block rounded-md px-2 py-0.5 text-[10px] font-bold ${color.fondo} ${color.texto}`}>{categoria}</span>
+                      </div>
+                      {/* Los formatos que SÍ produce este modelo: un enlace no genera archivo. */}
+                      <div className="flex shrink-0 flex-col gap-1">
                         {esEnlace ? (
-                          <button onClick={() => abrirEnlace(plantilla.enlace)} className="flex items-center gap-1.5 rounded-lg bg-[#0f172a] px-4 py-2 text-[11px] font-bold text-white hover:bg-black">
-                            <ExternalLink className="h-3.5 w-3.5" /> Abrir
-                          </button>
+                          <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-extrabold text-blue-600">ENLACE</span>
                         ) : (
-                          <button onClick={() => abrirPlantilla(plantilla)} className="rounded-lg bg-[#0f172a] px-4 py-2 text-[11px] font-bold text-white hover:bg-black">Usar modelo</button>
+                          <>
+                            <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[9px] font-extrabold text-sky-600">DOCX</span>
+                            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-extrabold text-espoch-red">PDF</span>
+                          </>
                         )}
                       </div>
-                    </article>;
-                  })}
-                </div>
-              </section>
-            )}
+                    </div>
 
-            {((busqueda && plantillas.length === 0) || (!busqueda && categoriaActiva && subcategorias.length === 0 && plantillas.length === 0)) && (
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center"><FileText className="mx-auto mb-3 h-9 w-9 text-gray-300" /><p className="text-sm font-bold text-gray-600">{busqueda ? 'No encontramos modelos con esa búsqueda.' : 'Esta categoría todavía no contiene modelos.'}</p></div>
-            )}
-          </div>
-        )}
+                    <p className="mt-3 line-clamp-2 text-[11px] leading-relaxed text-gray-500">{descripcion}</p>
+
+                    {actualizado && (
+                      <p className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold text-gray-400">
+                        <CalendarDays className="h-3.5 w-3.5" /> Actualizado: {new Date(`${actualizado}T12:00:00`).toLocaleDateString('es-EC')}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
+                      {esEnlace ? (
+                        <button onClick={() => abrirEnlace(plantilla.enlace)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-espoch-red px-3 py-2 text-[11px] font-bold text-white transition hover:bg-[#8b0000]">
+                          <ExternalLink className="h-3.5 w-3.5" /> Abrir documento
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => vistaPrevia(plantilla)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-[11px] font-bold text-gray-600 transition hover:bg-gray-50">
+                            <Eye className="h-3.5 w-3.5" /> Vista previa
+                          </button>
+                          <button onClick={() => abrirPlantilla(plantilla)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-espoch-red px-3 py-2 text-[11px] font-bold text-white transition hover:bg-[#8b0000]">
+                            <FileText className="h-3.5 w-3.5" /> Usar modelo
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {plantillaActiva && (

@@ -71,6 +71,19 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Modelos de oficio (estudiante): barra lateral de categorías en vez de navegar entrando y
+  volviendo.** Antes era un explorador: tarjetas de carpeta, se entraba a una y recién ahí
+  aparecían los modelos; comparar dos categorías obligaba a salir y entrar. Ahora las
+  categorías son una lista fija a la izquierda —con el árbol **aplanado con sangría**, así
+  que una subcategoría ya no queda escondida— y los modelos se ven siempre a la derecha.
+  **Seleccionar una categoría incluye sus subcategorías**, que es lo que ya prometía su
+  contador. Se suman orden (recientes / A-Z), vista de tarjetas o lista, y en cada tarjeta la
+  categoría, los formatos que produce (DOCX+PDF, o ENLACE) y la fecha de actualización.
+  **Vista previa abre el PDF del modelo tal como saldrá impreso**, sin tocar el formulario: se
+  extrajeron `cuerpoDe`, `fechaDe` y `parametrosDe` como funciones de *unos* valores, porque
+  antes leían directamente el estado del formulario y previsualizar habría pisado lo escrito.
+  Debajo de `lg` la barra lateral no cabe: el mismo filtro viaja a un `<select>` en la barra de
+  herramientas, en vez de desaparecer.
 - **Oficina de Docentes como tipo de espacio (migración 0040, EJECUTARLA ANTES DE DESPLEGAR).**
   `espacios.tipo` es el enum `tipo_espacio`: agregar la opción al `<select>` sin la etiqueta en
   la base habría fallado al guardar, igual que pasó con `ENLACE` en la 0038.
