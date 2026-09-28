@@ -19,7 +19,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { Badge } from '../../../components/ui/Badge';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
-import { MapControls, getTileUrl, type MapLayer } from '../../../components/ui/MapControls';
+import { MapControls, getTileUrl, atribucionTiles, type MapLayer } from '../../../components/ui/MapControls';
 import { UserLocationMarker } from '../../../components/ui/UserLocationMarker';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
@@ -27,6 +27,7 @@ import { useInventarioStore } from '../../../store/inventarioStore';
 import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
 import { esAula } from '../data/espaciosData';
+import { PanelLateral, BotonPanelLateral } from '../../../components/ui/PanelLateral';
 
 // --- CONSTANTS ---
 const baseLat = -1.6575;
@@ -173,6 +174,18 @@ export const Infraestructura = () => {
   const [selectedEdificioId, setSelectedEdificioId] = useState<string | null>(null);
   const [expandedEdificios, setExpandedEdificios] = useState<string[]>([]);
   const [searchNav, setSearchNav] = useState('');
+  /** El árbol se superpone en vez de quedarse fijo: se consulta a ratos, no todo el rato. */
+  const [panelAbierto, setPanelAbierto] = useState(false);
+  /**
+   * Piso desplegado, con clave `edificio::piso` porque el mismo número existe en varios.
+   *
+   * Solo UNO a la vez: con tres pisos abiertos el panel vuelve a ser la lista amontonada que
+   * se quiso evitar, y hay que desplazarse para ver los de abajo.
+   */
+  const [pisoAbierto, setPisoAbierto] = useState<string | null>(null);
+
+  const alternarPiso = (clave: string) =>
+    setPisoAbierto(actual => (actual === clave ? null : clave));
 
   useEffect(() => {
     if (!selectedEdificioId && edificios.length > 0) {
@@ -189,6 +202,8 @@ export const Infraestructura = () => {
   const selectEdificio = (id: string) => {
     setSelectedEdificioId(id);
     if (!expandedEdificios.includes(id)) setExpandedEdificios(p => [...p, id]);
+    // Elegido el edificio, el panel ya cumplió y solo tapa el detalle que se acaba de abrir.
+    setPanelAbierto(false);
   };
 
   const filteredNavEdificios = useMemo(() => {
@@ -500,23 +515,22 @@ export const Infraestructura = () => {
       </PageHero>
 
       {view === 'gestion' ? (
-        <div className="flex-1 flex p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
+        <div className="relative flex-1 flex p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
           {/* LEFT: TREE OF EDIFICIOS */}
-          <div className="w-[280px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
-            <div className="p-5 border-b border-gray-100 shrink-0">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[14px] font-bold text-gray-900">Edificios y espacios</h3>
-                <button onClick={() => openCreateEdificio()} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm" title="Nuevo edificio">
+          <PanelLateral
+            abierto={panelAbierto}
+            onCerrar={() => setPanelAbierto(false)}
+            titulo="Edificios y espacios"
+            accion={<button onClick={() => openCreateEdificio()} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm" title="Nuevo edificio">
                   <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="relative">
+                </button>}
+            buscador={<div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input type="text" placeholder="Buscar edificio o espacio..." value={searchNav} onChange={e => setSearchNav(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-[12px] font-medium text-gray-700 outline-none focus:border-indigo-400 transition-all placeholder:text-gray-400" />
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-2">
+              </div>}
+            pie={<span className="text-[10.5px] font-bold text-gray-500">{edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios</span>}
+          >
+            <div className="flex flex-col gap-2 p-4">
               {filteredNavEdificios.length === 0 && (
                 <EmptyState icon={Search} title="Sin resultados" description={`No hay coincidencias para "${searchNav}"`} secondaryLabel="Limpiar búsqueda" onSecondary={() => setSearchNav('')} className="py-10" />
               )}
@@ -547,15 +561,40 @@ export const Infraestructura = () => {
                     </div>
                     {isExpanded && (
                       <div className="flex flex-col ml-[13px] mt-1 gap-1 border-l-[2px] border-indigo-200/50 pl-4">
-                        {edSpaces.map(sp => (
-                          <div key={sp.id} onClick={() => selectEdificio(ed.id)} className="group/sp flex items-center justify-between p-1.5 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sp.estado === 'disponible' ? 'bg-emerald-500' : sp.estado === 'ocupada' ? 'bg-blue-500' : 'bg-orange-500'}`} />
-                              <span className="text-[11.5px] font-semibold text-gray-700 truncate" title={sp.nombre}>{sp.nombre}</span>
-                            </div>
-                            <span className="text-[9px] font-bold text-gray-400 shrink-0">P{sp.piso}</span>
-                          </div>
-                        ))}
+                        {/* Agrupado por piso, como el panel Ubicaciones de Horarios: catorce
+                            aulas seguidas con una etiqueta "P2" diminuta no se recorren, y el
+                            piso es justamente como la gente busca un aula. */}
+                        {[...new Set(edSpaces.map(sp => sp.piso ?? 1))]
+                          .sort((a, b) => a - b)
+                          .map(piso => {
+                            const clave = `${ed.id}::${piso}`;
+                            const delPiso = edSpaces
+                              .filter(sp => (sp.piso ?? 1) === piso)
+                              .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
+                            // Buscando se abren todos: obligar a desplegar para encontrar algo
+                            // es lo contrario de buscar.
+                            const abierto = pisoAbierto === clave || !!searchNav;
+                            return (
+                              <div key={clave} className="flex flex-col">
+                                <button
+                                  onClick={e => { e.stopPropagation(); alternarPiso(clave); }}
+                                  className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors ${abierto ? 'bg-indigo-50/60 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                  <ChevronRight className={`h-3 w-3 shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} />
+                                  <Layers className="h-3 w-3 shrink-0 text-gray-400" />
+                                  <span className="flex-1 text-left">Piso {piso}</span>
+                                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500 shadow-sm">{delPiso.length}</span>
+                                </button>
+
+                                {abierto && delPiso.map(sp => (
+                                  <div key={sp.id} onClick={() => selectEdificio(ed.id)} className="group/sp ml-4 flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-gray-50">
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sp.estado === 'disponible' ? 'bg-emerald-500' : sp.estado === 'ocupada' ? 'bg-blue-500' : 'bg-orange-500'}`} />
+                                    <span className="text-[11.5px] font-semibold text-gray-700 truncate" title={sp.nombre}>{sp.nombre}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
                         {edSpaces.length === 0 && <p className="text-[10.5px] text-gray-400 italic py-1">Sin espacios</p>}
                         <button onClick={() => { selectEdificio(ed.id); openCreateEspacio({}); }} className="mt-1 flex items-center justify-center gap-1.5 py-2 border border-dashed border-gray-200 rounded-lg text-[10.5px] font-bold text-gray-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
                           <Plus className="w-3 h-3" /> Agregar espacio
@@ -567,10 +606,8 @@ export const Infraestructura = () => {
               })}
             </div>
 
-            <div className="px-5 py-3 border-t border-gray-100 shrink-0 bg-gray-50/50 text-center">
-              <span className="text-[10.5px] font-bold text-gray-500">{edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios</span>
-            </div>
-          </div>
+          </PanelLateral>
+
 
           {/* RIGHT: BUILDING DETAIL */}
           <div className="relative flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in">
@@ -650,6 +687,11 @@ export const Infraestructura = () => {
                 {/* TOOLBAR */}
                 <div className="shrink-0 bg-white border border-gray-200 rounded-xl shadow-sm px-5 py-3 mb-4 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 flex-wrap">
+                    <BotonPanelLateral
+                      abierto={panelAbierto}
+                      onClick={() => setPanelAbierto(a => !a)}
+                      titulo="Edificios y espacios"
+                    />
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input type="text" value={espSearch} onChange={e => setEspSearch(e.target.value)} placeholder="Buscar espacio..." className="w-[200px] pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-[12px] font-medium text-gray-700 outline-none focus:border-indigo-400 transition-colors" />
@@ -797,7 +839,7 @@ export const Infraestructura = () => {
                     if (which === 'edificio') openCreateEdificio(p[0], p[1]);
                     else if (which === 'espacio') openCreateEspacio({ lat: p[0], lng: p[1] });
                   }} />
-                  <TileLayer url={getTileUrl(mapLayer)} attribution="&copy; CARTO" />
+                  <TileLayer url={getTileUrl(mapLayer)} attribution={atribucionTiles(mapLayer)} />
                   <Marker position={[baseLat, baseLng]} icon={campusMarkerIcon} interactive={false} zIndexOffset={2000} />
                   <UserLocationMarker />
                   {!picking && edificios.map(ed => (
@@ -877,7 +919,7 @@ export const Infraestructura = () => {
                     </div>
                     <div className="w-full h-[200px] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden relative z-0">
                       <MapContainer center={edForm.lat && edForm.lng ? [edForm.lat, edForm.lng] : mapCenter} zoom={16} zoomControl={false} className="w-full h-full">
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                        <TileLayer url={getTileUrl('mapa')} attribution={atribucionTiles('mapa')} />
                         {/* Marcadores de edificios ocultos mientras se agrega/edita, para no chocar con el nuevo. */}
                         <UserLocationMarker />
                         <RecenterMap lat={edForm.lat} lng={edForm.lng} />
@@ -990,7 +1032,7 @@ export const Infraestructura = () => {
                     </div>
                     <div className="w-full h-[200px] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden relative z-0">
                       <MapContainer center={espForm.lat !== null && espForm.lng !== null ? [espForm.lat, espForm.lng] : [baseLat, baseLng]} zoom={17} zoomControl={false} className="w-full h-full">
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                        <TileLayer url={getTileUrl('mapa')} attribution={atribucionTiles('mapa')} />
                         {/* Marcadores de edificios ocultos mientras se agrega/edita, para no chocar con el nuevo. */}
                         <UserLocationMarker />
                         <RecenterMap lat={espForm.lat} lng={espForm.lng} />

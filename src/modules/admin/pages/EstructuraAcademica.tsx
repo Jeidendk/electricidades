@@ -26,6 +26,7 @@ import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useRecursosStore } from '../../../store/recursosStore';
 import { useMateriaRecursosStore } from '../../../store/materiaRecursosStore';
+import { PanelLateral, BotonPanelLateral } from '../../../components/ui/PanelLateral';
 
 const availableIcons: Record<string, any> = {
   Cpu, FlaskConical, Briefcase, Stethoscope, Globe, Palette,
@@ -100,6 +101,8 @@ export const EstructuraAcademica = () => {
   const [selectedCarreraId, setSelectedCarreraId] = useState<string | null>(null);
   const [expandedFacultades, setExpandedFacultades] = useState<string[]>([]);
   const [searchNav, setSearchNav] = useState('');
+  /** El árbol se superpone en vez de quedarse fijo: se consulta a ratos, no todo el rato. */
+  const [panelAbierto, setPanelAbierto] = useState(false);
 
   // Initial Selection
   useEffect(() => {
@@ -123,6 +126,7 @@ export const EstructuraAcademica = () => {
   };
 
   const selectFacultad = (id: string) => {
+    setPanelAbierto(false);
     // El técnico nunca abre la vista de facultad (es la del admin: alta y baja de carreras).
     // La condición depende SOLO del rol: si dependiera de `carreraTecnico`, mientras las carreras
     // aún se cargan el técnico caería en la rama del admin y vería esa pantalla unos instantes.
@@ -141,6 +145,8 @@ export const EstructuraAcademica = () => {
   const selectCarrera = (facultadId: string, carreraId: string) => {
     setSelectedFacultadId(facultadId);
     setSelectedCarreraId(carreraId);
+    // Elegido el destino, el panel ya cumplió y solo taparía lo que se acaba de abrir.
+    setPanelAbierto(false);
     if (!expandedFacultades.includes(facultadId)) {
       setExpandedFacultades([...expandedFacultades, facultadId]);
     }
@@ -449,13 +455,13 @@ export const EstructuraAcademica = () => {
         />
       )}
 
-      <div className="flex-1 flex p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
+      <div className="relative flex-1 flex p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
         {/* --- LEFT PANEL: TREE VIEW --- */}
-        <div className="w-[280px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
-          <div className="p-5 border-b border-gray-100 shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[14px] font-bold text-gray-900">Facultades y carreras</h3>
-              {!esTecnico && (
+        <PanelLateral
+          abierto={panelAbierto}
+          onCerrar={() => setPanelAbierto(false)}
+          titulo="Facultades y carreras"
+          accion={!esTecnico && (
                 <button
                   onClick={() => { setFormFacultad(defaultFacultadValues); setModalType('createFacultad'); }}
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm"
@@ -464,17 +470,26 @@ export const EstructuraAcademica = () => {
                   <Plus className="w-4 h-4" />
                 </button>
               )}
-            </div>
-            <div className="relative">
+          buscador={<div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text" placeholder="Buscar facultad o carrera..." value={searchNav} onChange={(e) => setSearchNav(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-[12px] font-medium text-gray-700 outline-none focus:border-indigo-400 transition-all placeholder:text-gray-400"
               />
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 flex flex-col gap-1">
+            </div>}
+          pie={<div className="flex items-center gap-3 px-1">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                <Layers className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div>
+                <p className="text-[12.5px] font-bold text-gray-800 leading-tight">
+                  {mappedFacultades.length} {mappedFacultades.length === 1 ? 'facultad' : 'facultades'} · {mappedCarreras.length} {mappedCarreras.length === 1 ? 'carrera' : 'carreras'}
+                </p>
+                <p className="text-[10px] text-gray-400 font-medium leading-tight">Estructura académica</p>
+              </div>
+            </div>}
+        >
+          <div className="flex flex-col gap-1 p-5">
             {filteredNavFacultades.length === 0 && (
               <EmptyState icon={Search} title="Sin resultados" description={`No hay coincidencias para "${searchNav}"`} secondaryLabel="Limpiar búsqueda" onSecondary={() => setSearchNav('')} className="py-10" />
             )}
@@ -542,21 +557,7 @@ export const EstructuraAcademica = () => {
             })}
           </div>
 
-          {/* Footer resumen — badge diseño imagen */}
-          <div className="px-4 py-3.5 border-t border-gray-100 shrink-0">
-            <div className="flex items-center gap-3 px-1">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                <Layers className="w-4 h-4 text-indigo-500" />
-              </div>
-              <div>
-                <p className="text-[12.5px] font-bold text-gray-800 leading-tight">
-                  {mappedFacultades.length} {mappedFacultades.length === 1 ? 'facultad' : 'facultades'} · {mappedCarreras.length} {mappedCarreras.length === 1 ? 'carrera' : 'carreras'}
-                </p>
-                <p className="text-[10px] text-gray-400 font-medium leading-tight">Estructura académica</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        </PanelLateral>
 
         {/* --- RIGHT PANEL: DYNAMIC CONTENT --- */}
         <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in relative">
@@ -591,6 +592,11 @@ export const EstructuraAcademica = () => {
 
                 <div className="flex items-center justify-between mb-6 gap-4 flex-wrap shrink-0">
                   <div className="flex items-center gap-4">
+                    <BotonPanelLateral
+                      abierto={panelAbierto}
+                      onClick={() => setPanelAbierto(a => !a)}
+                      titulo="Facultades y carreras"
+                    />
                     <h3 className="text-[14px] font-bold text-gray-800">Carreras ({filteredFacultadCarreras.length})</h3>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
