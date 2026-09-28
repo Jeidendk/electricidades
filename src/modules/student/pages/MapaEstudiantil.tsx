@@ -16,6 +16,7 @@ import { watchPosition } from '../../../lib/geolocation';
 import { useSolicitudesEquipoStore } from '../../../store/solicitudesEquipoStore';
 import { EdificioPopupCard } from '../../admin/components/EdificioPopupCard';
 import { componerNombreCompleto } from '../../../lib/texto';
+import { getTileUrl, atribucionTiles } from '../../../components/ui/MapControls';
 
 // Componente para manejar el centrado del mapa y zoom desde botones externos
 const MapController = ({ center, zoom, layer }: { center: [number, number], zoom: number, layer: string }) => {
@@ -162,15 +163,6 @@ export const MapaEstudiantil = () => {
       setHighlightedAula(aulaParam);
     }
   }, [aulaParam, espaciosLocations]);
-
-  const getTileUrl = () => {
-    switch(mapLayer) {
-      case 'satelite': return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      case 'hibrido': return 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
-      case 'mapa': 
-      default: return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    }
-  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -463,7 +455,7 @@ export const MapaEstudiantil = () => {
             className="absolute inset-0 z-0 h-full w-full"
             style={{background: '#e5e7eb'}}
           >
-            <TileLayer url={getTileUrl()} />
+            <TileLayer url={getTileUrl(mapLayer)} attribution={atribucionTiles(mapLayer)} />
             <MapController center={mapCenter} zoom={mapZoom} layer={mapLayer} />
             
             {/* Los marcadores fijos se reemplazan por los dinámicos */}

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Search, SlidersHorizontal, Image as ImageIcon, UserCheck } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
-import { MapControls, getTileUrl, type MapLayer } from '../../../../components/ui/MapControls';
+import { MapControls, getTileUrl, atribucionTiles, type MapLayer } from '../../../../components/ui/MapControls';
 
 interface MapaEspaciosProps {
   mapLocations: any[];
@@ -188,7 +188,7 @@ export const MapaEspacios: React.FC<MapaEspaciosProps> = ({
         >
           <MapController center={mapCenter} zoom={mapZoom} activeId={activeLocationId} />
 
-          <TileLayer url={getTileUrl(mapLayer)} attribution="&copy; CARTO" />
+          <TileLayer url={getTileUrl(mapLayer)} attribution={atribucionTiles(mapLayer)} />
 
           {filteredMapLocations.map((loc) => (
             <Marker 

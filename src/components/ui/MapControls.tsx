@@ -2,13 +2,30 @@ import { Plus, Minus, Navigation, Maximize, Layers as LayersIcon } from 'lucide-
 
 export type MapLayer = 'mapa' | 'satelite' | 'hibrido';
 
-// URL de tiles según la capa (compartido por todos los mapas).
+/**
+ * URL de tiles según la capa. **Único sitio donde se declaran**: estaban repetidas en cuatro
+ * archivos, así que el día que un proveedor deja de servir hay que cazarlas una por una.
+ *
+ * La capa `mapa` usaba los basemaps de CARTO, que pasaron a exigir clave: los mapas mostraban
+ * "API KEY REQUIRED" estampado sobre las imágenes. Ahora usa OpenStreetMap, que no pide clave
+ * pero **sí exige atribución visible** — de ahí `atribucionTiles`.
+ */
 export const getTileUrl = (layer: MapLayer): string => {
   switch (layer) {
     case 'satelite': return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
     case 'hibrido': return 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
     case 'mapa':
-    default: return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    default: return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  }
+};
+
+/** Crédito que cada proveedor obliga a mostrar. Leaflet lo pinta en la esquina del mapa. */
+export const atribucionTiles = (layer: MapLayer): string => {
+  switch (layer) {
+    case 'satelite':
+    case 'hibrido': return '&copy; Esri';
+    case 'mapa':
+    default: return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
   }
 };
 
