@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { GraduationCap, Bell, ShoppingCart, ChevronDown, User, Settings, LogOut, ShieldCheck, KeyRound, Eye, Wrench, Users } from 'lucide-react';
+import { Bell, BookOpen, CalendarDays, ChevronDown, Eye, FileText, GraduationCap, KeyRound, Layers, LayoutGrid, LogOut, MapPin, Settings, ShieldCheck, ShoppingCart, User, Users, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '../../../store/cartStore';
 import { ThemeToggle } from '../../../components/ui/ThemeToggle';
@@ -13,6 +13,16 @@ import { useInventarioStore } from '../../../store/inventarioStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useRecursosStore } from '../../../store/recursosStore';
 import { MfaSetupModal } from '../../auth/components/MfaSetupModal';
+
+/** Los enlaces del menú, uno solo para escritorio y móvil: estaban escritos dos veces. */
+const ENLACES_NAV = [
+  { to: '/student/catalog', label: 'Catálogo', Icono: LayoutGrid },
+  { to: '/student/requests', label: 'Solicitudes de equipos', Icono: Layers },
+  { to: '/student/horarios', label: 'Horarios', Icono: CalendarDays },
+  { to: '/student/map', label: 'Ubicaciones', Icono: MapPin },
+  { to: '/student/recursos', label: 'Recursos', Icono: BookOpen },
+  { to: '/student/oficios', label: 'Oficios', Icono: FileText },
+];
 
 export const StudentLayout = () => {
   const navigate = useNavigate();
@@ -64,43 +74,22 @@ export const StudentLayout = () => {
           </div>
 
           {/* Centro: Navegación Principal */}
-          <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
-            <NavLink 
-              to="/student/catalog" 
-              className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-            >
-              Catálogo
-            </NavLink>
-            <NavLink 
-              to="/student/requests" 
-              className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-            >
-              Solicitudes de equipos
-            </NavLink>
-            <NavLink
-              to="/student/horarios"
-              className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-            >
-              Horarios
-            </NavLink>
-            <NavLink
-              to="/student/map"
-              className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-            >
-              Ubicaciones
-            </NavLink>
-            <NavLink
-              to="/student/recursos"
-              className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-            >
-              Recursos
-            </NavLink>
-            <NavLink
-              to="/student/oficios"
-              className={({ isActive }) => `px-3 xl:px-4 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-espoch-red text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-            >
-              Oficios
-            </NavLink>
+          <nav className="absolute left-1/2 hidden h-full -translate-x-1/2 items-center gap-1 lg:flex">
+            {ENLACES_NAV.map(({ to, label, Icono }) => (
+              <NavLink key={to} to={to} className="group relative flex h-full items-center">
+                {({ isActive }) => (
+                  <>
+                    <span className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors xl:px-4 ${isActive ? 'text-espoch-red' : 'text-gray-500 group-hover:text-gray-900'}`}>
+                      <Icono className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                      {label}
+                    </span>
+                    {/* La barra va al borde inferior de la cabecera, no debajo del texto:
+                        así marca la sección sin robarle alto a la fila. */}
+                    {isActive && <span className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-full bg-espoch-red" />}
+                  </>
+                )}
+              </NavLink>
+            ))}
           </nav>
 
           {/* Derecha: Iconos — todo en una sola fila compacta */}
@@ -213,19 +202,13 @@ export const StudentLayout = () => {
 
         {/* Navegación móvil (scroll horizontal) — el nav central se oculta en <lg */}
         <nav className="lg:hidden flex items-center gap-2 overflow-x-auto custom-scrollbar px-4 py-2 bg-white/90 border-b border-gray-200/50">
-          {[
-            { to: '/student/catalog', label: 'Catálogo' },
-            { to: '/student/requests', label: 'Solicitudes de equipos' },
-            { to: '/student/horarios', label: 'Horarios' },
-            { to: '/student/map', label: 'Ubicaciones' },
-            { to: '/student/recursos', label: 'Recursos' },
-            { to: '/student/oficios', label: 'Oficios' },
-          ].map(item => (
+          {ENLACES_NAV.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) => `px-3 py-1.5 rounded-full text-[12px] font-bold whitespace-nowrap shrink-0 transition-all ${isActive ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}
+              className={({ isActive }) => `flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-1.5 text-[12px] font-bold transition-colors ${isActive ? 'border-espoch-red text-espoch-red' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
             >
+              <item.Icono className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
               {item.label}
             </NavLink>
           ))}
