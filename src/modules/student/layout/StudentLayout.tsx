@@ -17,11 +17,11 @@ import { MfaSetupModal } from '../../auth/components/MfaSetupModal';
 /** Los enlaces del menú, uno solo para escritorio y móvil: estaban escritos dos veces. */
 const ENLACES_NAV = [
   { to: '/student/catalog', label: 'Catálogo', Icono: LayoutGrid },
-  { to: '/student/requests', label: 'Solicitudes de equipos', Icono: Layers },
+  { to: '/student/requests', label: 'Reserva de equipos', Icono: Layers },
   { to: '/student/horarios', label: 'Horarios', Icono: CalendarDays },
   { to: '/student/map', label: 'Ubicaciones', Icono: MapPin },
   { to: '/student/recursos', label: 'Recursos', Icono: BookOpen },
-  { to: '/student/oficios', label: 'Oficios', Icono: FileText },
+  { to: '/student/oficios', label: 'Formatos', Icono: FileText },
 ];
 
 export const StudentLayout = () => {
