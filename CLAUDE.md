@@ -71,6 +71,16 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **El estudiante ve los documentos enlazados (migración 0039, EJECUTARLA tras la 0038).**
+  Los documentos de tipo `ENLACE` no aparecían en "Modelos de oficio" por DOS filtros, no uno:
+  el cliente pedía `tipo === 'DINAMICO'` y **la política RLS de la 0037 exigía lo mismo**, así
+  que arreglar solo el cliente no habría cambiado nada —las filas ni llegaban—. Ambas
+  condiciones se escribieron cuando `DINAMICO` era el único origen que existía.
+  Ahora entran los dos tipos; `estado = 'activo'` y la pertenencia a una categoría para
+  estudiantes siguen decidiendo igual que antes. La tarjeta del enlace ofrece **Abrir** en vez
+  de "Usar modelo", que llevaría al generador de oficios y no aplica.
+  `esUrlSegura` se movió a `src/lib/urlSegura.ts`: ya lo usan la pantalla de admin y la del
+  estudiante.
 - **Documentos por ENLACE, no por archivo subido (migración 0038, EJECUTARLA).** Guardar un
   documento con su URL fallaba con `invalid input value for enum tipo_formato: "ENLACE"`:
   `formatos.tipo` es un enum y solo tenía `DINAMICO` y `PDF`. Se agregó la etiqueta en vez de

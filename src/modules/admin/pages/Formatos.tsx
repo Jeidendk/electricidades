@@ -18,6 +18,7 @@ import {
 } from '../../../lib/archivosFormatos';
 import { perfilesRepositorio, type PerfilRepositorioId } from '../data/repositorioElectricidad';
 import { enMayusculas } from '../../../lib/texto';
+import { esUrlSegura } from '../../../lib/urlSegura';
 
 /** Valor de `tipo` de las plantillas que genera el sistema; el resto son archivos subidos. */
 const TIPO_DINAMICO = 'DINAMICO';
@@ -28,18 +29,6 @@ const TIPO_ENLACE = 'ENLACE';
 /** Clave del chip "Archivos". No es un valor de `tipo`: agrupa todo lo que no es dinámico. */
 const FILTRO_ARCHIVOS = 'ARCHIVOS';
 
-/**
- * Solo se abren enlaces http/https. Un `javascript:` guardado en la tabla se ejecutaría en la
- * sesión de quien lo abra, así que el esquema se comprueba al guardar y otra vez al abrir: la
- * fila pudo entrar por la API, no por este formulario.
- */
-const esUrlSegura = (url: string) => {
-  try {
-    return ['http:', 'https:'].includes(new URL(url).protocol);
-  } catch {
-    return false;
-  }
-};
 
 export const Formatos = () => {
   const { formatos, fetchFormatos, addFormato, updateFormato, removeFormato, error: errorFormatos } = useFormatosStore();

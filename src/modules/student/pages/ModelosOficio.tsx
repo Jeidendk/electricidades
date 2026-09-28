@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Download, FileText, Folder, GraduationCap, Home, Printer, Search, UserRound, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Download, ExternalLink, FileText, Folder, GraduationCap, Home, Printer, Search, UserRound, X } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useFormatosStore } from '../../../store/formatosStore';
 import { construirArbol, idsConDescendientes, rutaHasta, useSeriesFormatosStore } from '../../../store/seriesFormatosStore';
@@ -8,8 +8,16 @@ import { generatePreviewDOCX, generatePreviewPDF, type DocumentParams } from '..
 import type { Database } from '../../../lib/database.types';
 import { supabase } from '../../../lib/supabase';
 import { componerNombreCompleto } from '../../../lib/texto';
+import { esUrlSegura } from '../../../lib/urlSegura';
 
 type FormatoRow = Database['public']['Tables']['formatos']['Row'];
+
+/**
+ * Qué ve el estudiante: las plantillas que rellena aquí (`DINAMICO`) y los documentos que la
+ * facultad publica como enlace (`ENLACE`). Antes solo entraban las primeras, así que un
+ * documento enlazado dentro de una categoría suya no aparecía en ninguna parte.
+ */
+const TIPOS_VISIBLES = ['DINAMICO', 'ENLACE'];
 
 interface Destinatario {
   id: string;
@@ -154,7 +162,7 @@ export const ModelosOficio = () => {
   }, [arbolCategorias, categoriaActiva]);
   const rutaCategorias = useMemo(() => rutaHasta(categoriasEstudiantes, categoriaActiva), [categoriaActiva, categoriasEstudiantes]);
 
-  const plantillasEstudiantes = useMemo(() => formatos.filter(formato => formato.tipo === 'DINAMICO'
+  const plantillasEstudiantes = useMemo(() => formatos.filter(formato => TIPOS_VISIBLES.includes(formato.tipo)
     && formato.estado === 'activo'
     && !!formato.id_serie
     && idsEstudiantes.has(formato.id_serie)), [formatos, idsEstudiantes]);
@@ -181,6 +189,12 @@ export const ModelosOficio = () => {
     if (!nodo) return 0;
     const ids = new Set(idsConDescendientes(nodo));
     return plantillasEstudiantes.filter(formato => formato.id_serie && ids.has(formato.id_serie)).length;
+  };
+
+  /** El documento vive fuera del sistema: se abre en otra pestaña, no se descarga de aquí. */
+  const abrirEnlace = (url: string | null) => {
+    if (!esUrlSegura(url)) return;
+    window.open(url!, '_blank', 'noopener,noreferrer');
   };
 
   const abrirPlantilla = (plantilla: FormatoRow) => {
@@ -259,7 +273,7 @@ export const ModelosOficio = () => {
           <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-sm font-semibold text-red-700">No se pudieron consultar los modelos disponibles.</div>
         ) : categoriasEstudiantes.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center">
-            <Folder className="mb-4 h-12 w-12 text-gray-300" /><h2 className="font-extrabold text-gray-700">No hay modelos publicados</h2><p className="mt-2 max-w-md text-xs text-gray-400">El administrador debe guardar una plantilla dinámica dentro de una categoría para estudiantes.</p>
+            <Folder className="mb-4 h-12 w-12 text-gray-300" /><h2 className="font-extrabold text-gray-700">No hay modelos publicados</h2><p className="mt-2 max-w-md text-xs text-gray-400">El administrador debe publicar una plantilla o un documento dentro de una categoría para estudiantes.</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -293,11 +307,25 @@ export const ModelosOficio = () => {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {plantillas.map(plantilla => {
                     const categoria = series.find(serie => serie.id === plantilla.id_serie)?.nombre || 'Oficios';
+                    const esEnlace = plantilla.tipo === 'ENLACE';
                     return <article key={plantilla.id} className="flex min-h-[190px] flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-                      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-espoch-red"><FileText className="h-5 w-5" /></div>
+                      <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${esEnlace ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-espoch-red'}`}>
+                        {esEnlace ? <ExternalLink className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                      </div>
                       <h2 className="text-sm font-extrabold text-gray-900">{plantilla.nombre}</h2>
-                      <p className="mt-1 line-clamp-2 text-[11px] text-gray-500">{plantilla.descripcion || 'Modelo institucional listo para completar.'}</p>
-                      <div className="mt-auto flex items-center justify-between pt-5"><span className="max-w-[55%] truncate text-[9px] font-bold uppercase tracking-wide text-gray-400">{categoria}</span><button onClick={() => abrirPlantilla(plantilla)} className="rounded-lg bg-[#0f172a] px-4 py-2 text-[11px] font-bold text-white hover:bg-black">Usar modelo</button></div>
+                      <p className="mt-1 line-clamp-2 text-[11px] text-gray-500">
+                        {plantilla.descripcion || (esEnlace ? 'Documento publicado por la facultad.' : 'Modelo institucional listo para completar.')}
+                      </p>
+                      <div className="mt-auto flex items-center justify-between pt-5">
+                        <span className="max-w-[55%] truncate text-[9px] font-bold uppercase tracking-wide text-gray-400">{categoria}</span>
+                        {esEnlace ? (
+                          <button onClick={() => abrirEnlace(plantilla.enlace)} className="flex items-center gap-1.5 rounded-lg bg-[#0f172a] px-4 py-2 text-[11px] font-bold text-white hover:bg-black">
+                            <ExternalLink className="h-3.5 w-3.5" /> Abrir
+                          </button>
+                        ) : (
+                          <button onClick={() => abrirPlantilla(plantilla)} className="rounded-lg bg-[#0f172a] px-4 py-2 text-[11px] font-bold text-white hover:bg-black">Usar modelo</button>
+                        )}
+                      </div>
                     </article>;
                   })}
                 </div>
