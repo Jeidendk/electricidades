@@ -11,7 +11,7 @@ import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
 export const CatalogoEquipos = () => {
   const { cart, cartOpen, setCartOpen, addToCart, updateQty, removeFromCart, clearCart } = useCartStore();
-  const { items: catalogoData, fetchItems } = useCatalogoEquiposStore();
+  const { items: catalogoData, fetchItems, loading, error } = useCatalogoEquiposStore();
   const authUser = useAuthStore(s => s.user);
   const [search, setSearch] = useState('');
 
@@ -22,7 +22,7 @@ export const CatalogoEquipos = () => {
   };
 
   useEffect(() => {
-    fetchItems();
+    fetchItems({ forzar: true });
   }, [fetchItems]);
   
   // Filters
@@ -84,6 +84,19 @@ export const CatalogoEquipos = () => {
   };
 
   const filtrosActivos = catFilters.length + stockFilters.length + labFilters.length + marcaFilters.length;
+  const categoriasDisponibles = useMemo(
+    () => [...new Set(catalogoData.map(item => item.categoria))].sort(),
+    [catalogoData],
+  );
+  const laboratoriosDisponibles = useMemo(
+    () => [...new Set(catalogoData.map(item => item.ubicacion).filter(Boolean))].sort(),
+    [catalogoData],
+  );
+  const resumenCatalogo = useMemo(() => {
+    const total = catalogoData.reduce((suma, item) => suma + item.stock_total, 0);
+    const disponibles = catalogoData.reduce((suma, item) => suma + item.stock, 0);
+    return { total, disponibles, mantenimiento: Math.max(0, total - disponibles) };
+  }, [catalogoData]);
   const clearCatalogFilters = () => {
     setCatFilters([]); setStockFilters([]); setLabFilters([]); setMarcaFilters([]);
   };
@@ -214,7 +227,7 @@ export const CatalogoEquipos = () => {
               <div className="flex items-center gap-3">
                 <Package className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
                 <div className="flex flex-col">
-                  <span className="text-[15px] font-black text-white leading-tight">842</span>
+                  <span className="text-[15px] font-black text-white leading-tight">{resumenCatalogo.total}</span>
                   <span className="text-[10px] font-medium text-gray-400 leading-none">Total equipos</span>
                 </div>
               </div>
@@ -224,7 +237,7 @@ export const CatalogoEquipos = () => {
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
                 <div className="flex flex-col">
-                  <span className="text-[15px] font-black text-white leading-tight">615</span>
+                  <span className="text-[15px] font-black text-white leading-tight">{resumenCatalogo.disponibles}</span>
                   <span className="text-[10px] font-medium text-gray-400 leading-none">Disponibles</span>
                 </div>
               </div>
@@ -234,7 +247,7 @@ export const CatalogoEquipos = () => {
               <div className="flex items-center gap-3">
                 <Wrench className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
                 <div className="flex flex-col">
-                  <span className="text-[15px] font-black text-white leading-tight">12</span>
+                  <span className="text-[15px] font-black text-white leading-tight">{resumenCatalogo.mantenimiento}</span>
                   <span className="text-[10px] font-medium text-gray-400 leading-none">Mantenimiento</span>
                 </div>
               </div>
@@ -266,7 +279,7 @@ export const CatalogoEquipos = () => {
                 <h3 className="text-[13px] font-black text-gray-900 uppercase tracking-wider">Categorías</h3>
               </div>
               <div className="flex flex-col gap-3">
-                {['herramientas', 'equipos', 'tecnologico'].map(cat => (
+                {categoriasDisponibles.map(cat => (
                   <label key={cat} className="flex items-center gap-3 cursor-pointer group">
                     <input type="checkbox" className="peer sr-only" checked={catFilters.includes(cat)} onChange={() => toggleFilter(setCatFilters, cat)} />
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shadow-sm shrink-0 ${catFilters.includes(cat) ? 'bg-espoch-red border-espoch-red' : 'border-gray-300'}`}>
@@ -302,7 +315,7 @@ export const CatalogoEquipos = () => {
                 <h3 className="text-[13px] font-black text-gray-900 uppercase tracking-wider">Laboratorio</h3>
               </div>
               <div className="flex flex-col gap-3">
-                {['Circuitos', 'Control', 'Potencia', 'Electrónica'].map(lab => (
+                {laboratoriosDisponibles.map(lab => (
                   <label key={lab} className="flex items-center gap-3 cursor-pointer group">
                     <input type="checkbox" className="peer sr-only" checked={labFilters.includes(lab)} onChange={() => toggleFilter(setLabFilters, lab)} />
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shadow-sm shrink-0 ${labFilters.includes(lab) ? 'bg-espoch-red border-espoch-red' : 'border-gray-300'}`}>
@@ -393,7 +406,17 @@ export const CatalogoEquipos = () => {
               <div className={viewMode === 'grid' 
                 ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" 
                 : "flex flex-col gap-3"}>
-                {filteredItems.map((item) => {
+                {loading && <div className="col-span-full py-16 text-center text-sm font-semibold text-gray-400">Cargando inventario…</div>}
+                {!loading && error && (
+                  <div className="col-span-full rounded-2xl border border-red-100 bg-red-50 p-8 text-center">
+                    <p className="text-sm font-bold text-red-700">No se pudo consultar el inventario.</p>
+                    <button onClick={() => void fetchItems({ forzar: true })} className="mt-3 text-xs font-bold text-red-700 underline">Reintentar</button>
+                  </div>
+                )}
+                {!loading && !error && filteredItems.length === 0 && (
+                  <div className="col-span-full py-16 text-center text-sm font-semibold text-gray-400">No hay equipos que coincidan con los filtros.</div>
+                )}
+                {!loading && !error && filteredItems.map((item) => {
                   const inCart = cart.find(c => c.id === item.id);
                   const qty = inCart ? inCart.qty : 0;
                   const isAvailable = item.estado === 'disponible' && item.stock > 0;

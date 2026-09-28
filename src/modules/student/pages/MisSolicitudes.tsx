@@ -196,9 +196,9 @@ export const MisSolicitudes = () => {
             </div>
             <div className="flex flex-col">
               <h2 className="text-[12px] font-extrabold text-white tracking-tight leading-none mb-1.5">
-                Mis Solicitudes
+                Solicitudes de equipos
               </h2>
-              <p className="text-[11px] text-gray-400 font-medium">Historial de todas tus solicitudes de equipamiento y reportes.</p>
+              <p className="text-[11px] text-gray-400 font-medium">Historial de tus pedidos de equipos, herramientas e instrumentos.</p>
             </div>
           </div>
 
@@ -235,7 +235,7 @@ export const MisSolicitudes = () => {
           <div className="hidden lg:flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-[#212730] px-4 py-2 rounded-full border border-white/5">
             <span className="hover:text-gray-200 cursor-pointer transition-colors">INICIO</span>
             <ChevronRight className="w-3 h-3 text-gray-600" />
-            <span className="text-espoch-yellow">MIS SOLICITUDES</span>
+            <span className="text-espoch-yellow">SOLICITUDES DE EQUIPOS</span>
           </div>
         </div>
       </div>
@@ -321,7 +321,7 @@ export const MisSolicitudes = () => {
               </button>
 
               <Link to="/student/catalog" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#b00000] hover:bg-[#8b0000] text-white text-[13px] font-bold transition-all shadow-md border border-red-500/30">
-                <Plus className="w-4 h-4" /> Nueva Solicitud
+                <Plus className="w-4 h-4" /> Solicitar equipo
               </Link>
             </div>
           </div>
