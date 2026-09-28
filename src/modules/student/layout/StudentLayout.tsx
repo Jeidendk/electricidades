@@ -1,5 +1,6 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Bell, BookOpen, CalendarDays, ChevronDown, Eye, FileText, GraduationCap, KeyRound, Layers, LayoutGrid, LogOut, MapPin, Settings, ShieldCheck, ShoppingCart, User, Users, Wrench } from 'lucide-react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Bell, BookOpen, CalendarDays, ChevronDown, ChevronRight, ClipboardList, Eye, FileText, GraduationCap, KeyRound, Layers, LogOut, MapPin, Settings, ShieldCheck, ShoppingCart, User, Users, Wrench } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '../../../store/cartStore';
 import { ThemeToggle } from '../../../components/ui/ThemeToggle';
@@ -14,18 +15,41 @@ import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useRecursosStore } from '../../../store/recursosStore';
 import { MfaSetupModal } from '../../auth/components/MfaSetupModal';
 
+interface EnlaceNav {
+  to: string;
+  label: string;
+  Icono: LucideIcon;
+  /** Secciones que cuelgan de esta: se abren en un desplegable en vez de ocupar la barra. */
+  hijos?: { to: string; label: string; Icono: LucideIcon }[];
+}
+
 /** Los enlaces del menú, uno solo para escritorio y móvil: estaban escritos dos veces. */
-const ENLACES_NAV = [
-  { to: '/student/catalog', label: 'Catálogo', Icono: LayoutGrid },
-  { to: '/student/requests', label: 'Reserva de equipos', Icono: Layers },
+const ENLACES_NAV: EnlaceNav[] = [
+  {
+    to: '/student/requests',
+    label: 'Historial',
+    Icono: ClipboardList,
+    hijos: [{ to: '/student/catalog', label: 'Reserva de equipos', Icono: Layers }],
+  },
+  { to: '/student/oficios', label: 'Formatos', Icono: FileText },
   { to: '/student/horarios', label: 'Horarios', Icono: CalendarDays },
   { to: '/student/map', label: 'Ubicaciones', Icono: MapPin },
   { to: '/student/recursos', label: 'Recursos', Icono: BookOpen },
-  { to: '/student/oficios', label: 'Formatos', Icono: FileText },
 ];
+
+/** Los enlaces tal como se recorren en móvil: ahí no hay desplegable, se listan todos. */
+const ENLACES_PLANOS: { to: string; label: string; Icono: LucideIcon }[] =
+  ENLACES_NAV.flatMap(enlace => [{ to: enlace.to, label: enlace.label, Icono: enlace.Icono }, ...(enlace.hijos ?? [])]);
 
 export const StudentLayout = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  /** Ruta de la sección cuyo desplegable está abierto; null = ninguno. */
+  const [menuAbierto, setMenuAbierto] = useState<string | null>(null);
+
+  // Cambiar de página cierra el desplegable: si sobreviviera, quedaría abierto sobre la
+  // pantalla nueva sin que nadie lo haya pedido.
+  useEffect(() => { setMenuAbierto(null); }, [pathname]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
@@ -75,21 +99,61 @@ export const StudentLayout = () => {
 
           {/* Centro: Navegación Principal */}
           <nav className="absolute left-1/2 hidden h-full -translate-x-1/2 items-center gap-1 lg:flex">
-            {ENLACES_NAV.map(({ to, label, Icono }) => (
-              <NavLink key={to} to={to} className="group relative flex h-full items-center">
-                {({ isActive }) => (
-                  <>
-                    <span className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors xl:px-4 ${isActive ? 'text-espoch-red' : 'text-gray-500 group-hover:text-gray-900'}`}>
-                      <Icono className="h-4 w-4 shrink-0" strokeWidth={2.2} />
-                      {label}
-                    </span>
-                    {/* La barra va al borde inferior de la cabecera, no debajo del texto:
-                        así marca la sección sin robarle alto a la fila. */}
-                    {isActive && <span className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-full bg-espoch-red" />}
-                  </>
-                )}
-              </NavLink>
-            ))}
+            {ENLACES_NAV.map(({ to, label, Icono, hijos }) => {
+              // La sección queda marcada también cuando la ruta actual es la de un hijo.
+              const activa = pathname.startsWith(to) || !!hijos?.some(hijo => pathname.startsWith(hijo.to));
+              return (
+                <div key={to} className="relative flex h-full items-center">
+                  <NavLink
+                    to={to}
+                    onClick={() => setMenuAbierto(null)}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors xl:px-4 ${activa ? 'text-espoch-red' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    <Icono className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                    {label}
+                  </NavLink>
+
+                  {/* El desplegable es un botón aparte del enlace: si abrirlo navegara, la
+                      sección padre dejaría de ser alcanzable con un clic. */}
+                  {hijos && (
+                    <button
+                      type="button"
+                      onClick={() => setMenuAbierto(actual => (actual === to ? null : to))}
+                      aria-label={`Ver secciones de ${label}`}
+                      aria-expanded={menuAbierto === to}
+                      className={`-ml-2 rounded-lg p-1.5 transition-colors ${activa ? 'text-espoch-red' : 'text-gray-400 hover:text-gray-900'}`}
+                    >
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${menuAbierto === to ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
+
+                  {/* La barra va al borde inferior de la cabecera, no debajo del texto:
+                      así marca la sección sin robarle alto a la fila. */}
+                  {activa && <span className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-full bg-espoch-red" />}
+
+                  {hijos && menuAbierto === to && (
+                    <div className="absolute left-1/2 top-full z-50 w-[260px] -translate-x-1/2 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+                      {hijos.map(hijo => (
+                        <NavLink
+                          key={hijo.to}
+                          to={hijo.to}
+                          onClick={() => setMenuAbierto(null)}
+                          className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition-colors ${isActive ? 'bg-red-50 text-espoch-red' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <hijo.Icono className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                              <span className="flex-1">{hijo.label}</span>
+                              {isActive && <ChevronRight className="h-4 w-4 shrink-0" />}
+                            </>
+                          )}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
 
           {/* Derecha: Iconos — todo en una sola fila compacta */}
@@ -202,7 +266,7 @@ export const StudentLayout = () => {
 
         {/* Navegación móvil (scroll horizontal) — el nav central se oculta en <lg */}
         <nav className="lg:hidden flex items-center gap-2 overflow-x-auto custom-scrollbar px-4 py-2 bg-white/90 border-b border-gray-200/50">
-          {ENLACES_NAV.map(item => (
+          {ENLACES_PLANOS.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
