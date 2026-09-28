@@ -71,6 +71,17 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Oficina de Docentes como tipo de espacio (migración 0040, EJECUTARLA ANTES DE DESPLEGAR).**
+  `espacios.tipo` es el enum `tipo_espacio`: agregar la opción al `<select>` sin la etiqueta en
+  la base habría fallado al guardar, igual que pasó con `ENLACE` en la 0038.
+  **Lo que no era obvio**: Infraestructura trataba el tipo como binario —`isAula(e.tipo)` para
+  aulas y **`!isAula(e.tipo)` para laboratorios**— en 4 sitios, así que una oficina habría
+  entrado en el KPI "Labs", en la pestaña Laboratorios y en el conteo del edificio. Ahora hay
+  `esLaboratorio()` y `esOficina()` en `espaciosData.ts`, una pestaña Oficinas con su contador,
+  y su propia insignia. Las opciones del select salen de `TIPOS_ESPACIO`, que estaban escritas
+  a mano en el JSX.
+  Las oficinas **no aparecen en Disponibilidad de espacios**: ese filtro ya pedía aula o
+  laboratorio, y una oficina no recibe clases.
 - **La asignatura de una solicitud de equipos sale de la malla, no del teclado.** Era un input
   libre con "Ej: Circuitos Eléctricos I" de marcador; ahora es un `<select>` con las materias
   de la **carrera y el PAO del estudiante** (`materias.id_carrera` + `semestre`, los mismos dos

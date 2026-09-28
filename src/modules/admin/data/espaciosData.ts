@@ -1,15 +1,43 @@
 import { normalizarTexto } from '../../../lib/texto';
 
-export type TipoEspacio = 'Académica' | 'Laboratorio Técnico' | 'Laboratorio de Informática';
+export type TipoEspacio =
+  | 'Académica'
+  | 'Laboratorio Técnico'
+  | 'Laboratorio de Informática'
+  | 'Oficina de Docentes';
 
 /**
- * True si el espacio es un aula y no un laboratorio.
- * El enum `tipo_espacio` de Postgres guarda "Academica" SIN tilde, pero los datos de
- * ejemplo y varias pantallas la escriben con tilde: comparar con === falla en silencio
- * y clasifica todas las aulas como laboratorio.
+ * Las opciones del select de tipo. `valor` es la etiqueta exacta del enum `tipo_espacio`;
+ * `etiqueta` es lo que se lee en pantalla. Agregar un tipo aquí NO basta: hay que sumar la
+ * etiqueta al enum con una migración, o el guardado falla.
+ */
+export const TIPOS_ESPACIO: { valor: TipoEspacio; etiqueta: string }[] = [
+  { valor: 'Académica', etiqueta: 'Aula (Académica)' },
+  { valor: 'Laboratorio Técnico', etiqueta: 'Lab. Técnico' },
+  { valor: 'Laboratorio de Informática', etiqueta: 'Lab. Info' },
+  { valor: 'Oficina de Docentes', etiqueta: 'Oficina de Docentes' },
+];
+
+/**
+ * True si el espacio es un aula.
+ * El enum `tipo_espacio` de Postgres guardó "Academica" SIN tilde hasta la migración 0019,
+ * y los datos de ejemplo la escriben con tilde: comparar con === falla en silencio y
+ * clasifica todas las aulas como laboratorio.
  */
 export const esAula = (tipo: string | null | undefined): boolean =>
   normalizarTexto(tipo) === 'academica';
+
+/** True si el espacio es una oficina de docentes (migración 0040). */
+export const esOficina = (tipo: string | null | undefined): boolean =>
+  normalizarTexto(tipo) === 'oficina de docentes';
+
+/**
+ * True si el espacio es un laboratorio. Se define por descarte porque hay dos etiquetas de
+ * laboratorio y puede haber más; lo que NO se puede es seguir usando `!esAula`, que desde la
+ * 0040 mete a las oficinas en el recuento de laboratorios.
+ */
+export const esLaboratorio = (tipo: string | null | undefined): boolean =>
+  !esAula(tipo) && !esOficina(tipo);
 export type EstadoEspacio = 'disponible' | 'ocupada' | 'mantenimiento';
 
 export interface Espacio {

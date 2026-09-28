@@ -4,8 +4,7 @@ import {
   Edit2, Trash2, ChevronRight, Layers, DoorOpen, Microscope,
   Image as ImageIcon, CheckCircle, Info, AlertTriangle, Wrench,
   BookOpen, Monitor, Activity, Coffee, Camera, RotateCcw,
-  Users, FileText, Ruler
-} from 'lucide-react';
+  Users, FileText, Ruler, Briefcase } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -26,7 +25,7 @@ import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
-import { esAula } from '../data/espaciosData';
+import { TIPOS_ESPACIO, esAula, esLaboratorio, esOficina } from '../data/espaciosData';
 import { PanelLateral, BotonPanelLateral } from '../../../components/ui/PanelLateral';
 
 // --- CONSTANTS ---
@@ -106,7 +105,7 @@ const campusMarkerIcon = L.divIcon({
 });
 
 // --- MAIN PAGE ---
-type EspTab = 'todos' | 'aula' | 'lab';
+type EspTab = 'todos' | 'aula' | 'lab' | 'oficina';
 
 export const Infraestructura = () => {
   // STORES
@@ -166,7 +165,8 @@ export const Infraestructura = () => {
     edificios: edificios.length,
     espacios: espaciosMapped.length,
     aulas: espaciosMapped.filter(e => isAula(e.tipo)).length,
-    labs: espaciosMapped.filter(e => !isAula(e.tipo)).length,
+    // Por descarte contaría también las oficinas, que no son laboratorios.
+    labs: espaciosMapped.filter(e => esLaboratorio(e.tipo)).length,
   }), [edificios, espaciosMapped]);
 
   // NAV / SELECTION
@@ -227,14 +227,16 @@ export const Infraestructura = () => {
   const edificioKpis = useMemo(() => ({
     total: edificioEspacios.length,
     aulas: edificioEspacios.filter(e => isAula(e.tipo)).length,
-    labs: edificioEspacios.filter(e => !isAula(e.tipo)).length,
+    labs: edificioEspacios.filter(e => esLaboratorio(e.tipo)).length,
+    oficinas: edificioEspacios.filter(e => esOficina(e.tipo)).length,
     mantenimiento: edificioEspacios.filter(e => e.estado === 'mantenimiento').length,
   }), [edificioEspacios]);
 
   const filteredEspacios = useMemo(() => {
     let result = edificioEspacios;
     if (espTab === 'aula') result = result.filter(e => isAula(e.tipo));
-    else if (espTab === 'lab') result = result.filter(e => !isAula(e.tipo));
+    else if (espTab === 'lab') result = result.filter(e => esLaboratorio(e.tipo));
+    else if (espTab === 'oficina') result = result.filter(e => esOficina(e.tipo));
     if (espEstadoFilter) result = result.filter(e => e.estado === espEstadoFilter);
     if (espSearch.trim()) {
       const q = espSearch.toLowerCase();
@@ -249,11 +251,13 @@ export const Infraestructura = () => {
     { key: 'todos' as EspTab, label: 'Todos', count: edificioKpis.total, Icon: Layers },
     { key: 'aula' as EspTab, label: 'Aulas', count: edificioKpis.aulas, Icon: DoorOpen },
     { key: 'lab' as EspTab, label: 'Laboratorios', count: edificioKpis.labs, Icon: Microscope },
+    { key: 'oficina' as EspTab, label: 'Oficinas', count: edificioKpis.oficinas, Icon: Briefcase },
   ];
 
   const tipoBadge = (tipo: string) => {
     if (tipo === 'Laboratorio Técnico') return <Badge color="amber" icon={Wrench}>Técnico</Badge>;
     if (tipo === 'Laboratorio de Informática') return <Badge color="purple" icon={Monitor}>Info.</Badge>;
+    if (esOficina(tipo)) return <Badge color="green" icon={Briefcase}>Oficina</Badge>;
     return <Badge color="blue" icon={BookOpen}>Académica</Badge>;
   };
 
@@ -384,7 +388,7 @@ export const Infraestructura = () => {
       ...espDefaults,
       idEdificio: selectedEdificioId || '',
       lat: opts.lat ?? null, lng: opts.lng ?? null,
-      tipo: opts.tipo ?? (espTab === 'aula' ? 'Académica' : espTab === 'lab' ? 'Laboratorio Técnico' : 'Académica'),
+      tipo: opts.tipo ?? (espTab === 'lab' ? 'Laboratorio Técnico' : espTab === 'oficina' ? 'Oficina de Docentes' : 'Académica'),
     });
     setShowEquipoPicker(false); setEquipoSearch('');
     setEspModal('create');
@@ -1068,9 +1072,9 @@ export const Infraestructura = () => {
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo</label>
                       <select value={espForm.tipo} onChange={e => setEspForm({ ...espForm, tipo: e.target.value })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all cursor-pointer">
-                        <option value="Académica">Aula (Académica)</option>
-                        <option value="Laboratorio Técnico">Lab. Técnico</option>
-                        <option value="Laboratorio de Informática">Lab. Info</option>
+                        {TIPOS_ESPACIO.map(({ valor, etiqueta }) => (
+                          <option key={valor} value={valor}>{etiqueta}</option>
+                        ))}
                       </select>
                     </div>
                   </div>

@@ -29,7 +29,7 @@ no da error, simplemente no devuelve nada**.
 | `estado_solicitud_admin` | `pendiente`, `aprobado`, `rechazado` ⚠️ **minúscula, y en masculino** |
 | `estado_usuario` | `activo`, `inactivo` |
 | `prioridad_ot` | `baja`, `media`, `alta` |
-| `tipo_espacio` | `Académica`, `Laboratorio Técnico`, `Laboratorio de Informática` |
+| `tipo_espacio` | `Académica`, `Laboratorio Técnico`, `Laboratorio de Informática`, `Oficina de Docentes` (migración 0040) |
 | `tipo_formato` | `DINAMICO` ⚠️ sin tilde y en mayúsculas, `PDF`, `ENLACE` (migración 0038) |
 | `tipo_recurso` | `libro`, `software` |
 | `tipo_recurso_rel` | `recomendado`, `obligatorio` |
