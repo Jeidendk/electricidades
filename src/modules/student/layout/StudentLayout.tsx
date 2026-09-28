@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BookOpen, CalendarDays, ChevronDown, ChevronRight, ClipboardList, Eye, FileText, GraduationCap, KeyRound, Layers, LogOut, MapPin, Settings, ShieldCheck, ShoppingCart, User, Users, Wrench } from 'lucide-react';
+import { Bell, BookOpen, CalendarDays, ChevronDown, ChevronRight, Eye, FileText, GraduationCap, KeyRound, Layers, LayoutGrid, LogOut, MapPin, Settings, ShieldCheck, ShoppingCart, User, Users, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '../../../store/cartStore';
@@ -27,8 +27,8 @@ interface EnlaceNav {
 const ENLACES_NAV: EnlaceNav[] = [
   {
     to: '/student/catalog',
-    label: 'Historial',
-    Icono: ClipboardList,
+    label: 'Catálogo',
+    Icono: LayoutGrid,
     hijos: [{ to: '/student/requests', label: 'Reserva de equipos', Icono: Layers }],
   },
   { to: '/student/oficios', label: 'Formatos', Icono: FileText },
