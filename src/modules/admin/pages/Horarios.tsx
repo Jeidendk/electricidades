@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { CalendarDays, Clock, DoorOpen, UserCheck,  ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Maximize2, RefreshCcw, FileText } from 'lucide-react';
 import { HorarioVista } from '../components/Horarios/HorarioVista';
 import { MapaEspacios } from '../components/Horarios/MapaEspacios';
+import { DisponibilidadEspacios } from '../components/Horarios/DisponibilidadEspacios';
 import { AsignacionModal } from '../components/Horarios/AsignacionModal';
 import { ImportarHorarioModal } from '../components/Horarios/ImportarHorarioModal';
 import type { ClaseImportable } from '../components/Horarios/importarHorario';
@@ -53,7 +54,7 @@ export const Horarios = () => {
   // algo distinto de lo que muestra la grilla.
   const clases = useMemo(() => mapearClases(rawClases, carreras as any), [rawClases, carreras]);
 
-  const [activeTab, setActiveTab] = useState<'horario' | 'mapa'>('horario');
+  const [activeTab, setActiveTab] = useState<'horario' | 'mapa' | 'disponibilidad'>('horario');
   const [searchQuery, setSearchQuery] = useState('');
   const horarioEdificioId = useUiPrefsStore(s => s.horarioEdificioId);
   const horarioAulaId = useUiPrefsStore(s => s.horarioAulaId);
@@ -569,9 +570,21 @@ export const Horarios = () => {
             <div className="flex flex-col gap-1">
               <div className="flex items-baseline gap-3 flex-wrap">
                 <BreadcrumbRuta tituloPagina="Horarios" className="shrink-0" separadorFinal />
-                <h2 className="text-[12px] font-extrabold text-espoch-yellow tracking-tight leading-none">
-                  Horarios
-                </h2>
+                {activeTab === 'horario' ? (
+                  <h2 className="text-[12px] font-extrabold text-espoch-yellow tracking-tight leading-none">
+                    Horarios
+                  </h2>
+                ) : (
+                  /* Fuera del horario, el título es el camino de vuelta: es donde se mira para
+                     saber dónde se está, así que es donde se busca para salir. */
+                  <button
+                    onClick={() => setActiveTab('horario')}
+                    title="Volver al horario de distribución"
+                    className="text-[12px] font-extrabold text-espoch-yellow tracking-tight leading-none underline decoration-espoch-yellow/40 underline-offset-4 transition-colors hover:decoration-espoch-yellow"
+                  >
+                    Horarios
+                  </button>
+                )}
               </div>
               <p className="text-[11px] text-gray-400 font-medium">Asigne docentes, aulas y edificios a los bloques horarios.</p>
             </div>
@@ -580,12 +593,12 @@ export const Horarios = () => {
           {/* TABS EN EL CENTRO DEL HERO */}
           <div className="flex-1 flex justify-center hidden lg:flex min-w-0 order-3 w-full mt-4 lg:order-none lg:w-auto lg:mt-0">
             <div className="flex items-center bg-[#212730]/80 rounded-xl p-1.5 border border-white/5 shadow-inner">
-              <button onClick={() => setActiveTab('horario')} className={`px-6 py-2.5 rounded-lg text-[12px] font-bold transition-all uppercase tracking-wide ${activeTab === 'horario' ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Horario Semestral</button>
+              <button onClick={() => setActiveTab('horario')} className={`px-6 py-2.5 rounded-lg text-[12px] font-bold transition-all uppercase tracking-wide ${activeTab === 'horario' ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Horario de Distribución</button>
               <button onClick={() => setActiveTab('mapa')} className={`px-6 py-2.5 rounded-lg text-[12px] font-bold transition-all uppercase tracking-wide ${activeTab === 'mapa' ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Mapa de Espacios</button>
             </div>
           </div>
           <div className="flex lg:hidden items-center bg-[#212730]/80 rounded-xl p-1.5 border border-white/5 shadow-inner w-full sm:w-auto">
-            <button onClick={() => setActiveTab('horario')} className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-wide ${activeTab === 'horario' ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Semestral</button>
+            <button onClick={() => setActiveTab('horario')} className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-wide ${activeTab === 'horario' ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Horario de Distribución</button>
             <button onClick={() => setActiveTab('mapa')} className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-wide ${activeTab === 'mapa' ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Mapa</button>
           </div>
           <div className="flex items-center gap-6 bg-[#212730] rounded-xl px-6 py-3 border border-white/5 shadow-inner hidden md:flex">
@@ -650,6 +663,18 @@ export const Horarios = () => {
                   handleBorrarClasesDelAula={handleBorrarClasesDelAula}
                   canBorrarAula={!esTecnico}
                   clasesEnAulaSeleccionada={clasesDelAula.length}
+                  onVerDisponibilidad={() => setActiveTab('disponibilidad')}
+                />
+              )}
+              {activeTab === 'disponibilidad' && (
+                <DisponibilidadEspacios
+                  onVolver={() => setActiveTab('horario')}
+                  onVerHorario={(edificioId, espacioId) => {
+                    setFilterEdificio(edificioId);
+                    setFilterAula(espacioId);
+                    setSearchQuery('');
+                    setActiveTab('horario');
+                  }}
                 />
               )}
               {activeTab === 'mapa' && (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash, Lock, LockOpen } from 'lucide-react';
+import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash, Lock, LockOpen, CalendarSearch } from 'lucide-react';
 import { dias, horas, availableIcons, rangoIncluyeBloque, etiquetaPaoParalelo, PARALELO_POR_DEFECTO } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import { SearchInput } from '../../../../components/ui/SearchInput';
@@ -29,6 +29,9 @@ interface HorarioVistaProps {
   canBorrarAula: boolean;
   /** Cuántas clases tiene el aula filtrada: en 0 no se ofrece borrar (evita un borrado vacío). */
   clasesEnAulaSeleccionada: number;
+  /** Abre la consulta de disponibilidad. Vive junto a los chips de ubicación, que es donde
+      se está mirando "qué hay en esta aula" cuando surge la pregunta "y cuál está libre". */
+  onVerDisponibilidad?: () => void;
 }
 
 const hexToRgba = (hex: string, opacity: number) => {
@@ -60,6 +63,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   handleBorrarClasesDelAula,
   canBorrarAula,
   clasesEnAulaSeleccionada,
+  onVerDisponibilidad,
 }) => {
   const getClaseEnCasilla = (dia: string, hora: string) => {
     const q = searchQuery.trim().toLowerCase();
@@ -153,6 +157,15 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
               <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap"><Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" /> {pisoActual != null ? `Piso ${pisoActual}` : 'Sin piso'}</span>
               <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap max-w-[160px]"><DoorOpen className="w-3.5 h-3.5 text-gray-500 shrink-0" /> <span className="truncate">{nombreAulaFiltrada || 'Sin aula'}</span></span>
             </>
+          )}
+          {onVerDisponibilidad && (
+            <button
+              onClick={onVerDisponibilidad}
+              title="Ver qué aulas y laboratorios están libres"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-900"
+            >
+              <CalendarSearch className="w-3.5 h-3.5 text-gray-500 shrink-0" /> Disponibilidad
+            </button>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">

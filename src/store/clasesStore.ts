@@ -30,13 +30,25 @@ export const useClasesStore = create<ClasesState>()((set) => ({
   fetchClases: async () => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('clases')
-        .select('*, materias(nombre, codigo, id_carrera, semestre), espacios(nombre, id_edificio, tipo), docentes:usuarios!clases_id_docente_fkey(nombre, apellido, titulo)')
-        .order('dia')
-        .order('hora_inicio');
-      if (error) throw error;
-      set({ clases: (data as any[]) || [] });
+      // Leer todas las páginas: omitir clases por el límite de respuesta daría
+      // falsos espacios libres en la consulta de disponibilidad.
+      const todas: ClaseRow[] = [];
+      const tamanoPagina = 500;
+      for (let desde = 0; ; desde += tamanoPagina) {
+        const { data, error, count } = await supabase
+          .from('clases')
+          .select('*, materias(nombre, codigo, id_carrera, semestre), espacios(nombre, id_edificio, tipo), docentes:usuarios!clases_id_docente_fkey(nombre, apellido, titulo)', { count: 'exact' })
+          .order('dia')
+          .order('hora_inicio')
+          .order('id')
+          .range(desde, desde + tamanoPagina - 1);
+        if (error) throw error;
+        todas.push(...(data || []));
+        if (count === null) throw new Error('No se pudo verificar la carga completa del horario.');
+        if (todas.length >= count) break;
+        if (!data || data.length < tamanoPagina) throw new Error('La carga del horario está incompleta. Actualiza para volver a intentarlo.');
+      }
+      set({ clases: todas });
     } catch (err: any) {
       set({ error: err.message });
     } finally {
