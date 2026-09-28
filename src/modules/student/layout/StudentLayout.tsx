@@ -26,10 +26,10 @@ interface EnlaceNav {
 /** Los enlaces del menú, uno solo para escritorio y móvil: estaban escritos dos veces. */
 const ENLACES_NAV: EnlaceNav[] = [
   {
-    to: '/student/requests',
+    to: '/student/catalog',
     label: 'Historial',
     Icono: ClipboardList,
-    hijos: [{ to: '/student/catalog', label: 'Reserva de equipos', Icono: Layers }],
+    hijos: [{ to: '/student/requests', label: 'Reserva de equipos', Icono: Layers }],
   },
   { to: '/student/oficios', label: 'Formatos', Icono: FileText },
   { to: '/student/horarios', label: 'Horarios', Icono: CalendarDays },
