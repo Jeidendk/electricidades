@@ -76,6 +76,7 @@ export const Usuarios = () => {
       carrera: u.carrera_nombre || '',
       carreraId: carrera?.id || '',
       pao: u.pao ?? null,
+      paralelo: u.paralelo ?? null,
       ultimaConexion: esDocente
         ? 'Sin cuenta'
         : u.ultima_conexion
@@ -115,7 +116,7 @@ export const Usuarios = () => {
   // Form
   const defaultFormValues = {
     nombre: '', email: '', rol: 'Estudiante', estado: 'activo', avatar_url: '', fotoFile: null as File | null,
-    codigo: '', facultadId: '', carreraId: '', pao: '',
+    codigo: '', facultadId: '', carreraId: '', pao: '', paralelo: '',
     titulo: '', apellido: '',
   };
   const [formValues, setFormValues] = useState(defaultFormValues);
@@ -281,7 +282,7 @@ export const Usuarios = () => {
       }
       setIsSubmitting(true);
       // Metadata según el rol; el usuario la sincroniza a su fila al iniciar sesión
-      // (authStore.syncPerfilOnLogin). Estudiante: facultad+carrera+PAO+código.
+      // (authStore.syncPerfilOnLogin). Estudiante: facultad+carrera+PAO+paralelo+código.
       // Técnico: facultad+carrera. Admin: nada académico.
       const fac: any = facultades.find((f: any) => f.id === formValues.facultadId);
       const car: any = carreras.find((c: any) => c.id === formValues.carreraId);
@@ -297,6 +298,7 @@ export const Usuarios = () => {
       if (formValues.rol === 'Estudiante') {
         if (formValues.codigo.trim()) meta.codigo_institucional = formValues.codigo.trim();
         if (formValues.pao) meta.pao = formValues.pao;
+        if (formValues.paralelo) meta.paralelo = Number(formValues.paralelo);
       }
       // No generamos contraseña: se crea la cuenta y se envía un enlace de un solo uso
       // al correo para que el propio usuario establezca su contraseña (/set-password).
@@ -394,6 +396,10 @@ export const Usuarios = () => {
             formValues.rol === 'Estudiante' && formValues.pao
               ? formValues.pao
               : null,
+          paralelo:
+            formValues.rol === 'Estudiante' && formValues.paralelo
+              ? Number(formValues.paralelo)
+              : null,
         };
 
         const { data: rolData, error: rolError } = await supabase
@@ -465,9 +471,10 @@ export const Usuarios = () => {
 
   const showCarrera = !filterRol || filterRol === 'Estudiante' || filterRol === 'Tecnico';
   const showPao = !filterRol || filterRol === 'Estudiante';
+  const showParalelo = showPao;
   const showCodigo = !filterRol || filterRol === 'Estudiante';
-  const gridCols = ['40px', '1.3fr', '1fr', '1fr', showCarrera ? '1.1fr' : null, showPao ? '0.6fr' : null, showCodigo ? '0.9fr' : null, '0.8fr', '1fr', '90px'].filter(Boolean).join(' ');
-  const tableMinW = 960 + (showCarrera ? 170 : 0) + (showPao ? 80 : 0) + (showCodigo ? 150 : 0);
+  const gridCols = ['40px', '1.3fr', '1fr', '1fr', showCarrera ? '1.1fr' : null, showPao ? '0.6fr' : null, showParalelo ? '0.7fr' : null, showCodigo ? '0.9fr' : null, '0.8fr', '1fr', '90px'].filter(Boolean).join(' ');
+  const tableMinW = 960 + (showCarrera ? 170 : 0) + (showPao ? 80 : 0) + (showParalelo ? 90 : 0) + (showCodigo ? 150 : 0);
 
   const toggleSelect = (id: string) =>
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -487,8 +494,8 @@ export const Usuarios = () => {
 
   const exportCsv = () => {
     const rows = selectedIds.length > 0 ? usuarios.filter(u => selectedIds.includes(u.id)) : filteredData;
-    const head = ['ID', 'Nombre', 'Apellido', 'Nombre completo', 'Email', 'Rol', 'Estado', 'Código', 'Facultad', 'Carrera', 'PAO', 'Última conexión'];
-    const body = rows.map(u => [u.id, u.nombre, u.apellido, u.nombreCompleto, u.email, u.rol, u.estado, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.ultimaConexion]);
+    const head = ['ID', 'Nombre', 'Apellido', 'Nombre completo', 'Email', 'Rol', 'Estado', 'Código', 'Facultad', 'Carrera', 'PAO', 'Paralelo', 'Última conexión'];
+    const body = rows.map(u => [u.id, u.nombre, u.apellido, u.nombreCompleto, u.email, u.rol, u.estado, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.paralelo ?? '', u.ultimaConexion]);
     const csv = [head, ...body].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -650,6 +657,7 @@ export const Usuarios = () => {
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / FACULTAD <ArrowUpDown className="w-3 h-3" /></div>
             {showCarrera && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>}
             {showPao && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>}
+            {showParalelo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('paralelo')}>PARALELO <ArrowUpDown className="w-3 h-3" /></div>}
             {showCodigo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('codigo')}>CÓDIGO <ArrowUpDown className="w-3 h-3" /></div>}
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('estado')}>ESTADO <ArrowUpDown className="w-3 h-3" /></div>
             <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('ultimaConexion')}>ÚLTIMA CONEXIÓN <ArrowUpDown className="w-3 h-3" /></div>
@@ -678,11 +686,12 @@ export const Usuarios = () => {
                   </div>
                   {showCarrera && <div className="min-w-0"><span className="text-[11px] font-semibold text-gray-700 truncate block" title={u.carrera}>{u.carrera || '—'}</span></div>}
                   {showPao && <div className="min-w-0">{u.pao ? <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md w-max">PAO {u.pao}</span> : <span className="text-gray-300 text-[11px]">—</span>}</div>}
+                  {showParalelo && <div className="min-w-0">{u.paralelo != null ? <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md w-max">{u.paralelo}</span> : <span className="text-gray-400 text-[10px]">Sin asignar</span>}</div>}
                   {showCodigo && <div className="min-w-0"><span className="text-[11px] font-mono text-gray-500 truncate block">{u.codigo || '—'}</span></div>}
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
-                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, apellido: u.apellido, titulo: u.titulo || '', email: u.email, rol: u.rol, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, apellido: u.apellido, titulo: u.titulo || '', email: u.email, rol: u.rol, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '', paralelo: u.paralelo != null ? String(u.paralelo) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
               </div>
@@ -825,6 +834,7 @@ export const Usuarios = () => {
                                 carreraId: requiereCarrera ? formValues.carreraId : '',
                                 codigo: rol === 'Estudiante' ? formValues.codigo : '',
                                 pao: rol === 'Estudiante' ? formValues.pao : '',
+                                paralelo: rol === 'Estudiante' ? formValues.paralelo : '',
                               });
                             }}
                             disabled={editandoDocente}
@@ -868,14 +878,14 @@ export const Usuarios = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
-                            <select value={formValues.facultadId} onChange={e => setFormValues({...formValues, facultadId: e.target.value, carreraId: '', pao: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
+                            <select value={formValues.facultadId} onChange={e => setFormValues({...formValues, facultadId: e.target.value, carreraId: '', pao: '', paralelo: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
                                 <option value="">Seleccione</option>
                                 {facultades.map((f: any) => <option key={f.id} value={f.id}>{f.siglas || f.nombre}</option>)}
                             </select>
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Carrera</label>
-                            <select disabled={!formValues.facultadId} value={formValues.carreraId} onChange={e => setFormValues({...formValues, carreraId: e.target.value, pao: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            <select disabled={!formValues.facultadId} value={formValues.carreraId} onChange={e => setFormValues({...formValues, carreraId: e.target.value, pao: '', paralelo: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 <option value="">{formValues.facultadId ? 'Seleccione' : 'Elija facultad'}</option>
                                 {carrerasDeFacultad.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                             </select>
@@ -892,9 +902,16 @@ export const Usuarios = () => {
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">PAO</label>
-                            <select disabled={!formValues.carreraId || numPaosForm === 0} value={formValues.pao} onChange={e => setFormValues({...formValues, pao: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            <select disabled={!formValues.carreraId || numPaosForm === 0} value={formValues.pao} onChange={e => setFormValues({...formValues, pao: e.target.value, paralelo: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 <option value="">{!formValues.carreraId ? 'Elija carrera' : numPaosForm === 0 ? 'Sin PAO' : 'Seleccione'}</option>
                                 {Array.from({ length: numPaosForm }, (_, i) => i + 1).map(n => <option key={n} value={String(n)}>PAO {n}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Paralelo</label>
+                            <select disabled={!formValues.pao} value={formValues.paralelo} onChange={e => setFormValues({...formValues, paralelo: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                <option value="">Sin asignar</option>
+                                {[1, 2, 3, 4].map(n => <option key={n} value={String(n)}>Paralelo {n}</option>)}
                             </select>
                         </div>
                     </div>

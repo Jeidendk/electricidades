@@ -30,7 +30,8 @@ export interface AuthUser {
   facultadNombre?: string;
   carreraId?: string;     // carrera del estudiante (de metadata de registro) → horario automático
   carreraNombre?: string; // carrera asignada al estudiante o técnico
-  pao?: number;           // PAO/periodo del estudiante
+  pao?: number;           // nivel académico del estudiante
+  paralelo?: number;      // paralelo del estudiante para su horario
 }
 
 export type LoginResult =
@@ -61,7 +62,7 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   // todavía vacíos durante el primer acceso; nunca reemplaza una edición administrativa.
   const { data: perfilActual } = await supabase
     .from('usuarios')
-    .select('codigo_institucional, facultad_nombre, carrera_nombre, pao, nombre, apellido')
+    .select('codigo_institucional, facultad_nombre, carrera_nombre, pao, paralelo, nombre, apellido')
     .eq('id', userId)
     .maybeSingle();
 
@@ -94,6 +95,12 @@ async function syncPerfilOnLogin(userId: string): Promise<void> {
   ) {
     patch.pao = Number(meta.pao);
   }
+  // Mismo criterio que el PAO: la metadata solo rellena lo que la fila todavía no tiene, así
+  // que una asignación posterior del administrador no se pisa.
+  if (perfilActual?.paralelo == null && meta.paralelo != null && meta.paralelo !== '') {
+    const paralelo = Number(meta.paralelo);
+    if (Number.isInteger(paralelo) && paralelo >= 1) patch.paralelo = paralelo;
+  }
   await supabase.from('usuarios').update(patch).eq('id', userId);
 }
 
@@ -102,7 +109,7 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
   // 1. Cargar perfil del usuario (sin join para no depender de RLS de roles)
   const { data, error } = await supabase
     .from('usuarios')
-    .select('id, nombre, apellido, email, avatar_url, id_rol, facultad_nombre, carrera_nombre, pao')
+    .select('id, nombre, apellido, email, avatar_url, id_rol, facultad_nombre, carrera_nombre, pao, paralelo')
     .eq('id', userId)
     .single();
 
@@ -164,6 +171,7 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
   const carreraNombre = data.carrera_nombre || meta.carrera_nombre || undefined;
   const facultadNombre = data.facultad_nombre || meta.facultad_nombre || undefined;
   let pao: number | undefined;
+  let paralelo: number | undefined;
   if (rolFuncional === 'student') {
     if (carreraNombre) {
       // El perfil guarda el NOMBRE de la carrera, no su id. Se compara normalizado porque una
@@ -182,6 +190,8 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
 
     // El PAO se guarda como texto y puede venir como "5" o "5to".
     pao = aNumeroOpcional(data.pao ?? meta.pao);
+    // El perfil público prevalece incluso cuando el administrador deja el paralelo sin asignar.
+    paralelo = aNumeroOpcional(data.paralelo);
   }
 
   return {
@@ -196,6 +206,7 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
     ...(carreraId ? { carreraId } : {}),
     ...(carreraNombre ? { carreraNombre } : {}),
     ...(pao != null ? { pao } : {}),
+    ...(paralelo != null ? { paralelo } : {}),
   };
 }
 

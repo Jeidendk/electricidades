@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronRight, ChevronLeft, BookOpen, User, Clock, Info, FlaskConical, Users, MapPin } from 'lucide-react';
 import { dias, horas } from '../../admin/components/Horarios/horariosData';
 import { mismoDia } from '../../../lib/texto';
-import { studentInfo, materiaColors } from '../data/studentSchedule';
 import { useAuthStore } from '../../../store/authStore';
 import { useHorarioEstudianteStore, type HorarioEstudianteItem } from '../../../store/horarioEstudianteStore';
 import Swal from 'sweetalert2';
@@ -40,22 +39,24 @@ export const HorariosEstudiante = () => {
   const today = new Date();
 
   const { user } = useAuthStore();
-  const { items: clases, fetchHorario, fetchHorarioAuto } = useHorarioEstudianteStore();
+  const { items: clases, loading, error, fetchHorario, fetchHorarioAuto, clearHorario } = useHorarioEstudianteStore();
 
-  // Encabezado con datos reales del estudiante (fallback al mock si faltan).
-  const periodo = studentInfo.periodo;
-  const carreraLabel = user?.carreraNombre || studentInfo.carrera;
-  const paoLabel = user?.pao != null ? `PAO ${user.pao}` : studentInfo.semestre;
+  const carreraLabel = user?.carreraNombre || 'Carrera sin asignar';
+  const paoLabel = user?.pao != null ? `PAO ${user.pao}` : 'PAO sin asignar';
+  const paraleloLabel = user?.paralelo != null ? `Paralelo ${user.paralelo}` : 'Paralelo sin asignar';
+  const faltaParalelo = user?.carreraId && user?.pao != null && user?.paralelo == null;
 
   useEffect(() => {
-    if (user?.carreraId && user?.pao != null) {
-      // Horario automático por carrera + PAO (no requiere inscripción manual).
-      fetchHorarioAuto(user.carreraId, user.pao);
+    if (user?.carreraId && user?.pao != null && user?.paralelo != null) {
+      void fetchHorarioAuto(user.carreraId, user.pao, user.paralelo);
+    } else if (user?.carreraId && user?.pao != null) {
+      clearHorario();
     } else if (user?.id) {
-      // Fallback: inscripciones manuales (horario_estudiante).
-      fetchHorario(user.id);
+      void fetchHorario(user.id);
+    } else {
+      clearHorario();
     }
-  }, [user, fetchHorario, fetchHorarioAuto]);
+  }, [user?.id, user?.carreraId, user?.pao, user?.paralelo, fetchHorario, fetchHorarioAuto, clearHorario]);
 
   // Mini calendar helpers
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -110,7 +111,7 @@ export const HorariosEstudiante = () => {
   const getClasesForDay = (dia: string) => clases.filter(c => mismoDia(c.dia, dia));
 
   /** Pide confirmación antes de salir del horario y abrir el mapa en ese espacio. */
-  const confirmarIrAlAula = async (aula: string, tipo: HorarioEstudianteItem['tipo']) => {
+  const confirmarIrAlAula = async (aula: string, aulaId: string | null, tipo: HorarioEstudianteItem['tipo']) => {
     if (!aula || aula === 'Sin aula') {
       Swal.fire({
         icon: 'info',
@@ -133,7 +134,7 @@ export const HorariosEstudiante = () => {
       cancelButtonColor: '#64748b',
     });
 
-    if (confirmacion.isConfirmed) navigate(`/student/map?aula=${encodeURIComponent(aula)}`);
+    if (confirmacion.isConfirmed) navigate(`/student/map?aula=${encodeURIComponent(aula)}${aulaId ? `&espacio=${encodeURIComponent(aulaId)}` : ''}`);
   };
 
   // Donut chart by materia
@@ -146,7 +147,7 @@ export const HorariosEstudiante = () => {
     return (
       <svg viewBox="0 0 120 120" className="w-[120px] h-[120px]">
         {entries.map(([materia, data]) => {
-          const color = materiaColors[materia] || '#9ca3af';
+          const color = clases.find(clase => clase.materia === materia)?.color || '#9ca3af';
           const pct = data.count / totalClases;
           const dashLength = pct * circumference;
           const segment = (
@@ -189,7 +190,7 @@ export const HorariosEstudiante = () => {
                   Mi Horario
                 </h2>
                 <p className="text-[11px] text-gray-400 font-medium">
-                  {carreraLabel} — {paoLabel} — {periodo}
+                  {carreraLabel} — {paoLabel} — {paraleloLabel}
                 </p>
               </div>
             </div>
@@ -274,13 +275,13 @@ export const HorariosEstudiante = () => {
             {/* Class Summary */}
             <div className="bg-white/70 backdrop-blur-xl border border-gray-200/60 shadow-sm rounded-2xl p-5">
               <h3 className="text-[13px] font-black text-gray-900 uppercase tracking-wider mb-1">Resumen de clases</h3>
-              <p className="text-[11px] text-gray-500 font-medium mb-4">Periodo {studentInfo.periodo}</p>
+              <p className="text-[11px] text-gray-500 font-medium mb-4">{paoLabel} · {paraleloLabel}</p>
               <div className="flex justify-center mb-4">
                 <DonutChart />
               </div>
               <div className="flex flex-col gap-2">
                 {Object.entries(materiaSummary).map(([materia, data]) => {
-                  const color = materiaColors[materia] || '#9ca3af';
+                  const color = clases.find(clase => clase.materia === materia)?.color || '#9ca3af';
                   return (
                     <div key={materia} className="flex items-center gap-2.5">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: color }}></span>
@@ -394,7 +395,7 @@ export const HorariosEstudiante = () => {
                   </button>
                 </div>
                 <span className="text-[14px] font-black text-gray-900 ml-1">
-                  {viewMode === 'day' ? dias[selectedDay] : 'Semana Académica'} — Periodo {studentInfo.periodo}
+                  {viewMode === 'day' ? dias[selectedDay] : 'Semana Académica'} — {paraleloLabel}
                 </span>
               </div>
 
@@ -459,6 +460,21 @@ export const HorariosEstudiante = () => {
 
               {/* Time Grid */}
               <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                {(faltaParalelo || error || (!loading && clases.length === 0)) && (
+                  <div className="absolute inset-x-4 top-8 z-20 mx-auto max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-lg">
+                    <CalendarDays className="mx-auto mb-3 h-8 w-8 text-gray-300" />
+                    <p className="text-sm font-bold text-gray-800">
+                      {faltaParalelo
+                        ? 'Tu paralelo todavía no ha sido asignado. Solicita su actualización al administrador.'
+                        : error
+                          ? 'No se pudo cargar tu horario. Intenta actualizar la página.'
+                          : !user?.carreraId || user?.pao == null
+                            ? 'Tu carrera o PAO aún no está asignado y no hay clases vinculadas a tu cuenta.'
+                            : 'No hay clases registradas para tu carrera, PAO y paralelo.'}
+                    </p>
+                  </div>
+                )}
+                {loading && <div className="absolute inset-x-4 top-8 z-20 mx-auto max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm font-semibold text-gray-600 shadow-lg">Cargando tu horario…</div>}
                 <div className="flex min-h-full pt-3">
 
                   {/* Time labels column */}
@@ -482,12 +498,13 @@ export const HorariosEstudiante = () => {
 
                         {/* Class cards */}
                         {clasesDelDia.map(clase => {
-                          const horaIndex = horas.indexOf(clase.horaInicio);
+                          const horaIndex = horas.findIndex(bloque => bloque.startsWith(`${clase.horaInicio} -`));
                           if (horaIndex === -1) return null;
 
-                          const color = materiaColors[clase.materia] || '#9ca3af';
+                          const color = clase.color;
                           const TipoIcon = tipoIcons[clase.tipo] || BookOpen;
                           const top = horaIndex * 115 + 4;
+                          const duracionHoras = Math.max(1, (Number(clase.horaFin.slice(0, 2)) * 60 + Number(clase.horaFin.slice(3, 5)) - Number(clase.horaInicio.slice(0, 2)) * 60 - Number(clase.horaInicio.slice(3, 5))) / 60);
 
                           return (
                             <div
@@ -495,7 +512,7 @@ export const HorariosEstudiante = () => {
                               className="absolute left-1 right-1 rounded-xl border-l-[3px] p-2 cursor-default hover:shadow-lg transition-all group z-10"
                               style={{
                                 top: `${top}px`,
-                                height: '107px',
+                                height: `${duracionHoras * 115 - 8}px`,
                                 backgroundColor: hexToRgba(color, 0.07),
                                 borderLeftColor: color,
                               }}
@@ -510,11 +527,11 @@ export const HorariosEstudiante = () => {
                                 <div className="flex items-center gap-2 ml-5">
                                   <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); confirmarIrAlAula(clase.aula, clase.tipo); }}
+                                    onClick={(e) => { e.stopPropagation(); confirmarIrAlAula(clase.aula, clase.aulaId, clase.tipo); }}
                                     title={`Ver ${clase.aula} en el mapa`}
                                     className="text-[10px] font-semibold text-gray-600 flex items-center gap-1 truncate rounded-md px-1 -ml-1 hover:bg-white hover:text-espoch-red hover:underline transition-colors"
                                   >
-                                    <MapPin className="w-3 h-3 text-gray-400 shrink-0" /> {clase.aula}
+                                    <MapPin className="w-3 h-3 text-gray-400 shrink-0" /> {clase.aula} · {clase.edificio}
                                   </button>
                                   <span
                                     className="text-[8px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
@@ -527,12 +544,12 @@ export const HorariosEstudiante = () => {
                                   <User className="w-3 h-3 text-gray-400 shrink-0" /> {clase.docente}
                                 </span>
                                 <span className="text-[9px] font-bold flex items-center gap-1 ml-5" style={{ color }}>
-                                  <Clock className="w-3 h-3 shrink-0" /> {clase.horaInicio} - {clase.horaFin}
+                                  <Clock className="w-3 h-3 shrink-0" /> {clase.horaInicio} - {clase.horaFin}{clase.paralelo != null ? ` · Paralelo ${clase.paralelo}` : ''}
                                 </span>
                               </div>
                               {/* Hover: Go to map button */}
                               <button
-                                onClick={(e) => { e.stopPropagation(); confirmarIrAlAula(clase.aula, clase.tipo); }}
+                                onClick={(e) => { e.stopPropagation(); confirmarIrAlAula(clase.aula, clase.aulaId, clase.tipo); }}
                                 className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md hover:scale-110 bg-white border border-gray-200 text-gray-500 hover:text-espoch-red hover:border-espoch-red/30"
                                 title={`Ver ${clase.aula} en el mapa`}
                               >

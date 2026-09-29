@@ -46,6 +46,7 @@ export const Login = () => {
   const [registerFacultad, setRegisterFacultad] = useState('');
   const [registerCarrera, setRegisterCarrera] = useState('');
   const [registerPao, setRegisterPao] = useState('');
+  const [registerParalelo, setRegisterParalelo] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
 
   // Carreras de la facultad seleccionada (cascada).
@@ -242,6 +243,7 @@ export const Login = () => {
       carrera_id: registerCarrera,
       carrera_nombre: carreraSel?.nombre || '',
       pao: registerPao,
+      paralelo: registerParalelo,
     };
     
     const { data, error } = await supabase.auth.signUp({
@@ -511,11 +513,11 @@ export const Login = () => {
 
                   <div>
                     <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest mb-3.5 transition-colors">Información Académica</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                       <div>
                         <label className="text-[9px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Facultad</label>
                         <div className="relative">
-                          <select required value={registerFacultad} onChange={(e) => { setRegisterFacultad(e.target.value); setRegisterCarrera(''); }} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer">
+                          <select required value={registerFacultad} onChange={(e) => { setRegisterFacultad(e.target.value); setRegisterCarrera(''); setRegisterPao(''); setRegisterParalelo(''); }} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer">
                             <option value="">Seleccione</option>
                             {facultades.map((f) => (
                               <option key={f.id} value={f.id}>{f.siglas || f.nombre}</option>
@@ -527,7 +529,7 @@ export const Login = () => {
                       <div>
                         <label className="text-[9px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Carrera</label>
                         <div className="relative">
-                          <select required disabled={!registerFacultad} value={registerCarrera} onChange={(e) => { setRegisterCarrera(e.target.value); setRegisterPao(''); }} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                          <select required disabled={!registerFacultad} value={registerCarrera} onChange={(e) => { setRegisterCarrera(e.target.value); setRegisterPao(''); setRegisterParalelo(''); }} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                             <option value="">{registerFacultad ? 'Seleccione' : 'Elija facultad'}</option>
                             {carrerasFiltradas.map((c) => (
                               <option key={c.id} value={c.id}>{c.nombre}</option>
@@ -539,9 +541,19 @@ export const Login = () => {
                       <div>
                         <label className="text-[9px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">PAO</label>
                         <div className="relative">
-                          <select required disabled={!registerCarrera || numPaos === 0} value={registerPao} onChange={(e) => setRegisterPao(e.target.value)} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                          <select required disabled={!registerCarrera || numPaos === 0} value={registerPao} onChange={(e) => { setRegisterPao(e.target.value); setRegisterParalelo(''); }} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                             <option value="">{!registerCarrera ? 'Elija carrera' : numPaos === 0 ? 'Sin PAO' : 'PAO'}</option>
                             {paoOptions.map(n => <option key={n} value={String(n)}>PAO {n}</option>)}
+                          </select>
+                          <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider transition-colors">Paralelo</label>
+                        <div className="relative">
+                          <select required disabled={!registerPao} value={registerParalelo} onChange={(e) => setRegisterParalelo(e.target.value)} className="w-full bg-white dark:bg-[#11161d] text-gray-800 dark:text-white text-xs sm:text-sm font-medium rounded-xl py-2.5 sm:py-3 pl-3 sm:pl-4 pr-7 sm:pr-8 outline-none border border-gray-200 dark:border-transparent shadow-sm focus:ring-2 focus:ring-espoch-red/50 appearance-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">Seleccione</option>
+                            {[1, 2, 3, 4].map(n => <option key={n} value={String(n)}>Paralelo {n}</option>)}
                           </select>
                           <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400 pointer-events-none" />
                         </div>

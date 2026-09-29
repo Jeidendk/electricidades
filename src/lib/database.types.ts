@@ -48,6 +48,7 @@ export interface Database {
           facultad_nombre: string | null
           carrera_nombre: string | null
           pao: string | null
+          paralelo: number | null
           created_at: string
           updated_at: string
         }
@@ -65,6 +66,7 @@ export interface Database {
           facultad_nombre?: string | null
           carrera_nombre?: string | null
           pao?: string | null
+          paralelo?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -81,6 +83,7 @@ export interface Database {
           facultad_nombre?: string | null
           carrera_nombre?: string | null
           pao?: string | null
+          paralelo?: number | null
           updated_at?: string
         }
       }

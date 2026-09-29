@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { componerNombreCompleto } from '../lib/texto';
+// El enum `tipo_espacio` no tiene ninguna etiqueta que sea exactamente 'Laboratorio':
+// son 'Laboratorio Técnico' y 'Laboratorio de Informática', así que comparar con === daba
+// siempre 'normal' y ninguna clase se marcaba como laboratorio.
+import { esLaboratorio } from '../modules/admin/data/espaciosData';
 
 export interface HorarioEstudianteItem {
   id: string;
   materia: string;
   docente: string;
   aula: string;
+  aulaId: string | null;
+  edificio: string;
+  paralelo: number | null;
   dia: string;
   horaInicio: string;
   horaFin: string;
@@ -19,7 +26,8 @@ interface HorarioEstudianteState {
   loading: boolean;
   error: string | null;
   fetchHorario: (userId: string) => Promise<void>;
-  fetchHorarioAuto: (carreraId: string, pao: number) => Promise<void>;
+  fetchHorarioAuto: (carreraId: string, pao: number, paralelo: number) => Promise<void>;
+  clearHorario: () => void;
 }
 
 // Paleta para colorear materias de forma estable.
@@ -34,19 +42,20 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
   items: [],
   loading: false,
   error: null,
+  clearHorario: () => set({ items: [], loading: false, error: null }),
 
   fetchHorario: async (userId: string) => {
-    set({ loading: true, error: null });
+    set({ items: [], loading: true, error: null });
     try {
       const { data, error } = await supabase
         .from('horario_estudiante')
         .select(`
           id,
           clases (
-            id, dia, hora_inicio, hora_fin,
+            id, dia, hora_inicio, hora_fin, paralelo,
             materias ( nombre ),
-            docentes:usuarios!clases_id_docente_fkey ( nombre, apellido ),
-            espacios ( nombre, tipo )
+            docentes:usuarios!clases_id_docente_fkey ( nombre, apellido, titulo ),
+            espacios ( id, nombre, tipo, edificios ( nombre ) )
           )
         `)
         .eq('id_usuario', userId)
@@ -57,18 +66,21 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
       const formatted = (data as any[]).map(d => {
         const c = d.clases;
         let tipo: 'normal' | 'laboratorio' | 'tutoría' = 'normal';
-        if (c?.espacios?.tipo === 'Laboratorio') tipo = 'laboratorio';
+        if (esLaboratorio(c?.espacios?.tipo)) tipo = 'laboratorio';
         
         return {
           id: d.id,
           materia: c?.materias?.nombre || 'Desconocida',
-          docente: componerNombreCompleto(c?.docentes?.nombre, c?.docentes?.apellido) || 'Desconocido',
+          docente: [c?.docentes?.titulo, componerNombreCompleto(c?.docentes?.nombre, c?.docentes?.apellido)].filter(Boolean).join(' ') || 'Docente por asignar',
           aula: c?.espacios?.nombre || 'Sin aula',
+          aulaId: c?.espacios?.id || null,
+          edificio: c?.espacios?.edificios?.nombre || 'Sin edificio',
+          paralelo: c?.paralelo ?? null,
           dia: c?.dia || 'LUN',
           horaInicio: c?.hora_inicio?.substring(0, 5) || '00:00',
           horaFin: c?.hora_fin?.substring(0, 5) || '00:00',
           tipo,
-          color: '#2563eb' // default color or fetch from somewhere
+          color: colorPorMateria(c?.materias?.nombre || ''),
         };
       });
 
@@ -79,39 +91,36 @@ export const useHorarioEstudianteStore = create<HorarioEstudianteState>()((set) 
     }
   },
 
-  // Horario AUTOMÁTICO: deriva las clases de la carrera + PAO del estudiante,
+  // Horario AUTOMÁTICO: deriva las clases de la carrera + PAO + paralelo del estudiante,
   // sin requerir inscripción manual. Trae materia, docente, aula, día y horas.
-  fetchHorarioAuto: async (carreraId: string, pao: number) => {
-    set({ loading: true, error: null });
+  fetchHorarioAuto: async (carreraId: string, pao: number, paralelo: number) => {
+    set({ items: [], loading: true, error: null });
     try {
       const { data, error } = await supabase
         .from('clases')
         .select(`
-          id, dia, hora_inicio, hora_fin, id_docente,
+          id, dia, hora_inicio, hora_fin, paralelo,
           materias!inner ( nombre, id_carrera, semestre ),
-          espacios ( nombre, tipo )
+          docentes:usuarios!clases_id_docente_fkey ( nombre, apellido, titulo ),
+          espacios ( id, nombre, tipo, edificios ( nombre ) )
         `)
         .eq('materias.id_carrera', carreraId)
-        .eq('materias.semestre', pao);
+        .eq('materias.semestre', pao)
+        .eq('paralelo', paralelo);
 
       if (error) throw error;
 
-      // Nombres desde el catálogo de docentes, independiente de las cuentas de acceso.
-      const docenteIds = [...new Set((data as any[]).map(c => c.id_docente).filter(Boolean))];
-      const docenteMap: Record<string, string> = {};
-      if (docenteIds.length) {
-        const { data: docs } = await supabase.from('usuarios').select('id, nombre, apellido').in('id', docenteIds);
-        (docs as any[] || []).forEach(d => { docenteMap[d.id] = componerNombreCompleto(d.nombre, d.apellido); });
-      }
-
       const formatted = (data as any[]).map((c) => {
         const materia = c.materias?.nombre || 'Desconocida';
-        const tipo: 'normal' | 'laboratorio' | 'tutoría' = c.espacios?.tipo === 'Laboratorio' ? 'laboratorio' : 'normal';
+        const tipo: 'normal' | 'laboratorio' | 'tutoría' = esLaboratorio(c.espacios?.tipo) ? 'laboratorio' : 'normal';
         return {
           id: c.id,
           materia,
-          docente: docenteMap[c.id_docente] || 'Docente por asignar',
+          docente: [c.docentes?.titulo, componerNombreCompleto(c.docentes?.nombre, c.docentes?.apellido)].filter(Boolean).join(' ') || 'Docente por asignar',
           aula: c.espacios?.nombre || 'Sin aula',
+          aulaId: c.espacios?.id || null,
+          edificio: c.espacios?.edificios?.nombre || 'Sin edificio',
+          paralelo: c.paralelo ?? null,
           dia: c.dia || 'Lunes',
           horaInicio: c.hora_inicio?.substring(0, 5) || '00:00',
           horaFin: c.hora_fin?.substring(0, 5) || '00:00',

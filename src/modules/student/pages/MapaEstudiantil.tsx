@@ -52,6 +52,7 @@ const aulaLocations: Record<string, { coords: [number, number]; edificio: string
 export const MapaEstudiantil = () => {
   const [searchParams] = useSearchParams();
   const aulaParam = searchParams.get('aula');
+  const espacioParam = searchParams.get('espacio');
   const coordsESPOCH: [number, number] = [-1.6588, -78.6775];
   const [mapCenter, setMapCenter] = useState<[number, number]>(coordsESPOCH);
   const [mapZoom, setMapZoom] = useState(17);
@@ -61,6 +62,7 @@ export const MapaEstudiantil = () => {
   const [route, setRoute] = useState<[number, number][] | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [highlightedAula, setHighlightedAula] = useState<string | null>(aulaParam);
+  const [highlightedEspacioId, setHighlightedEspacioId] = useState<string | null>(espacioParam);
   const mapWrapperRef = useRef<HTMLDivElement>(null);
 
   const { items: espacios, fetchEspacios } = useEspaciosStore();
@@ -94,11 +96,12 @@ export const MapaEstudiantil = () => {
 
   const activeEspacio = useMemo(() => {
     if (!espacios.length) return null;
+    if (highlightedEspacioId) return espacios.find(e => e.id === highlightedEspacioId) || null;
     if (highlightedAula) {
       return espacios.find(e => e.nombre === highlightedAula) || (!activeEdificio ? espacios[0] : null);
     }
     return espacios[0];
-  }, [espacios, highlightedAula, activeEdificio]);
+  }, [espacios, highlightedAula, highlightedEspacioId, activeEdificio]);
 
   const [responsable, setResponsable] = useState<{nombre: string, email: string} | null>(null);
   const [equiposEspacio, setEquiposEspacio] = useState<any[]>([]);
@@ -153,7 +156,16 @@ export const MapaEstudiantil = () => {
 
   // Si llega con ?aula=, enfocar en esa aula
   useEffect(() => {
-    if (aulaParam && espaciosLocations[aulaParam]) {
+    const espacio = espacioParam ? espacios.find(e => e.id === espacioParam) : null;
+    const edificio = espacio ? edificios.find(e => e.id === espacio.id_edificio) : null;
+    const lat = espacio?.lat || edificio?.lat;
+    const lng = espacio?.lng || edificio?.lng;
+    if (espacio && lat && lng) {
+      setMapCenter([lat, lng]);
+      setMapZoom(19);
+      setHighlightedAula(espacio.nombre);
+      setHighlightedEspacioId(espacio.id);
+    } else if (aulaParam && espaciosLocations[aulaParam]) {
       setMapCenter(espaciosLocations[aulaParam].coords);
       setMapZoom(19);
       setHighlightedAula(aulaParam);
@@ -162,7 +174,7 @@ export const MapaEstudiantil = () => {
       setMapZoom(19);
       setHighlightedAula(aulaParam);
     }
-  }, [aulaParam, espaciosLocations]);
+  }, [aulaParam, espacioParam, espacios, edificios, espaciosLocations]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -281,7 +293,7 @@ export const MapaEstudiantil = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="text" placeholder="Buscar laboratorio, equipo o asignatura..."
                 value={highlightedAula || ''}
-                onChange={(e) => setHighlightedAula(e.target.value)}
+                onChange={(e) => { setHighlightedEspacioId(null); setHighlightedAula(e.target.value); }}
                 className="w-full bg-gray-50 text-[13px] text-gray-800 rounded-xl py-3 pl-10 pr-4 outline-none border border-gray-200 focus:border-gray-300 transition-all font-medium placeholder:text-gray-400" />
             </div>
 
@@ -475,7 +487,7 @@ export const MapaEstudiantil = () => {
               const lng = espacio.lng || ed?.lng;
               if (!lat || !lng) return null;
 
-              const isHighlighted = highlightedAula === espacio.nombre;
+              const isHighlighted = highlightedEspacioId ? highlightedEspacioId === espacio.id : highlightedAula === espacio.nombre;
               const isLab = espacio.tipo.toLowerCase().includes('laboratorio');
               const aulaIcon = L.divIcon({
                 className: 'bg-transparent',
@@ -505,6 +517,7 @@ export const MapaEstudiantil = () => {
                   eventHandlers={{
                     click: () => {
                       setHighlightedAula(espacio.nombre);
+                      setHighlightedEspacioId(espacio.id);
                     }
                   }}
                 >
@@ -569,10 +582,12 @@ export const MapaEstudiantil = () => {
                       const primerEspacio = espacios.find(e => e.id_edificio === edificio.id);
                       if (primerEspacio) {
                         setHighlightedAula(primerEspacio.nombre);
+                        setHighlightedEspacioId(primerEspacio.id);
                       } else {
                         // Si no tiene espacios, podríamos setearlo al edificio mismo si la UI lo soportara,
                         // por ahora lo dejamos vacío o seteamos un string especial
                         setHighlightedAula(edificio.nombre);
+                        setHighlightedEspacioId(null);
                       }
                     }
                   }}

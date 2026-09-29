@@ -71,6 +71,26 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Horario del estudiante por carrera + PAO + PARALELO (migración 0041, EJECUTARLA ANTES DE
+  DESPLEGAR).** `usuarios` gana `paralelo smallint null` con `check (paralelo is null or
+  paralelo >= 1)`, y el trigger `handle_new_auth_user` lo copia de la metadata. **Nullable a
+  propósito**: el paralelo de las cuentas que ya existen no se puede deducir, y se muestra
+  "Sin asignar" en vez de inventar un 1.
+  **El orden importa**: `fetchPerfil` pide `paralelo` en su `select`; si la columna no existe,
+  PostgREST devuelve 400 y NADIE puede iniciar sesión. SQL primero, deploy después.
+  `fetchHorarioAuto` recibe ahora los tres valores y filtra `clases.paralelo`; sin paralelo
+  asignado NO se muestra nada, porque mezclar los horarios de todos los paralelos del PAO es
+  peor que no mostrar ninguno. Las clases viejas con `paralelo = null` no caen en ningún
+  estudiante. El selector de paralelo está en el registro público y en Usuarios (alta y
+  edición), con la columna en la tabla y en el CSV; cambiar facultad, carrera o PAO lo limpia.
+  De paso: se eliminó la consulta extra de `usuarios` para los docentes (ahora es un join), la
+  tarjeta muestra edificio y paralelo, el alto del bloque sale de su duración real y el enlace
+  al mapa lleva el **id** del espacio, no solo su nombre —dos aulas pueden llamarse igual—.
+  **Dos defectos corregidos en la revisión**: (1) `espacios.tipo === 'Laboratorio'` no coincide
+  con ninguna etiqueta del enum (`Laboratorio Técnico`, `Laboratorio de Informática`), así que
+  ninguna clase se marcaba como laboratorio; ahora usa `esLaboratorio()`. (2)
+  `syncPerfilOnLogin` copiaba el PAO de la metadata pero no el paralelo: si el trigger fallaba,
+  la ficha se quedaba sin él para siempre.
 - **Modelos de oficio (estudiante): barra lateral de categorías en vez de navegar entrando y
   volviendo.** Antes era un explorador: tarjetas de carpeta, se entraba a una y recién ahí
   aparecían los modelos; comparar dos categorías obligaba a salir y entrar. Ahora las
