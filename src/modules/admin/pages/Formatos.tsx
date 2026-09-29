@@ -567,81 +567,91 @@ export const Formatos = () => {
     }
   };
 
-  /** Solicitudes marcadas en el importador, por nombre. */
-  const [solicitudesElegidas, setSolicitudesElegidas] = useState<string[]>([]);
-  const [modalSolicitudes, setModalSolicitudes] = useState(false);
-  const [importandoSolicitudes, setImportandoSolicitudes] = useState(false);
+  const [convirtiendo, setConvirtiendo] = useState(false);
+
+  /** La transcripción que corresponde a un documento, buscada por su nombre. */
+  const transcripcionDe = (nombre: string) =>
+    plantillasSolicitudes.find(p => normalizarTexto(p.nombre) === normalizarTexto(nombre)) ?? null;
+
+  /** Los documentos seleccionados que se pueden convertir en plantilla rellenable. */
+  const seleccionConvertible = useMemo(
+    () => data.filter(f => selectedIds.includes(f.id) && !plantillaDe(f.data) && !!transcripcionDe(f.nombre)?.cuerpo.length),
+    [data, selectedIds],
+  );
 
   /**
-   * Qué solicitudes transcritas se pueden importar a la categoría abierta, y por qué no las
-   * demás: las que ya están ahí (importar dos veces no debe duplicar) y las que llevan tabla de
-   * asignaturas, que el generador todavía no dibuja —publicar un oficio sin su tabla es peor
-   * que no publicarlo—.
+   * Convierte los documentos seleccionados en plantillas rellenables.
+   *
+   * Se convierte la fila EN SU SITIO en vez de crear una copia: el documento ya está clasificado
+   * donde toca, y duplicarlo dejaría dos entradas con el mismo nombre en la misma categoría.
+   * El enlace se conserva, así que el original sigue a un clic.
    */
-  const solicitudesImportables = useMemo(() => {
-    const yaEstan = new Set(
-      formatos.filter((f: any) => f.id_serie === serieSel).map((f: any) => normalizarTexto(f.nombre)),
-    );
-    return plantillasSolicitudes.map(plantilla => ({
-      plantilla,
-      motivoBloqueo: plantilla.tieneTabla
-        ? 'Lleva una tabla que el generador todavía no imprime'
-        : yaEstan.has(normalizarTexto(plantilla.nombre))
-          ? 'Ya está en esta categoría'
-          : null,
-    }));
-  }, [formatos, serieSel]);
-
-  const abrirImportadorSolicitudes = () => {
-    if (!serieSel) { void avisarSinCategoria('guardar las plantillas'); return; }
-    setSolicitudesElegidas(solicitudesImportables.filter(s => !s.motivoBloqueo).map(s => s.plantilla.nombre));
-    setModalSolicitudes(true);
-  };
-
-  /** Crea una plantilla por cada solicitud marcada, dentro de la categoría abierta. */
-  const importarSolicitudes = async () => {
-    if (!serieSel || solicitudesElegidas.length === 0) return;
-    setImportandoSolicitudes(true);
+  const convertirSeleccionados = async () => {
     const S = (await import('sweetalert2')).default;
-    let creadas = 0;
-    const fallidas: string[] = [];
+    const convertibles = seleccionConvertible.filter(f => !transcripcionDe(f.nombre)!.tieneTabla);
+    const conTabla = seleccionConvertible.length - convertibles.length;
 
-    for (const nombre of solicitudesElegidas) {
-      const plantilla = plantillasSolicitudes.find(p => p.nombre === nombre);
-      if (!plantilla) continue;
+    if (convertibles.length === 0) {
+      S.fire({
+        icon: 'info',
+        title: 'No hay nada que convertir',
+        text: conTabla
+          ? 'Los documentos seleccionados llevan una tabla que el generador todavía no imprime.'
+          : 'Ninguno de los documentos seleccionados tiene una transcripción disponible.',
+        confirmButtonColor: '#B00020',
+      });
+      return;
+    }
+
+    const confirmacion = await S.fire({
+      icon: 'question',
+      title: `¿Convertir ${convertibles.length} documento${convertibles.length === 1 ? '' : 's'}?`,
+      html: 'Pasarán a ser plantillas que el estudiante completa y descarga. El enlace al original se conserva.'
+        + (conTabla ? `<br/><br/><small>Quedan fuera ${conTabla} que llevan tabla de asignaturas.</small>` : ''),
+      showCancelButton: true,
+      confirmButtonText: 'Convertir',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#B00020',
+      cancelButtonColor: '#64748b',
+      reverseButtons: true,
+    });
+    if (!confirmacion.isConfirmed) return;
+
+    setConvirtiendo(true);
+    let convertidos = 0;
+    const fallidos: string[] = [];
+    for (const documento of convertibles) {
+      const transcripcion = transcripcionDe(documento.nombre)!;
       try {
-        await addFormato({
-          nombre: plantilla.nombre,
+        await updateFormato(documento.id, {
           tipo: TIPO_DINAMICO,
-          estado: 'activo',
-          descripcion: plantilla.asunto,
-          id_serie: serieSel,
+          descripcion: transcripcion.asunto,
           datos: {
             plantilla: {
-              asunto: plantilla.asunto,
-              destinatario: plantilla.destinatario,
-              parrafos: plantilla.cuerpo,
-              adjuntos: plantilla.adjuntos,
-              referencia: plantilla.referencia,
-              tieneTabla: plantilla.tieneTabla,
-              docId: plantilla.docId,
+              asunto: transcripcion.asunto,
+              destinatario: transcripcion.destinatario,
+              parrafos: transcripcion.cuerpo,
+              adjuntos: transcripcion.adjuntos,
+              referencia: transcripcion.referencia,
+              tieneTabla: transcripcion.tieneTabla,
+              docId: transcripcion.docId,
             },
           },
         } as any);
-        creadas += 1;
+        convertidos += 1;
       } catch (error: any) {
-        fallidas.push(`${plantilla.nombre}: ${error?.message || 'error desconocido'}`);
+        fallidos.push(`${documento.nombre}: ${error?.message || 'error desconocido'}`);
       }
     }
 
     await fetchFormatos();
-    setImportandoSolicitudes(false);
-    setModalSolicitudes(false);
+    setSelectedIds([]);
+    setConvirtiendo(false);
     S.fire({
-      icon: fallidas.length ? 'warning' : 'success',
-      title: `${creadas} plantilla${creadas === 1 ? '' : 's'} importada${creadas === 1 ? '' : 's'}`,
-      html: fallidas.length
-        ? `No se pudieron crear ${fallidas.length}:<br/><small>${fallidas.slice(0, 5).join('<br/>')}</small>`
+      icon: fallidos.length ? 'warning' : 'success',
+      title: `${convertidos} documento${convertidos === 1 ? '' : 's'} convertido${convertidos === 1 ? '' : 's'}`,
+      html: fallidos.length
+        ? `No se pudieron convertir ${fallidos.length}:<br/><small>${fallidos.slice(0, 5).join('<br/>')}</small>`
         : undefined,
       confirmButtonColor: '#B00020',
     });
@@ -1073,13 +1083,16 @@ export const Formatos = () => {
             <button onClick={() => { setQuitarHeader(false); setQuitarFooter(false); setModalType('settings'); }} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
               <Settings className="w-3.5 h-3.5" /> Logos y Sellos
             </button>
-            <button
-              onClick={abrirImportadorSolicitudes}
-              title="Crear plantillas a partir de las solicitudes transcritas del repositorio"
-              className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              <FileText className="w-3.5 h-3.5" /> Importar solicitudes
-            </button>
+            {seleccionConvertible.length > 0 && (
+              <button
+                onClick={() => void convertirSeleccionados()}
+                disabled={convirtiendo}
+                title="Convertir los documentos seleccionados en plantillas que el estudiante completa"
+                className="flex items-center gap-2 whitespace-nowrap rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-[12px] font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+              >
+                <FileText className="w-3.5 h-3.5" /> {convirtiendo ? 'Convirtiendo…' : `Convertir a plantilla (${seleccionConvertible.length})`}
+              </button>
+            )}
             <button
               onClick={() => {
                 if (!serieSel) { void avisarSinCategoria('guardar el documento'); return; }
@@ -1149,7 +1162,7 @@ export const Formatos = () => {
                   }}
                 >
                   <span className="text-[13px] font-bold text-gray-900 truncate">{f.nombre}</span>
-                  <span className="text-[10px] text-gray-400 font-mono">{f.id}</span>
+                  <span className="text-[10px] text-gray-400">{series.find(serie => serie.id === f.idSerie)?.nombre || 'Sin clasificar'}</span>
                 </div>
                 <div><span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${f.esDinamico ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-red-50 text-red-600 border-red-200'}`}>{f.etiquetaTipo}</span></div>
                 <div className="text-[11px] text-gray-500 font-medium">{new Date(f.fecha).toLocaleDateString('es-ES')}</div>
@@ -1212,7 +1225,7 @@ export const Formatos = () => {
             
             <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1.5">Detalle del modelo</p>
             <h2 className="text-sm font-bold text-gray-900 leading-tight mb-1">{selectedFormatForDetail.nombre}</h2>
-            <p className="text-[10px] text-gray-400 font-mono mb-4">{selectedFormatForDetail.id}</p>
+            <p className="text-[10px] text-gray-400 mb-4">{series.find(serie => serie.id === selectedFormatForDetail.idSerie)?.nombre || 'Sin clasificar'}</p>
 
             <div className="w-full flex-1 bg-white rounded-xl border border-gray-200 flex flex-col mb-6 relative overflow-hidden shadow-sm p-3 min-h-0">
               {selectedFormatForDetail.tipo === 'DINAMICO' ? (
@@ -1717,79 +1730,6 @@ export const Formatos = () => {
       )}
 
       {/* MODAL DE SUBIDA */}
-      {/* Importador de solicitudes transcritas: se eligen una a una, o todas. */}
-      {modalSolicitudes && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[4px] animate-fade-in">
-          <div className="flex max-h-[85vh] w-full max-w-[620px] flex-col rounded-3xl bg-white p-7 shadow-2xl animate-scale-in">
-            <h3 className="text-[17px] font-extrabold text-gray-900">Importar solicitudes</h3>
-            <p className="mt-1 text-[12px] text-gray-500">
-              Se crearán como plantillas dentro de <b>{serieSeleccionada?.nombre || 'la categoría abierta'}</b>.
-              El texto es el del documento original; el estudiante solo completa los huecos.
-            </p>
-
-            <div className="mt-4 flex items-center justify-between border-b border-gray-100 pb-2.5">
-              <span className="text-[11px] font-bold text-gray-500">
-                {solicitudesElegidas.length} de {solicitudesImportables.filter(s => !s.motivoBloqueo).length} seleccionadas
-              </span>
-              <div className="flex gap-3 text-[11px] font-bold">
-                <button
-                  onClick={() => setSolicitudesElegidas(solicitudesImportables.filter(s => !s.motivoBloqueo).map(s => s.plantilla.nombre))}
-                  className="text-espoch-red hover:underline"
-                >
-                  Todas
-                </button>
-                <button onClick={() => setSolicitudesElegidas([])} className="text-gray-500 hover:underline">Ninguna</button>
-              </div>
-            </div>
-
-            <div className="-mx-2 mt-1 flex-1 overflow-y-auto px-2 custom-scrollbar">
-              {solicitudesImportables.map(({ plantilla, motivoBloqueo }) => {
-                const marcada = solicitudesElegidas.includes(plantilla.nombre);
-                return (
-                  <label
-                    key={plantilla.nombre}
-                    title={motivoBloqueo || plantilla.asunto}
-                    className={`flex items-start gap-3 rounded-xl px-3 py-2.5 ${motivoBloqueo ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-50'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      disabled={!!motivoBloqueo}
-                      checked={marcada}
-                      onChange={() => setSolicitudesElegidas(actuales => (
-                        actuales.includes(plantilla.nombre)
-                          ? actuales.filter(n => n !== plantilla.nombre)
-                          : [...actuales, plantilla.nombre]
-                      ))}
-                      className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-gray-300 accent-espoch-red"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-bold text-gray-800">{plantilla.nombre}</span>
-                      <span className="block truncate text-[11px] text-gray-500">{motivoBloqueo || plantilla.asunto}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="mt-5 flex gap-3">
-              <button
-                onClick={() => setModalSolicitudes(false)}
-                className="flex-1 rounded-xl border border-gray-200 bg-white py-3 text-[13px] font-bold text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => void importarSolicitudes()}
-                disabled={solicitudesElegidas.length === 0 || importandoSolicitudes}
-                className="flex-1 rounded-xl bg-[#0f172a] py-3 text-[13px] font-bold text-white transition-colors hover:bg-black disabled:opacity-40"
-              >
-                {importandoSolicitudes ? 'Importando…' : `Importar (${solicitudesElegidas.length})`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {modalEnlace && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
           <div className="bg-white rounded-3xl w-full max-w-[460px] p-8 shadow-2xl animate-scale-in">
