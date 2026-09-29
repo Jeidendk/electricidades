@@ -9,6 +9,7 @@ import type { Database } from '../../../lib/database.types';
 import { supabase } from '../../../lib/supabase';
 import { componerNombreCompleto } from '../../../lib/texto';
 import { esUrlSegura } from '../../../lib/urlSegura';
+import { BotonPanelLateral, PanelLateral } from '../../../components/ui/PanelLateral';
 
 type FormatoRow = Database['public']['Tables']['formatos']['Row'];
 
@@ -98,6 +99,8 @@ export const ModelosOficio = () => {
    * Infraestructura; con una lista suelta, 26 subcategorías abiertas vuelven a la lista larga.
    */
   const [ramasAbiertas, setRamasAbiertas] = useState<string[]>([]);
+  /** Las categorías se consultan a ratos: el panel se superpone en vez de quedarse fijo. */
+  const [panelAbierto, setPanelAbierto] = useState(false);
   const [vista, setVista] = useState<'tarjetas' | 'lista'>('tarjetas');
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null);
   const [plantillaActiva, setPlantillaActiva] = useState<FormatoRow | null>(null);
@@ -340,41 +343,32 @@ export const ModelosOficio = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-5 p-5 lg:gap-6 lg:p-8">
-        {/* Barra lateral de categorías. Reemplaza al rastro de migas: con pocas categorías, una
-            lista siempre visible ahorra el ida y vuelta de entrar y volver para comparar. */}
-        <aside className="hidden w-[240px] shrink-0 flex-col gap-1 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm lg:flex">
-          <button
-            type="button"
-            onClick={() => setCategoriaActiva(null)}
-            className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-[12px] font-bold transition ${!categoriaActiva ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Folder className="h-4 w-4 shrink-0" />
-            <span className="flex-1 truncate">Todas las categorías</span>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${!categoriaActiva ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>{plantillasEstudiantes.length}</span>
-          </button>
+      <div className="relative flex min-h-0 flex-1 gap-5 p-5 lg:gap-6 lg:p-8">
+        {/* El árbol de categorías se superpone y lo abre un botón: se consulta un momento y se
+            deja de mirar, así que reservarle 240px fijos se los quitaba siempre a los modelos. */}
+        <PanelLateral abierto={panelAbierto} onCerrar={() => setPanelAbierto(false)} titulo="Categorías">
+          <div className="flex flex-col gap-1 p-3">
+            <button
+              type="button"
+              onClick={() => setCategoriaActiva(null)}
+              className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-[12px] font-bold transition ${!categoriaActiva ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <Folder className="h-4 w-4 shrink-0" />
+              <span className="flex-1 truncate">Todas las categorías</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${!categoriaActiva ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>{plantillasEstudiantes.length}</span>
+            </button>
 
-          {arbolCategorias.map(rama => dibujarRama(rama, 0))}
-        </aside>
+            {arbolCategorias.map(rama => dibujarRama(rama, 0))}
+          </div>
+        </PanelLateral>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
           <div className="flex flex-wrap items-center gap-2.5">
+            <BotonPanelLateral abierto={panelAbierto} onClick={() => setPanelAbierto(abierto => !abierto)} titulo="Categorías" />
             <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
               <Search className="h-4 w-4 shrink-0 text-gray-400" />
               <input value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Buscar modelos de oficio…" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
             </div>
-
-            {/* En pantallas chicas la barra lateral no cabe: el mismo filtro viaja aquí. */}
-            <select
-              value={categoriaActiva || ''}
-              onChange={event => setCategoriaActiva(event.target.value || null)}
-              className="rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[12px] font-bold text-gray-600 shadow-sm outline-none lg:hidden"
-            >
-              <option value="">Todas las categorías</option>
-              {categoriasPlanas.map(categoria => (
-                <option key={categoria.id} value={categoria.id}>{' '.repeat(categoria.nivel * 3)}{categoria.nombre} ({categoria.cantidad})</option>
-              ))}
-            </select>
 
             <select
               value={orden}
