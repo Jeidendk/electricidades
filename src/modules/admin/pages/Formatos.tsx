@@ -20,6 +20,7 @@ import { perfilesRepositorio, type PerfilRepositorioId } from '../data/repositor
 import { enMayusculas } from '../../../lib/texto';
 import { esUrlSegura } from '../../../lib/urlSegura';
 import { plantillasSolicitudes } from '../data/plantillasSolicitudes';
+import { destinatarioDe, plantillaDe, type PlantillaOficio } from '../../../lib/plantillaOficio';
 import { ImportarCatalogo } from '../components/ImportarCatalogo';
 import { useAuthStore } from '../../../store/authStore';
 
@@ -386,9 +387,19 @@ export const Formatos = () => {
   };
 
   /** La misma maqueta se usa en el panel de detalle y en el generador. */
-  const renderVistaDocumento = (values: typeof defaultGenValues, compacta = false) => {
+  /**
+   * Dibuja el documento. `plantilla` llega cuando el formato guarda un oficio transcrito del
+   * repositorio: entonces manda su texto, y no la frase fija del generador —que es lo que hacía
+   * que las 22 solicitudes importadas se vieran todas iguales—.
+   */
+  const renderVistaDocumento = (
+    values: typeof defaultGenValues,
+    compacta = false,
+    plantilla: PlantillaOficio | null = null,
+  ) => {
     const fecha = `${values.ciudadOficio}, ${new Date(values.fechaOficio + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
     const titulo = values.tituloAutoridad === 'Otro' ? values.tituloAutoridadOtro : values.tituloAutoridad;
+    const destino = plantilla ? destinatarioDe(plantilla.destinatario) : null;
     return (
       <div className={`flex min-h-full w-full flex-col bg-white font-serif text-gray-800 ${compacta ? 'p-5 text-[10px] leading-[1.5]' : 'p-12 lg:p-16 text-[13px] leading-relaxed'}`}>
         <div className={`flex items-center justify-between border-b border-gray-300 ${compacta ? 'pb-3 mb-4' : 'pb-5 mb-7'}`}>
@@ -406,13 +417,32 @@ export const Formatos = () => {
 
         <div className={compacta ? 'mb-6 text-right' : 'mb-10 text-right'}>{fecha}</div>
         <div className={compacta ? 'mb-6' : 'mb-8 leading-tight'}>
-          <div>{titulo} {values.nombreAutoridad}</div>
-          <div className="font-bold">{values.cargoDestinatario}</div>
-          <div>{values.enSuDespacho}</div>
+          <div>{destino ? [destino.titulo, destino.nombre].filter(Boolean).join(' ') : `${titulo} ${values.nombreAutoridad}`}</div>
+          <div className="font-bold">{destino ? destino.cargo : values.cargoDestinatario}</div>
+          <div>{plantilla ? 'Presente.' : values.enSuDespacho}</div>
         </div>
+        {plantilla?.asunto && <div className={`${compacta ? 'mb-4' : 'mb-6'} font-bold`}>Asunto: {plantilla.asunto}</div>}
         <div className={compacta ? 'mb-6' : 'mb-6'}>De mi consideración:</div>
-        <div className={`${compacta ? 'mb-6' : 'mb-8 leading-[1.5]'} whitespace-pre-wrap text-justify`}>{buildBodyString(values)}</div>
-        <div className={compacta ? 'mb-8' : 'mb-8'}>{values.despedida}</div>
+        {plantilla ? (
+          <>
+            {plantilla.parrafos.map((parrafo, indice) => (
+              <div key={indice} className={`${compacta ? 'mb-3' : 'mb-4 leading-[1.5]'} text-justify`}>{parrafo}</div>
+            ))}
+            {plantilla.adjuntos.length > 0 && (
+              <div className={compacta ? 'mb-5' : 'mb-7'}>
+                <div className="font-bold">Documentos adjuntos:</div>
+                <ol className="list-inside list-decimal">
+                  {plantilla.adjuntos.map((adjunto, indice) => <li key={indice}>{adjunto}</li>)}
+                </ol>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className={`${compacta ? 'mb-6' : 'mb-8 leading-[1.5]'} whitespace-pre-wrap text-justify`}>{buildBodyString(values)}</div>
+        )}
+        <div className={compacta ? 'mb-8' : 'mb-8'}>
+          {plantilla ? 'Por la atención dispensada, anticipo mi agradecimiento.' : values.despedida}
+        </div>
         <div className="mt-auto text-center">
           <div className={compacta ? 'mb-6' : 'mb-8'}>{values.cierre}</div>
           <div className={`${compacta ? 'w-32' : 'w-60'} mx-auto mb-1.5 border-b border-gray-800`} />
@@ -537,52 +567,48 @@ export const Formatos = () => {
     }
   };
 
-  /**
-   * Crea, en la categoría abierta, una plantilla por cada solicitud transcrita del repositorio.
-   *
-   * Se omiten las que ya existen ahí con el mismo nombre —importar dos veces no debe duplicar—
-   * y las que traen tabla: el generador todavía no la dibuja, y publicar un oficio al que le
-   * falta su tabla de asignaturas es peor que no publicarlo.
-   */
-  const importarSolicitudes = async () => {
-    if (!serieSel) { void avisarSinCategoria('guardar las plantillas'); return; }
-    const S = (await import('sweetalert2')).default;
+  /** Solicitudes marcadas en el importador, por nombre. */
+  const [solicitudesElegidas, setSolicitudesElegidas] = useState<string[]>([]);
+  const [modalSolicitudes, setModalSolicitudes] = useState(false);
+  const [importandoSolicitudes, setImportandoSolicitudes] = useState(false);
 
-    const conTabla = plantillasSolicitudes.filter(p => p.tieneTabla);
-    const candidatas = plantillasSolicitudes.filter(p => !p.tieneTabla);
+  /**
+   * Qué solicitudes transcritas se pueden importar a la categoría abierta, y por qué no las
+   * demás: las que ya están ahí (importar dos veces no debe duplicar) y las que llevan tabla de
+   * asignaturas, que el generador todavía no dibuja —publicar un oficio sin su tabla es peor
+   * que no publicarlo—.
+   */
+  const solicitudesImportables = useMemo(() => {
     const yaEstan = new Set(
       formatos.filter((f: any) => f.id_serie === serieSel).map((f: any) => normalizarTexto(f.nombre)),
     );
-    const nuevas = candidatas.filter(p => !yaEstan.has(normalizarTexto(p.nombre)));
+    return plantillasSolicitudes.map(plantilla => ({
+      plantilla,
+      motivoBloqueo: plantilla.tieneTabla
+        ? 'Lleva una tabla que el generador todavía no imprime'
+        : yaEstan.has(normalizarTexto(plantilla.nombre))
+          ? 'Ya está en esta categoría'
+          : null,
+    }));
+  }, [formatos, serieSel]);
 
-    const nombreSerie = serieSeleccionada?.nombre ?? 'la categoría abierta';
-    if (nuevas.length === 0) {
-      S.fire({
-        icon: 'info',
-        title: 'No hay nada que importar',
-        text: `Las ${candidatas.length} solicitudes transcritas ya están en ${nombreSerie}.`,
-        confirmButtonColor: '#B00020',
-      });
-      return;
-    }
+  const abrirImportadorSolicitudes = () => {
+    if (!serieSel) { void avisarSinCategoria('guardar las plantillas'); return; }
+    setSolicitudesElegidas(solicitudesImportables.filter(s => !s.motivoBloqueo).map(s => s.plantilla.nombre));
+    setModalSolicitudes(true);
+  };
 
-    const confirmacion = await S.fire({
-      icon: 'question',
-      title: `¿Importar ${nuevas.length} solicitudes?`,
-      html: `Se crearán como plantillas dentro de <b>${nombreSerie}</b>.`
-        + (conTabla.length ? `<br/><br/><small>Quedan fuera ${conTabla.length} que llevan tabla de asignaturas: el generador todavía no la imprime.</small>` : ''),
-      showCancelButton: true,
-      confirmButtonText: 'Importar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#B00020',
-      cancelButtonColor: '#64748b',
-      reverseButtons: true,
-    });
-    if (!confirmacion.isConfirmed) return;
-
+  /** Crea una plantilla por cada solicitud marcada, dentro de la categoría abierta. */
+  const importarSolicitudes = async () => {
+    if (!serieSel || solicitudesElegidas.length === 0) return;
+    setImportandoSolicitudes(true);
+    const S = (await import('sweetalert2')).default;
     let creadas = 0;
     const fallidas: string[] = [];
-    for (const plantilla of nuevas) {
+
+    for (const nombre of solicitudesElegidas) {
+      const plantilla = plantillasSolicitudes.find(p => p.nombre === nombre);
+      if (!plantilla) continue;
       try {
         await addFormato({
           nombre: plantilla.nombre,
@@ -609,6 +635,8 @@ export const Formatos = () => {
     }
 
     await fetchFormatos();
+    setImportandoSolicitudes(false);
+    setModalSolicitudes(false);
     S.fire({
       icon: fallidas.length ? 'warning' : 'success',
       title: `${creadas} plantilla${creadas === 1 ? '' : 's'} importada${creadas === 1 ? '' : 's'}`,
@@ -1028,6 +1056,17 @@ export const Formatos = () => {
               <FolderPlus className="w-3.5 h-3.5" /> Importar catálogo
             </button>}
             {importandoCatalogo && <ImportarCatalogo onClose={() => setImportandoCatalogo(false)} onComplete={async () => { await Promise.all([fetchFormatos(), fetchSeries()]); }} />}
+            {/* Solo aparece con algo seleccionado: un botón de borrar siempre visible junto a
+                Exportar se pulsa por error. El modal de confirmación ya existía sin que nada
+                lo abriera. */}
+            {selectedIds.length > 0 && (
+              <button
+                onClick={() => setModalType('bulkDelete')}
+                className="flex items-center gap-2 whitespace-nowrap rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-[12px] font-bold text-espoch-red transition-colors hover:bg-red-100"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Borrar ({selectedIds.length})
+              </button>
+            )}
             <button onClick={handleExportSelected} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
               <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
             </button>
@@ -1035,7 +1074,7 @@ export const Formatos = () => {
               <Settings className="w-3.5 h-3.5" /> Logos y Sellos
             </button>
             <button
-              onClick={() => void importarSolicitudes()}
+              onClick={abrirImportadorSolicitudes}
               title="Crear plantillas a partir de las solicitudes transcritas del repositorio"
               className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50"
             >
@@ -1048,7 +1087,7 @@ export const Formatos = () => {
               }}
               className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50"
             >
-              <LinkIcon className="w-3.5 h-3.5" /> Agregar enlace
+              <LinkIcon className="w-3.5 h-3.5" /> Agregar documento
             </button>
             <button onClick={() => {
               if (!serieSel) { void avisarSinCategoria('guardar la plantilla'); return; }
@@ -1137,7 +1176,7 @@ export const Formatos = () => {
                   )}
                   <button onClick={() => { 
                     setSelectedFmt(f); 
-                    if (f.esDinamico) {
+                    if (f.esDinamico && !plantillaDe(f.data)) {
                       setGenValues(f.data || { ...defaultGenValues, nombreFormato: f.nombre });
                       setEditingId(f.id);
                       setCategoriaGenerador(f.idSerie || '');
@@ -1178,7 +1217,7 @@ export const Formatos = () => {
             <div className="w-full flex-1 bg-white rounded-xl border border-gray-200 flex flex-col mb-6 relative overflow-hidden shadow-sm p-3 min-h-0">
               {selectedFormatForDetail.tipo === 'DINAMICO' ? (
                 <div className="w-full h-full bg-white overflow-y-auto border border-gray-100 shadow-inner rounded-sm custom-scrollbar relative z-10 pointer-events-auto">
-                  {renderVistaDocumento({ ...defaultGenValues, ...(selectedFormatForDetail.data || {}) }, true)}
+                  {renderVistaDocumento({ ...defaultGenValues, ...(selectedFormatForDetail.data || {}) }, true, plantillaDe(selectedFormatForDetail.data))}
                 </div>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center relative bg-gray-50/50 rounded-lg z-10 px-4">
@@ -1212,7 +1251,7 @@ export const Formatos = () => {
                <button 
                   onClick={() => {
                     setSelectedFmt(selectedFormatForDetail);
-                    if (selectedFormatForDetail.tipo === 'DINAMICO') {
+                    if (selectedFormatForDetail.tipo === 'DINAMICO' && !plantillaDe(selectedFormatForDetail.data)) {
                       setGenValues(selectedFormatForDetail.data || { ...defaultGenValues, nombreFormato: selectedFormatForDetail.nombre });
                       setEditingId(selectedFormatForDetail.id);
                       setCategoriaGenerador(selectedFormatForDetail.idSerie || '');
@@ -1558,10 +1597,10 @@ export const Formatos = () => {
               <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
                 <AlertTriangle className="w-7 h-7 text-amber-500" />
               </div>
-              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar documento</h3>
+              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">{modalType === 'bulkDelete' ? `Eliminar ${selectedIds.length} documentos` : 'Eliminar documento'}</h3>
               <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
                 {modalType === 'bulkDelete' 
-                  ? `Se eliminarán permanentemente los ${selectedIds.length} documentos seleccionados.`
+                  ? `Se eliminarán permanentemente los ${selectedIds.length} documentos seleccionados. Esta acción no se puede deshacer.`
                   : `¿Está seguro que desea eliminar "${selectedFmt?.nombre}" permanentemente?`}
               </p>
               <div className="flex gap-3 justify-center">
@@ -1678,6 +1717,79 @@ export const Formatos = () => {
       )}
 
       {/* MODAL DE SUBIDA */}
+      {/* Importador de solicitudes transcritas: se eligen una a una, o todas. */}
+      {modalSolicitudes && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[4px] animate-fade-in">
+          <div className="flex max-h-[85vh] w-full max-w-[620px] flex-col rounded-3xl bg-white p-7 shadow-2xl animate-scale-in">
+            <h3 className="text-[17px] font-extrabold text-gray-900">Importar solicitudes</h3>
+            <p className="mt-1 text-[12px] text-gray-500">
+              Se crearán como plantillas dentro de <b>{serieSeleccionada?.nombre || 'la categoría abierta'}</b>.
+              El texto es el del documento original; el estudiante solo completa los huecos.
+            </p>
+
+            <div className="mt-4 flex items-center justify-between border-b border-gray-100 pb-2.5">
+              <span className="text-[11px] font-bold text-gray-500">
+                {solicitudesElegidas.length} de {solicitudesImportables.filter(s => !s.motivoBloqueo).length} seleccionadas
+              </span>
+              <div className="flex gap-3 text-[11px] font-bold">
+                <button
+                  onClick={() => setSolicitudesElegidas(solicitudesImportables.filter(s => !s.motivoBloqueo).map(s => s.plantilla.nombre))}
+                  className="text-espoch-red hover:underline"
+                >
+                  Todas
+                </button>
+                <button onClick={() => setSolicitudesElegidas([])} className="text-gray-500 hover:underline">Ninguna</button>
+              </div>
+            </div>
+
+            <div className="-mx-2 mt-1 flex-1 overflow-y-auto px-2 custom-scrollbar">
+              {solicitudesImportables.map(({ plantilla, motivoBloqueo }) => {
+                const marcada = solicitudesElegidas.includes(plantilla.nombre);
+                return (
+                  <label
+                    key={plantilla.nombre}
+                    title={motivoBloqueo || plantilla.asunto}
+                    className={`flex items-start gap-3 rounded-xl px-3 py-2.5 ${motivoBloqueo ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-50'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={!!motivoBloqueo}
+                      checked={marcada}
+                      onChange={() => setSolicitudesElegidas(actuales => (
+                        actuales.includes(plantilla.nombre)
+                          ? actuales.filter(n => n !== plantilla.nombre)
+                          : [...actuales, plantilla.nombre]
+                      ))}
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-gray-300 accent-espoch-red"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-bold text-gray-800">{plantilla.nombre}</span>
+                      <span className="block truncate text-[11px] text-gray-500">{motivoBloqueo || plantilla.asunto}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setModalSolicitudes(false)}
+                className="flex-1 rounded-xl border border-gray-200 bg-white py-3 text-[13px] font-bold text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void importarSolicitudes()}
+                disabled={solicitudesElegidas.length === 0 || importandoSolicitudes}
+                className="flex-1 rounded-xl bg-[#0f172a] py-3 text-[13px] font-bold text-white transition-colors hover:bg-black disabled:opacity-40"
+              >
+                {importandoSolicitudes ? 'Importando…' : `Importar (${solicitudesElegidas.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalEnlace && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
           <div className="bg-white rounded-3xl w-full max-w-[460px] p-8 shadow-2xl animate-scale-in">
