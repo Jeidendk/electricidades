@@ -78,6 +78,16 @@ const CORRESPONDENCIAS: { coincide: (texto: string) => boolean; valor: (p: Perfi
   { coincide: t => t.includes('facultad'), valor: p => p.facultad },
 ];
 
+/**
+ * True si el marcador pide un dato del estudiante que el sistema ya conoce.
+ * Sirve para agrupar el formulario: los datos personales por un lado y lo que solo puede
+ * responder quien escribe la solicitud por otro.
+ */
+export const esMarcadorDePerfil = (marcador: string): boolean => {
+  const texto = normalizarTexto(marcador.slice(1, -1));
+  return CORRESPONDENCIAS.some(correspondencia => correspondencia.coincide(texto));
+};
+
 /** Prellena los marcadores que el sistema puede responder solo; el resto quedan vacíos. */
 export const prellenarDesdePerfil = (
   marcadores: string[],

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CalendarDays, Check, ChevronDown, ChevronRight, Download, ExternalLink, Eye, FileText, Folder, LayoutGrid, List, Printer, Search, UserRound, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, ChevronRight, Download, ExternalLink, Eye, FileText, Folder, GraduationCap, LayoutGrid, List, Printer, Search, UserRound, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useFormatosStore } from '../../../store/formatosStore';
 import { construirArbol, idsConDescendientes, useSeriesFormatosStore } from '../../../store/seriesFormatosStore';
@@ -10,6 +11,7 @@ import { supabase } from '../../../lib/supabase';
 import { componerNombreCompleto } from '../../../lib/texto';
 import { esUrlSegura } from '../../../lib/urlSegura';
 import {
+  esMarcadorDePerfil,
   destinatarioDe,
   marcadoresDe,
   plantillaDe,
@@ -123,6 +125,17 @@ export const ModelosOficio = () => {
     () => (plantillaActiva ? plantillaDe(plantillaActiva.datos) : null),
     [plantillaActiva],
   );
+
+  /** Los huecos que pide el documento, separados por quién puede responderlos. */
+  const datosPersonales = useMemo(
+    () => (plantillaTranscrita ? marcadoresDe(plantillaTranscrita).filter(esMarcadorDePerfil) : []),
+    [plantillaTranscrita],
+  );
+  const detallesSolicitud = useMemo(
+    () => (plantillaTranscrita ? marcadoresDe(plantillaTranscrita).filter(m => !esMarcadorDePerfil(m)) : []),
+    [plantillaTranscrita],
+  );
+
   const [values, setValues] = useState<OficioValues>(valoresIniciales);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
 
@@ -632,55 +645,91 @@ export const ModelosOficio = () => {
               <div className="w-full overflow-y-auto border-r border-gray-200 p-6 lg:w-[48%]">
                 {plantillaTranscrita ? (
                   <div className="flex flex-col gap-4">
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                      <p className="text-[10px] font-extrabold uppercase tracking-wide text-gray-500">Asunto</p>
-                      <p className="mt-1 text-[13px] font-semibold text-gray-800">{plantillaTranscrita.asunto}</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Seccion numero={1} titulo="Datos del oficio" Icono={FileText}>
+                      <div className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+                        <p className="text-[10px] font-extrabold uppercase tracking-wide text-blue-500">Asunto</p>
+                        <p className="mt-0.5 text-[13px] font-semibold text-gray-800">{plantillaTranscrita.asunto}</p>
+                      </div>
                       <Campo label="Ciudad" value={values.ciudadOficio} onChange={valor => cambiar('ciudadOficio', valor)} />
                       <Campo label="Fecha" type="date" value={values.fechaOficio} onChange={valor => cambiar('fechaOficio', valor)} />
-                      {/* Un campo por hueco del documento. Salen del texto y no de una lista
-                          aparte, así que no pueden quedar desfasados de lo que se imprime. */}
-                      {marcadoresDe(plantillaTranscrita).map(marcador => (
-                        <Campo
-                          key={marcador}
-                          label={marcador.slice(1, -1).toLocaleLowerCase('es')}
-                          value={marcadores[marcador] ?? ''}
-                          onChange={valor => setMarcadores(actuales => ({ ...actuales, [marcador]: valor }))}
-                        />
-                      ))}
+                    </Seccion>
+
+                    {/* Un campo por hueco del documento: salen del texto y no de una lista
+                        aparte, así que no pueden quedar desfasados de lo que se imprime. Se
+                        separan los datos personales de lo que solo el estudiante puede
+                        responder, que es donde de verdad hay que detenerse. */}
+                    {datosPersonales.length > 0 && (
+                      <Seccion numero={2} titulo="Datos del estudiante" Icono={UserRound}>
+                        {datosPersonales.map(marcador => (
+                          <Campo
+                            key={marcador}
+                            label={marcador.slice(1, -1).toLocaleLowerCase('es')}
+                            value={marcadores[marcador] ?? ''}
+                            onChange={valor => setMarcadores(actuales => ({ ...actuales, [marcador]: valor }))}
+                          />
+                        ))}
+                      </Seccion>
+                    )}
+
+                    {detallesSolicitud.length > 0 && (
+                      <Seccion numero={datosPersonales.length > 0 ? 3 : 2} titulo="Detalles de la solicitud" Icono={GraduationCap}>
+                        {detallesSolicitud.map(marcador => (
+                          <Campo
+                            key={marcador}
+                            className="sm:col-span-2"
+                            label={marcador.slice(1, -1).toLocaleLowerCase('es')}
+                            value={marcadores[marcador] ?? ''}
+                            onChange={valor => setMarcadores(actuales => ({ ...actuales, [marcador]: valor }))}
+                          />
+                        ))}
+                      </Seccion>
+                    )}
+
+                    <Seccion numero={(datosPersonales.length > 0 ? 1 : 0) + (detallesSolicitud.length > 0 ? 1 : 0) + 2} titulo="Firma del estudiante" Icono={Check}>
                       <Campo label="Nombre para la firma" value={values.nombreFirma} onChange={valor => cambiar('nombreFirma', valor)} />
                       <Campo label="Cédula para la firma" value={values.ciFirma} onChange={valor => cambiar('ciFirma', valor)} />
-                    </div>
+                    </Seccion>
 
                     {plantillaTranscrita.referencia && (
-                      <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-800">
+                      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-800">
                         {plantillaTranscrita.referencia}
                       </p>
                     )}
                   </div>
                 ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Campo label="Ciudad" value={values.ciudadOficio} onChange={valor => cambiar('ciudadOficio', valor)} />
-                  <Campo label="Fecha" type="date" value={values.fechaOficio} onChange={valor => cambiar('fechaOficio', valor)} />
-                  <SelectorDestinatario
-                    opciones={destinatarios}
-                    cargoActual={values.cargoDestinatario}
-                    nombreActual={values.nombreAutoridad ? [values.tituloAutoridad, values.nombreAutoridad].filter(Boolean).join(' ') : ''}
-                    onSelect={seleccionarDestinatario}
-                    className="sm:col-span-2"
-                  />
-                  <Campo label="Nombres y apellidos" value={values.nombresApellidos} onChange={valor => { cambiar('nombresApellidos', valor); cambiar('nombreFirma', valor); }} />
-                  <Campo label="Cédula" value={values.ci} onChange={valor => { cambiar('ci', valor); cambiar('ciFirma', valor); }} />
-                  <Campo label="Código estudiantil" value={values.codigoEstudiantil} onChange={valor => cambiar('codigoEstudiantil', valor)} />
-                  <Campo label="PAO" value={values.numeroPao} onChange={valor => cambiar('numeroPao', valor)} />
-                  <Campo label="Carrera" value={values.carrera} onChange={valor => cambiar('carrera', valor)} />
-                  <Campo label="Facultad" value={values.facultad} onChange={valor => cambiar('facultad', valor)} />
-                  <label className="sm:col-span-2 flex flex-col gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">Solicitud
-                    <textarea value={values.descripcion} onChange={event => cambiar('descripcion', event.target.value)} rows={5} className="resize-none rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm font-medium normal-case tracking-normal text-gray-800 outline-none focus:border-blue-400" placeholder="Describe claramente lo que solicitas…" />
-                  </label>
-                </div>
+                  <div className="flex flex-col gap-4">
+                    <Seccion numero={1} titulo="Datos del oficio" Icono={FileText}>
+                      <Campo label="Ciudad" value={values.ciudadOficio} onChange={valor => cambiar('ciudadOficio', valor)} />
+                      <Campo label="Fecha" type="date" value={values.fechaOficio} onChange={valor => cambiar('fechaOficio', valor)} />
+                      <SelectorDestinatario
+                        opciones={destinatarios}
+                        cargoActual={values.cargoDestinatario}
+                        nombreActual={values.nombreAutoridad ? [values.tituloAutoridad, values.nombreAutoridad].filter(Boolean).join(' ') : ''}
+                        onSelect={seleccionarDestinatario}
+                        className="sm:col-span-2"
+                      />
+                    </Seccion>
+
+                    <Seccion numero={2} titulo="Datos del estudiante" Icono={UserRound}>
+                      <Campo label="Nombres y apellidos" value={values.nombresApellidos} onChange={valor => { cambiar('nombresApellidos', valor); cambiar('nombreFirma', valor); }} />
+                      <Campo label="Cédula" value={values.ci} onChange={valor => { cambiar('ci', valor); cambiar('ciFirma', valor); }} />
+                      <Campo label="Código estudiantil" value={values.codigoEstudiantil} onChange={valor => cambiar('codigoEstudiantil', valor)} />
+                      <Campo label="PAO" value={values.numeroPao} onChange={valor => cambiar('numeroPao', valor)} />
+                      <Campo label="Carrera" value={values.carrera} onChange={valor => cambiar('carrera', valor)} />
+                      <Campo label="Facultad" value={values.facultad} onChange={valor => cambiar('facultad', valor)} />
+                    </Seccion>
+
+                    <Seccion numero={3} titulo="Detalles de la solicitud" Icono={GraduationCap}>
+                      <label className="sm:col-span-2 flex flex-col gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">Solicitud
+                        <textarea value={values.descripcion} onChange={event => cambiar('descripcion', event.target.value)} rows={5} className="resize-none rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm font-medium normal-case tracking-normal text-gray-800 outline-none focus:border-blue-400" placeholder="Describe claramente lo que solicitas…" />
+                      </label>
+                    </Seccion>
+
+                    <Seccion numero={4} titulo="Firma del estudiante" Icono={Check}>
+                      <Campo label="Nombre para la firma" value={values.nombreFirma} onChange={valor => cambiar('nombreFirma', valor)} />
+                      <Campo label="Cédula para la firma" value={values.ciFirma} onChange={valor => cambiar('ciFirma', valor)} />
+                    </Seccion>
+                  </div>
                 )}
               </div>
 
@@ -834,6 +883,24 @@ const SelectorDestinatario = ({ opciones, cargoActual, nombreActual, onSelect, c
     </div>
   );
 };
+
+/** Bloque numerado del formulario, como las secciones del generador de oficios del admin. */
+const Seccion = ({ numero, titulo, Icono, children }: {
+  numero: number;
+  titulo: string;
+  Icono: LucideIcon;
+  children: ReactNode;
+}) => (
+  <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <header className="mb-4 flex items-center gap-2.5">
+      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+        <Icono className="h-3.5 w-3.5" />
+      </span>
+      <h3 className="text-[13px] font-extrabold text-gray-800">{numero}. {titulo}</h3>
+    </header>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+  </section>
+);
 
 const Campo = ({ label, value, onChange, type = 'text', className = '' }: { label: string; value: string; onChange: (valor: string) => void; type?: string; className?: string }) => (
   <label className={`${className} flex flex-col gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500`}>{label}
