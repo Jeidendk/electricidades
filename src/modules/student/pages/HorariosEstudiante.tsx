@@ -27,6 +27,21 @@ const tipoLabels: Record<string, string> = {
   'tutoría': 'Tutoría',
 };
 
+/**
+ * Fecha del día `indice` (0 = lunes) de la semana en la que cae `referencia`.
+ *
+ * Antes la cabecera calculaba `hoy.getDate() + indice - indiceDeHoy`, que es aritmética sobre
+ * el NÚMERO del día: en una semana que cruza de mes, el martes 29 de septiembre daba jueves 31
+ * y viernes 32. `setDate` sí rueda de mes y de año.
+ */
+const fechaDeLaSemana = (referencia: Date, indice: number) => {
+  const fecha = new Date(referencia.getFullYear(), referencia.getMonth(), referencia.getDate());
+  const diaSemana = fecha.getDay(); // 0 = domingo
+  const alLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+  fecha.setDate(fecha.getDate() + alLunes + indice);
+  return fecha;
+};
+
 export const HorariosEstudiante = () => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
@@ -433,7 +448,7 @@ export const HorariosEstudiante = () => {
                   const todayDayIdx = today.getDay() >= 1 && today.getDay() <= 5 ? today.getDay() - 1 : -1;
                   const isSelectedToday = dayIndex === todayDayIdx;
                   const clasesCount = getClasesForDay(dia).length;
-                  const dateNum = today.getDate() + dayIndex - todayDayIdx;
+                  const fechaDelDia = fechaDeLaSemana(today, dayIndex);
                   return (
                     <div
                       key={dia}
@@ -448,7 +463,7 @@ export const HorariosEstudiante = () => {
                       <span className={`text-[15px] font-black inline-flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${
                         isSelectedToday ? 'bg-espoch-red text-white shadow-md' : 'text-gray-700'
                       }`}>
-                        {dateNum}
+                        {fechaDelDia.getDate()}
                       </span>
                       {clasesCount > 0 && (
                         <span className="text-[11px] font-bold text-gray-400">{clasesCount} clases</span>
