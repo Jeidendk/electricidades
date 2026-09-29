@@ -19,6 +19,8 @@ import {
 import { perfilesRepositorio, type PerfilRepositorioId } from '../data/repositorioElectricidad';
 import { enMayusculas } from '../../../lib/texto';
 import { esUrlSegura } from '../../../lib/urlSegura';
+import { ImportarCatalogo } from '../components/ImportarCatalogo';
+import { useAuthStore } from '../../../store/authStore';
 
 /** Valor de `tipo` de las plantillas que genera el sistema; el resto son archivos subidos. */
 const TIPO_DINAMICO = 'DINAMICO';
@@ -31,6 +33,8 @@ const FILTRO_ARCHIVOS = 'ARCHIVOS';
 
 
 export const Formatos = () => {
+  const esAdmin = useAuthStore(s => s.user?.role === 'admin');
+  const [importandoCatalogo, setImportandoCatalogo] = useState(false);
   const { formatos, fetchFormatos, addFormato, updateFormato, removeFormato, error: errorFormatos } = useFormatosStore();
   const { series, fetchSeries, addSerie, renameSerie, removeSerie, error: errorSeries } = useSeriesFormatosStore();
   const [params, setParams] = useSearchParams();
@@ -191,12 +195,41 @@ export const Formatos = () => {
   /** Serie abierta y su camino desde la raíz, para el rastro de navegación. */
   const rutaSerie = useMemo(() => rutaHasta(series, serieSel), [series, serieSel]);
 
-  /** Abrir una serie muestra también lo de sus subseries, como haría cualquier carpeta. */
+  const [searchQuery, setSearchQuery] = useState(params.get('q') || '');
+
+  const serieSeleccionada = useMemo(
+    () => seriesPlanas.find(({ serie }) => serie.id === serieSel)?.serie ?? null,
+    [serieSel, seriesPlanas],
+  );
+
+  /** True cuando la categoría abierta es un contenedor: hay que bajar un nivel más. */
+  const seleccionEsContenedor = !!serieSeleccionada && serieSeleccionada.hijas.length > 0;
+
+  /**
+   * Qué series entran en la tabla.
+   *
+   * Una categoría CON subcategorías no lista nada: se elige primero la subcategoría. Abrirla
+   * volcaba de golpe los 26 documentos de toda la rama y la tabla se redibujaba entera en cada
+   * clic del árbol, sin que nadie hubiera pedido ese listado.
+   *
+   * Buscando es al revés: la búsqueda es intención explícita, así que abarca la rama completa.
+   */
   const idsDeLaSeleccion = useMemo(() => {
-    if (!serieSel) return null;
-    const nodo = seriesPlanas.find(({ serie }) => serie.id === serieSel)?.serie;
-    return nodo ? new Set(idsConDescendientes(nodo)) : new Set([serieSel]);
-  }, [serieSel, seriesPlanas]);
+    if (!serieSeleccionada) return new Set<string>();
+    if (searchQuery.trim()) return new Set(idsConDescendientes(serieSeleccionada));
+    return seleccionEsContenedor ? new Set<string>() : new Set([serieSeleccionada.id]);
+  }, [serieSeleccionada, seleccionEsContenedor, searchQuery]);
+
+  /**
+   * Sin "Todas", la pantalla necesita abrir en alguna parte: la primera categoría del árbol.
+   * Si tiene subcategorías se despliega, para que la siguiente elección esté a la vista.
+   */
+  useEffect(() => {
+    if (serieSel || arbolSeries.length === 0) return;
+    const primera = arbolSeries[0];
+    setSerieSel(primera.id);
+    if (primera.hijas.length) setExpandidas(previas => new Set(previas).add(primera.id));
+  }, [arbolSeries, serieSel]);
 
   const alternarExpandida = (id: string) => {
     setExpandidas(previas => {
@@ -206,7 +239,6 @@ export const Formatos = () => {
     });
   };
 
-  const [searchQuery, setSearchQuery] = useState(params.get('q') || '');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [sortCol, setSortCol] = useState('');
@@ -372,9 +404,7 @@ export const Formatos = () => {
         return palabras.every(p => texto.includes(p));
       });
     }
-    if (idsDeLaSeleccion) {
-      result = result.filter(f => f.idSerie && idsDeLaSeleccion.has(f.idSerie));
-    }
+    result = result.filter(f => f.idSerie && idsDeLaSeleccion.has(f.idSerie));
     // El chip "Archivos" agrupa todo lo que NO es dinámico. Antes comparaba `tipo === 'PDF'`
     // mientras el contador usaba `tipo !== 'DINAMICO'`: con un .docx real, el KPI lo contaba
     // y el filtro no lo mostraba.
@@ -733,17 +763,6 @@ export const Formatos = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5 min-h-0 custom-scrollbar">
-            <button
-              onClick={() => { setSerieSel(null); setCurrentPage(1); }}
-              className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors ${serieSel === null ? 'bg-red-50/80 border-l-4 border-espoch-red pl-3 -ml-1' : 'hover:bg-gray-50'}`}
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <Layers className={`w-4 h-4 shrink-0 ${serieSel === null ? 'text-espoch-red' : 'text-gray-400'}`} />
-                <span className={`text-[12.5px] truncate ${serieSel === null ? 'font-bold text-espoch-red' : 'font-medium text-gray-700'}`}>Todas</span>
-              </span>
-              <span className="bg-gray-100 text-gray-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0">{dataPerfil.length}</span>
-            </button>
-
             {filasArbol.map(({ serie, nivel }) => {
               const activa = serieSel === serie.id;
               const tieneHijas = serie.hijas.length > 0;
@@ -751,7 +770,12 @@ export const Formatos = () => {
               return (
                 <div
                   key={serie.id}
-                  onClick={() => { setSerieSel(serie.id); setCurrentPage(1); setPanelCategoriasAbierto(false); }}
+                  onClick={() => {
+                    setSerieSel(serie.id);
+                    setCurrentPage(1);
+                    if (tieneHijas) setExpandidas(previas => new Set(previas).add(serie.id));
+                    else setPanelCategoriasAbierto(false);
+                  }}
                   style={{ paddingLeft: `${nivel * 14 + 8}px` }}
                   className={`flex items-center justify-between py-2 pr-2 rounded-lg cursor-pointer group transition-colors ${activa ? 'bg-red-50/80 border-l-4 border-espoch-red -ml-1' : 'hover:bg-gray-50'}`}
                 >
@@ -875,6 +899,10 @@ export const Formatos = () => {
           {/* Hacer. Mismo tamaño en las cuatro secundarias -antes mezclaban px-5/px-4 y
               text-xs/text-[12px]- y la acción principal, oscura, al final. */}
           <div className="flex flex-wrap items-center justify-end gap-2 2xl:shrink-0">
+            {esAdmin && <button onClick={() => setImportandoCatalogo(true)} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
+              <FolderPlus className="w-3.5 h-3.5" /> Importar catálogo
+            </button>}
+            {importandoCatalogo && <ImportarCatalogo onClose={() => setImportandoCatalogo(false)} onComplete={async () => { await Promise.all([fetchFormatos(), fetchSeries()]); }} />}
             <button onClick={handleExportSelected} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
               <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
             </button>
@@ -912,6 +940,18 @@ export const Formatos = () => {
           </div>
           
           <div className="flex flex-col min-w-[900px]">
+            {pageData.length === 0 && (
+              <div className="px-6 py-14 text-center">
+                <Folder className="mx-auto mb-3 h-9 w-9 text-gray-200" />
+                <p className="text-[13px] font-bold text-gray-600">
+                  {seleccionEsContenedor
+                    ? `Elige una subcategoría de ${serieSeleccionada?.nombre} para ver sus documentos.`
+                    : searchQuery.trim()
+                      ? 'Ningún documento coincide con la búsqueda.'
+                      : 'Esta categoría todavía no tiene documentos.'}
+                </p>
+              </div>
+            )}
             {pageData.map((f, i) => (
               <div 
                 key={f.id} 

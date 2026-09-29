@@ -207,20 +207,57 @@ export const ModelosOficio = () => {
     [categoriasPlanas],
   );
 
+  /** El nodo del árbol que está abierto, con sus hijas: hace falta saber si es contenedor. */
+  const categoriaSeleccionadaNodo = useMemo(() => {
+    const buscar = (ramas: typeof arbolCategorias): (typeof arbolCategorias)[number] | null => {
+      for (const rama of ramas) {
+        if (rama.id === categoriaActiva) return rama;
+        const hallada = buscar(rama.hijas);
+        if (hallada) return hallada;
+      }
+      return null;
+    };
+    return categoriaActiva ? buscar(arbolCategorias) : null;
+  }, [arbolCategorias, categoriaActiva]);
+
+  /** True cuando la categoría abierta agrupa otras: hay que bajar un nivel más. */
+  const seleccionEsContenedor = !!categoriaSeleccionadaNodo && categoriaSeleccionadaNodo.hijas.length > 0;
+
   const plantillas = useMemo(() => {
     const consulta = busqueda.trim().toLocaleLowerCase('es');
     const seleccionada = categoriasPlanas.find(fila => fila.id === categoriaActiva);
-    // Sin categoría se ven todas; con una, también lo que hay en sus subcategorías.
-    const ids = seleccionada ? new Set(seleccionada.ids) : null;
+    /*
+     * Una categoría CON subcategorías no lista modelos: primero se elige la subcategoría.
+     * Volcar de golpe todo lo que cuelga de la rama redibuja la lista entera en cada clic del
+     * árbol, sin que nadie haya pedido ese listado.
+     *
+     * Buscando es al revés: la búsqueda es intención explícita y abarca la rama completa.
+     */
+    const ids = !seleccionada
+      ? new Set<string>()
+      : consulta || !seleccionEsContenedor
+        ? new Set(consulta ? seleccionada.ids : [seleccionada.id])
+        : new Set<string>();
     const visibles = plantillasEstudiantes.filter(formato => {
-      if (ids && !(formato.id_serie && ids.has(formato.id_serie))) return false;
+      if (!(formato.id_serie && ids.has(formato.id_serie))) return false;
       if (!consulta) return true;
       return `${formato.nombre} ${formato.descripcion || ''}`.toLocaleLowerCase('es').includes(consulta);
     });
     return [...visibles].sort((a, b) => orden === 'nombre'
       ? a.nombre.localeCompare(b.nombre, 'es')
       : (b.updated_at || '').localeCompare(a.updated_at || ''));
-  }, [busqueda, categoriaActiva, categoriasPlanas, orden, plantillasEstudiantes]);
+  }, [busqueda, categoriaActiva, categoriasPlanas, orden, plantillasEstudiantes, seleccionEsContenedor]);
+
+  /**
+   * Sin "Todas las categorías", la pantalla necesita abrir en alguna parte: la primera del
+   * árbol. Si agrupa otras se despliega, para que la siguiente elección esté a la vista.
+   */
+  useEffect(() => {
+    if (categoriaActiva || arbolCategorias.length === 0) return;
+    const primera = arbolCategorias[0];
+    setCategoriaActiva(primera.id);
+    if (primera.hijas.length) setRamasAbiertas([primera.id]);
+  }, [arbolCategorias, categoriaActiva]);
 
   /** El documento vive fuera del sistema: se abre en otra pestaña, no se descarga de aquí. */
   const abrirEnlace = (url: string | null) => {
@@ -348,16 +385,6 @@ export const ModelosOficio = () => {
             deja de mirar, así que reservarle 240px fijos se los quitaba siempre a los modelos. */}
         <PanelLateral abierto={panelAbierto} onCerrar={() => setPanelAbierto(false)} titulo="Categorías">
           <div className="flex flex-col gap-1 p-3">
-            <button
-              type="button"
-              onClick={() => setCategoriaActiva(null)}
-              className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-[12px] font-bold transition ${!categoriaActiva ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <Folder className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">Todas las categorías</span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${!categoriaActiva ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>{plantillasEstudiantes.length}</span>
-            </button>
-
             {arbolCategorias.map(rama => dibujarRama(rama, 0))}
           </div>
         </PanelLateral>
@@ -407,9 +434,19 @@ export const ModelosOficio = () => {
           ) : plantillas.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center">
               <Folder className="mb-4 h-12 w-12 text-gray-300" />
-              <h3 className="font-extrabold text-gray-700">{busqueda ? 'No encontramos modelos con esa búsqueda' : 'Todavía no hay modelos aquí'}</h3>
+              <h3 className="font-extrabold text-gray-700">
+                {busqueda
+                  ? 'No encontramos modelos con esa búsqueda'
+                  : seleccionEsContenedor
+                    ? `Elige una subcategoría de ${categoriaSeleccionadaNodo?.nombre}`
+                    : 'Todavía no hay modelos aquí'}
+              </h3>
               <p className="mt-2 max-w-md text-xs text-gray-400">
-                {busqueda ? 'Prueba con otra palabra o elige otra categoría.' : 'El administrador debe publicar una plantilla o un documento dentro de una categoría para estudiantes.'}
+                {busqueda
+                  ? 'Prueba con otra palabra o elige otra categoría.'
+                  : seleccionEsContenedor
+                    ? 'Esta categoría agrupa otras; sus modelos están dentro de ellas.'
+                    : 'El administrador debe publicar una plantilla o un documento dentro de una categoría para estudiantes.'}
               </p>
             </div>
           ) : (
