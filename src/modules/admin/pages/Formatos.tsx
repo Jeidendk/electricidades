@@ -285,6 +285,12 @@ export const Formatos = () => {
   // Settings: Imágenes institucionales (Base64)
   const [headerImg, setHeaderImg] = useState<string>('');
   const [footerImg, setFooterImg] = useState<string>('');
+  /**
+   * Imágenes marcadas para quitar. Se aplican al guardar, no al pulsar: así el modal se
+   * cancela sin consecuencias, igual que cualquier otro formulario de la pantalla.
+   */
+  const [quitarHeader, setQuitarHeader] = useState(false);
+  const [quitarFooter, setQuitarFooter] = useState(false);
 
   useEffect(() => {
     const savedH = localStorage.getItem('espoch_header_img');
@@ -942,7 +948,7 @@ export const Formatos = () => {
             <button onClick={handleExportSelected} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
               <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
             </button>
-            <button onClick={() => setModalType('settings')} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
+            <button onClick={() => { setQuitarHeader(false); setQuitarFooter(false); setModalType('settings'); }} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
               <Settings className="w-3.5 h-3.5" /> Logos y Sellos
             </button>
             <button
@@ -1338,15 +1344,16 @@ export const Formatos = () => {
             <div className="bg-white rounded-[20px] p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[500px] relative animate-scale-in">
               <button onClick={() => setModalType(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors bg-transparent p-1 z-10"><X className="w-5 h-5" /></button>
               <h3 className="text-lg font-extrabold text-gray-900 mb-1">Logos y Sellos Oficiales</h3>
-              <p className="text-xs text-gray-500 mb-6">Suba las imágenes institucionales para los documentos PDF y Word.</p>
+              <p className="text-xs text-gray-500 mb-6">Cambia o quita las imágenes institucionales que llevan los documentos PDF y Word.</p>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
                 const hFile = fd.get('header') as File;
                 const fFile = fd.get('footer') as File;
                 try {
-                  let hBase64 = headerImg;
-                  let fBase64 = footerImg;
+                  // Subir un archivo manda sobre el "quitar": es la intención más reciente.
+                  let hBase64 = quitarHeader ? '' : headerImg;
+                  let fBase64 = quitarFooter ? '' : footerImg;
                   if (hFile.size > 0) hBase64 = await resizeToDataURL(hFile, 600);
                   if (fFile.size > 0) fBase64 = await resizeToDataURL(fFile, 1200);
                   saveSettings(hBase64, fBase64);
@@ -1367,15 +1374,41 @@ export const Formatos = () => {
                 <div>
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 block">1. Sello Superior (Franja Izquierda)</label>
                   <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex items-center gap-4 bg-gray-50">
-                    {headerImg ? <img src={headerImg} alt="Header" className="h-16 object-contain rounded" /> : <div className="w-12 h-16 bg-gray-200 rounded flex items-center justify-center"><ImageIcon className="w-6 h-6 text-gray-400"/></div>}
-                    <input type="file" name="header" accept="image/*" className="text-xs w-full" />
+                    {headerImg && !quitarHeader
+                      ? <img src={headerImg} alt="Sello superior actual" className="h-16 object-contain rounded" />
+                      : <div className="w-12 h-16 bg-gray-200 rounded flex items-center justify-center"><ImageIcon className="w-6 h-6 text-gray-400"/></div>}
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <input type="file" name="header" accept="image/*" className="text-xs w-full" />
+                      {headerImg && (quitarHeader ? (
+                        <p className="text-[10px] font-bold text-gray-500">
+                          Se quitará al guardar.{' '}
+                          <button type="button" onClick={() => setQuitarHeader(false)} className="text-espoch-red underline underline-offset-2">Deshacer</button>
+                        </p>
+                      ) : (
+                        <button type="button" onClick={() => setQuitarHeader(true)} className="flex w-max items-center gap-1 text-[10px] font-bold text-gray-500 hover:text-espoch-red">
+                          <Trash2 className="h-3 w-3" /> Quitar imagen
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 block">2. Pie de Página Institucional</label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col gap-4 bg-gray-50">
-                    {footerImg ? <img src={footerImg} alt="Footer" className="h-10 w-full object-contain rounded" /> : <div className="w-full h-10 bg-gray-200 rounded flex items-center justify-center"><ImageIcon className="w-6 h-6 text-gray-400"/></div>}
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col gap-3 bg-gray-50">
+                    {footerImg && !quitarFooter
+                      ? <img src={footerImg} alt="Pie institucional actual" className="h-10 w-full object-contain rounded" />
+                      : <div className="w-full h-10 bg-gray-200 rounded flex items-center justify-center"><ImageIcon className="w-6 h-6 text-gray-400"/></div>}
                     <input type="file" name="footer" accept="image/*" className="text-xs w-full" />
+                    {footerImg && (quitarFooter ? (
+                      <p className="text-[10px] font-bold text-gray-500">
+                        Se quitará al guardar.{' '}
+                        <button type="button" onClick={() => setQuitarFooter(false)} className="text-espoch-red underline underline-offset-2">Deshacer</button>
+                      </p>
+                    ) : (
+                      <button type="button" onClick={() => setQuitarFooter(true)} className="flex w-max items-center gap-1 text-[10px] font-bold text-gray-500 hover:text-espoch-red">
+                        <Trash2 className="h-3 w-3" /> Quitar imagen
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className="flex gap-3 mt-2 justify-end">
