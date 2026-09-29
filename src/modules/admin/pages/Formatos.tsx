@@ -33,6 +33,27 @@ const TIPO_ENLACE = 'ENLACE';
 /** Clave del chip "Archivos". No es un valor de `tipo`: agrupa todo lo que no es dinámico. */
 const FILTRO_ARCHIVOS = 'ARCHIVOS';
 
+/** Última categoría abierta en cada perfil, para volver donde se estaba. */
+const CLAVE_ULTIMA_CATEGORIA = 'repositorio_ultima_categoria';
+
+const leerUltimaCategoria = (perfil: string): string | null => {
+  try {
+    return (JSON.parse(localStorage.getItem(CLAVE_ULTIMA_CATEGORIA) || '{}') as Record<string, string>)[perfil] ?? null;
+  } catch {
+    // Un valor corrupto no debe impedir abrir la pantalla: se cae a la primera categoría.
+    return null;
+  }
+};
+
+const guardarUltimaCategoria = (perfil: string, serieId: string) => {
+  try {
+    const guardadas = JSON.parse(localStorage.getItem(CLAVE_ULTIMA_CATEGORIA) || '{}') as Record<string, string>;
+    localStorage.setItem(CLAVE_ULTIMA_CATEGORIA, JSON.stringify({ ...guardadas, [perfil]: serieId }));
+  } catch {
+    // Sin espacio o en modo privado: recordar la categoría es una comodidad, no un requisito.
+  }
+};
+
 
 export const Formatos = () => {
   const esAdmin = useAuthStore(s => s.user?.role === 'admin');
@@ -251,14 +272,28 @@ export const Formatos = () => {
    * sus ancestros para que se vea dónde está.
    */
   useEffect(() => {
-    if (serieTabla || seriesPlanas.length === 0) return;
-    const primeraHoja = seriesPlanas.find(({ serie }) => serie.hijas.length === 0)?.serie;
-    if (!primeraHoja) return;
-    setSerieTabla(primeraHoja.id);
-    setSerieSel(actual => actual ?? primeraHoja.id);
-    const ancestros = rutaHasta(series, primeraHoja.id).slice(0, -1).map(serie => serie.id);
+    if (seriesPlanas.length === 0) return;
+    const delPerfil = new Set(seriesPlanas.map(({ serie }) => serie.id));
+
+    // Al cambiar de perfil, la categoría abierta suele ser de otro árbol: dejarla puesta
+    // mostraba una tabla vacía y un rastro que nombraba una categoría que ya no está a la vista.
+    if (serieTabla && delPerfil.has(serieTabla)) return;
+
+    const recordada = leerUltimaCategoria(perfilSel);
+    const elegida = (recordada && delPerfil.has(recordada) ? recordada : null)
+      ?? seriesPlanas.find(({ serie }) => serie.hijas.length === 0)?.serie.id;
+    if (!elegida) return;
+
+    setSerieTabla(elegida);
+    setSerieSel(elegida);
+    const ancestros = rutaHasta(series, elegida).slice(0, -1).map(serie => serie.id);
     if (ancestros.length) setExpandidas(previas => new Set([...previas, ...ancestros]));
-  }, [seriesPlanas, series, serieTabla]);
+  }, [seriesPlanas, series, serieTabla, perfilSel]);
+
+  /** Guarda la categoría abierta para volver a ella la próxima vez que se entre a este perfil. */
+  useEffect(() => {
+    if (serieTabla) guardarUltimaCategoria(perfilSel, serieTabla);
+  }, [perfilSel, serieTabla]);
 
   const alternarExpandida = (id: string) => {
     setExpandidas(previas => {
