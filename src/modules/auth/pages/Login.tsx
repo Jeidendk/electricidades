@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { Moon, Sun, GraduationCap, Zap, Mail, LogIn, HelpCircle, Calendar, ArrowLeft, UserPlus, ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ERROR_SIN_CONEXION, esErrorDeRed } from '../../../lib/notifyError';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
@@ -140,6 +141,12 @@ export const Login = () => {
     }
 
     if (!res.success) {
+      // Un corte de red no es una credencial equivocada: no se registra como intento fallido,
+      // o bastaría quedarse sin internet tres veces para bloquear la cuenta.
+      if (esErrorDeRed(res.message)) {
+        Swal.fire({ icon: 'warning', ...ERROR_SIN_CONEXION, confirmButtonColor: '#B00020' });
+        return;
+      }
       const estado = await registrarIntentoFallido(loginEmail);
       Swal.fire(estado.bloqueado
         ? {
@@ -185,7 +192,9 @@ export const Login = () => {
     setMfaLoading(false);
 
     if (!res.success) {
-      Swal.fire({ icon: 'error', title: 'Verificación Fallida', text: res.message, confirmButtonColor: '#B00020' });
+      Swal.fire(esErrorDeRed(res.message)
+        ? { icon: 'warning', ...ERROR_SIN_CONEXION, confirmButtonColor: '#B00020' }
+        : { icon: 'error', title: 'Verificación Fallida', text: res.message, confirmButtonColor: '#B00020' });
       setMfaCode('');
       return;
     }
@@ -281,6 +290,10 @@ export const Login = () => {
         msg = 'Error del servidor: ' + JSON.stringify(error, Object.getOwnPropertyNames(error));
       }
       
+      if (esErrorDeRed(error)) {
+        Swal.fire({ icon: 'warning', ...ERROR_SIN_CONEXION, confirmButtonColor: '#B00020' });
+        return;
+      }
       Swal.fire({ icon: 'error', title: 'Error en el Registro', text: msg, confirmButtonColor: '#B00020' });
       return;
     }

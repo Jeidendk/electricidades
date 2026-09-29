@@ -80,6 +80,27 @@ export function friendlyDbError(err: any): FriendlyError {
  * alguien. Llegan en inglés y sin contexto: "email rate limit exceeded" no le dice a nadie que
  * el problema es el proveedor de correo y no los datos que acaba de escribir.
  */
+/**
+ * True si el fallo es de conectividad y no de credenciales.
+ *
+ * `fetch` lanza un TypeError con "Failed to fetch" cuando no hay red, el DNS falla o el
+ * servidor no responde: el mismo error que un CORS mal puesto, pero nunca una contraseña
+ * equivocada. Distinguirlo importa porque un corte de internet NO debe contar como intento
+ * fallido: bloquearía la cuenta de alguien que no se equivocó al escribir.
+ */
+export function esErrorDeRed(err: any): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const msg = String(err?.message || err?.error_description || err || '');
+  return /failed to fetch|networkerror|network request failed|fetch failed|load failed|err_internet|err_network|timeout/i.test(msg);
+}
+
+/** Lo que se le muestra a quien perdió la conexión: qué pasó y qué hacer. */
+export const ERROR_SIN_CONEXION: FriendlyError = {
+  title: 'Sin conexión',
+  text: 'No se pudo contactar con el servidor. Revisa tu conexión a internet e inténtalo de nuevo. '
+    + 'Este intento no cuenta para el bloqueo de la cuenta.',
+};
+
 export function friendlyAuthError(err: any): FriendlyError {
   const msg = String(err?.message || err?.error_description || err?.msg || '');
 

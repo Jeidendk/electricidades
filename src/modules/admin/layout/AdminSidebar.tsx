@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
+import { ASISTENTE_VISIBLE } from '../../../lib/asistente/disponibilidad';
 
 export const AdminSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -191,10 +192,12 @@ export const AdminSidebar = () => {
             {!collapsed && <span className="whitespace-nowrap overflow-hidden">REPORTES</span>}
           </NavLink>
 
-          <NavLink to="/admin/asistente" className={navLinkClass} title={collapsed ? "ASISTENTE" : ""}>
-            <MessageSquare className="w-5 h-5 shrink-0" />
-            {!collapsed && <span className="whitespace-nowrap overflow-hidden">ASISTENTE</span>}
-          </NavLink>
+          {ASISTENTE_VISIBLE && (
+            <NavLink to="/admin/asistente" className={navLinkClass} title={collapsed ? "ASISTENTE" : ""}>
+              <MessageSquare className="w-5 h-5 shrink-0" />
+              {!collapsed && <span className="whitespace-nowrap overflow-hidden">ASISTENTE</span>}
+            </NavLink>
+          )}
         </nav>
 
         {/* Reloj */}

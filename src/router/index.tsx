@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useUiPrefsStore } from '../store/uiPrefsStore';
 import type { Rol } from '../store/authStore';
 import { esErrorDeVersionVieja, olvidarRecarga, recargarUnaVez } from '../lib/recargaPorDespliegue';
+import { ASISTENTE_VISIBLE } from '../lib/asistente/disponibilidad';
 
 /**
  * `lazy()` que sobrevive a un despliegue nuevo.
@@ -188,7 +189,7 @@ export const AppRouter = () => {
             <Route path="tramites" element={<Tramites />} />
             <Route path="solicitudes" element={<Navigate to="/admin/tramites" replace />} />
             <Route path="formatos" element={<Formatos />} />
-            <Route path="asistente" element={<Asistente />} />
+            {ASISTENTE_VISIBLE && <Route path="asistente" element={<Asistente />} />}
             <Route path="activos" element={<Activos />} />
             <Route path="inventario" element={<Navigate to="/admin/activos" replace />} />
             <Route path="mantenimiento" element={<Navigate to="/admin/activos?tab=mantenimiento" replace />} />
@@ -229,7 +230,7 @@ export const AppRouter = () => {
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="recursos" element={<Recursos />} />
             <Route path="formatos" element={<Formatos />} />
-            <Route path="asistente" element={<Asistente />} />
+            {ASISTENTE_VISIBLE && <Route path="asistente" element={<Asistente />} />}
             <Route path="reportes" element={<Reportes />} />
           </Route>
         </Route>
