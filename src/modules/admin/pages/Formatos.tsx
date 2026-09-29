@@ -661,6 +661,43 @@ export const Formatos = () => {
     });
   };
 
+  /**
+   * Un documento convertido tiene dos partes: el enlace al original y la plantilla rellenable.
+   * Se puede quitar una sin borrar el documento, que es lo que hace el botón de eliminar.
+   */
+  const quitarParte = async (formato: any, parte: 'enlace' | 'plantilla') => {
+    const S = (await import('sweetalert2')).default;
+    const confirmacion = await S.fire({
+      icon: 'warning',
+      title: parte === 'enlace' ? '¿Quitar el enlace?' : '¿Quitar la plantilla?',
+      text: parte === 'enlace'
+        ? 'El documento se queda solo como plantilla rellenable; dejará de abrirse el original.'
+        : 'El documento se queda solo como enlace; el estudiante ya no podrá completarlo aquí.',
+      showCancelButton: true,
+      confirmButtonText: 'Quitar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#B00020',
+      cancelButtonColor: '#64748b',
+      reverseButtons: true,
+    });
+    if (!confirmacion.isConfirmed) return;
+
+    try {
+      await updateFormato(
+        formato.id,
+        // Quitar la plantilla devuelve la fila a su tipo de origen; quitar el enlace solo borra
+        // la dirección, porque el documento sigue existiendo como plantilla.
+        (parte === 'enlace'
+          ? { enlace: null }
+          : { tipo: 'ENLACE', datos: null }) as any,
+      );
+      await fetchFormatos();
+      setModalType(null);
+    } catch (error: any) {
+      S.fire({ icon: 'error', title: 'No se pudo guardar', text: error?.message || 'Vuelve a intentarlo.', confirmButtonColor: '#B00020' });
+    }
+  };
+
   /** Aviso de "falta elegir categoría". El resto del sistema usa SweetAlert, no `alert()`. */
   const avisarSinCategoria = async (accion: string) => {
     const S = (await import('sweetalert2')).default;
@@ -1574,17 +1611,26 @@ export const Formatos = () => {
 
           {modalType === 'edit' && selectedFmt && (
             <div className="bg-white rounded-[20px] p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[400px] relative animate-scale-in">
-              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Editar Modelo</h3>
-              <p className="text-xs text-gray-500 mb-6">Modifica los detalles del modelo o plantilla.</p>
+              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Editar documento</h3>
+              <p className="text-xs text-gray-500 mb-6">Modifica los datos del documento, su enlace o su plantilla.</p>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
+                const enlace = ((fd.get('enlace') as string) || '').trim();
+                // El enlace se comprueba aquí y también al abrirlo: una fila puede entrar por la
+                // API, y un `javascript:` se ejecutaría en la sesión de quien lo abra.
+                if (enlace && !esUrlSegura(enlace)) {
+                  const S = (await import('sweetalert2')).default;
+                  S.fire({ icon: 'warning', title: 'Enlace no válido', text: 'Pega la dirección completa, empezando por https://', confirmButtonColor: '#B00020' });
+                  return;
+                }
                 await updateFormato(selectedFmt.id, {
                   nombre: fd.get('nombre') as string,
                   descripcion: fd.get('descripcion') as string,
                   estado: fd.get('estado') as string,
                   id_serie: (fd.get('id_serie') as string) || null,
-                });
+                  ...(selectedFmt.enlace !== undefined ? { enlace: enlace || null } : {}),
+                } as any);
                 setModalType(null);
               }} className="flex flex-col gap-4 text-left">
                 <div className="flex flex-col gap-1.5">
@@ -1597,6 +1643,18 @@ export const Formatos = () => {
                     {seriesPlanas.map(({ serie, nivel }) => <option key={serie.id} value={serie.id}>{'— '.repeat(nivel)}{serie.nombre}</option>)}
                   </select>
                 </label>
+                {selectedFmt.enlace !== undefined && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Enlace al documento</label>
+                    <input
+                      name="enlace"
+                      type="url"
+                      defaultValue={selectedFmt.enlace || ''}
+                      placeholder="https://…"
+                      className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-blue-400 font-medium"
+                    />
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Descripción</label>
                   <textarea name="descripcion" defaultValue={selectedFmt.descripcion} required rows={3} className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-blue-400 font-medium resize-none"></textarea>
@@ -1612,6 +1670,20 @@ export const Formatos = () => {
                   <button type="button" onClick={() => setModalType(null)} className="px-5 py-2.5 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
                   <button type="submit" className="bg-[#0f172a] hover:bg-black text-white px-6 py-2.5 rounded-full text-xs font-bold transition-all border border-gray-800">Guardar Cambios</button>
                 </div>
+
+                {/* Quitar una parte no borra el documento: para eso está el botón de eliminar.
+                    Solo aparecen cuando el documento tiene las dos, porque quitar la única que
+                    queda lo dejaría sin nada que mostrar. */}
+                {!!selectedFmt.enlace && !!plantillaDe(selectedFmt.data) && (
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-4 border-t border-gray-100 pt-3 text-[11px] font-bold">
+                    <button type="button" onClick={() => void quitarParte(selectedFmt, 'plantilla')} className="text-gray-500 hover:text-espoch-red">
+                      Quitar la plantilla
+                    </button>
+                    <button type="button" onClick={() => void quitarParte(selectedFmt, 'enlace')} className="text-gray-500 hover:text-espoch-red">
+                      Quitar el enlace
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           )}
