@@ -10,6 +10,7 @@ import { useEdificiosStore } from '../../../store/edificiosStore';
 import { ReporteDocentes } from '../components/ReporteDocentes';
 import { filasCsvDocentes, metricasDocentes, type ResumenDocente } from '../data/reporteDocentes';
 import { exportarExcelDocentes, exportarPdfDocentes } from '../data/exportarReporteDocentes';
+import { avisoInfo } from '../../../lib/aviso';
 
 type AccionRapida = 'vista_previa' | 'limpiar';
 
@@ -79,7 +80,7 @@ export const Reportes = () => {
     // Por ahora solo la carga docente produce un archivo real; los demás módulos siguen sin
     // implementar y decirlo es mejor que fingir una descarga.
     if (tipoReporte !== 'Docentes') {
-      alert('Por ahora solo el reporte de carga docente genera archivo. Elige "Carga docente".');
+      void avisoInfo('Reporte no disponible', 'Por ahora solo el reporte de carga docente genera archivo.');
       return;
     }
     if (docentesAExportar.length === 0) return;

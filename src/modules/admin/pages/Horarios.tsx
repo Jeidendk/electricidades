@@ -23,6 +23,7 @@ import { altoPaginaEnPx, contarPaginas, paginaDesdeScroll } from '../components/
 import { mapearClases } from '../components/Horarios/mapearClases';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
+import { avisoError } from '../../../lib/aviso';
 
 // Preferencias del formato de exportación (persisten entre sesiones para no
 // reconfigurar período, tipografía, orientación, etc. cada vez).
@@ -525,7 +526,7 @@ export const Horarios = () => {
 
     } catch (error) {
       console.error("Error al generar PDF:", error);
-      alert("Error al generar PDF. Intente nuevamente.");
+      void avisoError('No se pudo generar el PDF', 'Vuelve a intentarlo; si sigue fallando, revisa que el horario tenga clases.');
     } finally {
       setTimeout(() => setIsGeneratingPDF(false), 4500);
     }

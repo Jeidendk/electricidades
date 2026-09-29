@@ -27,6 +27,7 @@ import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
 import { TIPOS_ESPACIO, esAula, esLaboratorio, esOficina } from '../data/espaciosData';
 import { PanelLateral, BotonPanelLateral } from '../../../components/ui/PanelLateral';
+import { avisoError, avisoInfo } from '../../../lib/aviso';
 
 // --- CONSTANTS ---
 const baseLat = -1.6575;
@@ -350,7 +351,7 @@ export const Infraestructura = () => {
 
   const handleSaveEdificio = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (edForm.lat === null || edForm.lng === null) { alert('Debe seleccionar la ubicación en el mapa.'); return; }
+    if (edForm.lat === null || edForm.lng === null) { void avisoInfo('Falta la ubicación', 'Marca en el mapa dónde está el edificio.'); return; }
     setSubmitting(true);
     let img = edForm.imagen || FALLBACK_ED;
     if (edForm.fotoFile) { const u = await uploadImage(edForm.fotoFile, 'edificios'); if (u) img = u; }
@@ -450,9 +451,9 @@ export const Infraestructura = () => {
 
   const handleSaveEspacio = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!espForm.nombre.trim()) { alert('Debe ingresar el nombre del espacio.'); return; }
-    if (!espForm.idEdificio) { alert('Debe seleccionar un edificio.'); return; }
-    if (espForm.lat === null || espForm.lng === null) { alert('Debe seleccionar la ubicación en el mapa.'); return; }
+    if (!espForm.nombre.trim()) { void avisoInfo('Falta el nombre', 'Escribe cómo se llama el espacio.'); return; }
+    if (!espForm.idEdificio) { void avisoInfo('Falta el edificio', 'Elige en qué edificio está el espacio.'); return; }
+    if (espForm.lat === null || espForm.lng === null) { void avisoInfo('Falta la ubicación', 'Marca en el mapa dónde está el espacio.'); return; }
     setSubmitting(true);
     let finalFotos = [...espForm.fotos];
     for (let i = 0; i < espForm.fotoFiles.length; i++) {
@@ -474,7 +475,7 @@ export const Infraestructura = () => {
       if (espModal === 'create') await addEspacio({ id: espId, ...payload } as any);
       else if (espModal === 'edit' && selectedEsp) await updateEspacio(selectedEsp.id, payload as any);
     } catch (err: any) {
-      alert(`Error al guardar en la base de datos: ${err?.message || 'Error desconocido'}`);
+      void avisoError('No se pudo guardar', err?.message || 'Vuelve a intentarlo.');
       setSubmitting(false); return;
     }
     if (espId) {

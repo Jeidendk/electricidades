@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Badge } from '../../../components/ui/Badge';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
+import { avisoInfo } from '../../../lib/aviso';
 
 type TabKey = 'todos' | 'activo' | 'atrasado' | 'devuelto';
 
@@ -174,7 +175,7 @@ export const Prestamos = ({ embedded = false }: { embedded?: boolean } = {}) => 
   const handleExportSelected = () => {
     // Aquí puedes llamar a una función de exportación como en Solicitudes
     console.log('Exporting...', selectedIds);
-    alert(`Se exportarán ${selectedIds.length} préstamos (funcionalidad en desarrollo)`);
+    void avisoInfo('Todavía no disponible', `La exportación de préstamos (${selectedIds.length} seleccionados) está en desarrollo.`);
   };
 
   return (

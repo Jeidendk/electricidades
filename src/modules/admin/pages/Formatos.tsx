@@ -502,6 +502,17 @@ export const Formatos = () => {
     }
   };
 
+  /** Aviso de "falta elegir categoría". El resto del sistema usa SweetAlert, no `alert()`. */
+  const avisarSinCategoria = async (accion: string) => {
+    const S = (await import('sweetalert2')).default;
+    S.fire({
+      icon: 'info',
+      title: 'Elige una categoría',
+      text: `Abre la categoría donde quieres ${accion} y vuelve a intentarlo.`,
+      confirmButtonColor: '#B00020',
+    });
+  };
+
   /** El documento vive fuera del sistema: se abre en otra pestaña, no se descarga de aquí. */
   const abrirEnlace = async (url: string) => {
     if (!esUrlSegura(url)) {
@@ -553,12 +564,13 @@ export const Formatos = () => {
   };
 
   const saveModel = async () => {
+    const S = (await import('sweetalert2')).default;
     if (!genValues.nombreFormato.trim()) {
-      alert("Por favor, ingrese un nombre para el formato/modelo antes de guardar.");
+      S.fire({ icon: 'info', title: 'Falta el nombre', text: 'Ponle un nombre a la plantilla antes de guardarla.', confirmButtonColor: '#B00020' });
       return;
     }
     if (!categoriaGenerador) {
-      alert("Seleccione la categoría documental donde se guardará la plantilla.");
+      S.fire({ icon: 'info', title: 'Falta la categoría', text: 'Elige la categoría documental donde se guardará la plantilla.', confirmButtonColor: '#B00020' });
       return;
     }
 
@@ -637,7 +649,8 @@ export const Formatos = () => {
         : await generatePreviewDOCX(parametros);
       descargarBlob(blob, `Plantilla_${gv.nombreFormato.replace(/\s+/g, '_')}.${formato}`);
     } else {
-      alert("Las opciones Word y PDF corresponden a las plantillas dinámicas.");
+      const S = (await import('sweetalert2')).default;
+      S.fire({ icon: 'info', title: 'Solo para plantillas', text: 'Word y PDF se generan desde las plantillas dinámicas. Este documento se abre con su enlace.', confirmButtonColor: '#B00020' });
     }
   };
 
@@ -911,7 +924,7 @@ export const Formatos = () => {
             </button>
             <button
               onClick={() => {
-                if (!serieSel) { alert('Seleccione una categoría antes de agregar un documento.'); return; }
+                if (!serieSel) { void avisarSinCategoria('guardar el documento'); return; }
                 setNombreEnlace(''); setUrlEnlace(''); setSerieDestino(serieSel); setModalEnlace(true);
               }}
               className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50"
@@ -919,7 +932,7 @@ export const Formatos = () => {
               <LinkIcon className="w-3.5 h-3.5" /> Agregar enlace
             </button>
             <button onClick={() => {
-              if (!serieSel) { alert('Seleccione una categoría antes de crear una plantilla.'); return; }
+              if (!serieSel) { void avisarSinCategoria('guardar la plantilla'); return; }
               clearForm(); setEditingId(null); setCategoriaGenerador(serieSel); setModalType('create');
             }} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-800 bg-[#0f172a] px-5 py-2.5 text-[12px] font-bold text-white shadow-lg transition-all hover:bg-black">
               <FileText className="w-3.5 h-3.5" /> Generador de Oficios

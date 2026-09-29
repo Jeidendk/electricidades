@@ -9,6 +9,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
+import { avisoInfo } from '../../../lib/aviso';
 
 export const CatalogoEquipos = () => {
   const { cart, cartOpen, setCartOpen, addToCart, updateQty, removeFromCart, clearCart } = useCartStore();
@@ -139,12 +140,12 @@ export const CatalogoEquipos = () => {
 
   const generarPDF = async () => {
     if (cart.length === 0) {
-      alert('Agregue al menos un ítem al carrito.');
+      void avisoInfo('El carrito está vacío', 'Agrega al menos un equipo antes de solicitar.');
       return;
     }
 
     if (!asignatura.trim()) {
-      alert('Por favor ingrese la asignatura antes de solicitar.');
+      void avisoInfo('Falta la asignatura', 'Elige para qué asignatura necesitas el equipo.');
       return;
     }
 

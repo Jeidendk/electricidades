@@ -407,7 +407,10 @@ export const EstructuraAcademica = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isFacultad: boolean) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Solo imágenes (SVG, PNG, JPG).'); return; }
+    if (!file.type.startsWith('image/')) {
+      void import('sweetalert2').then(S => S.default.fire({ icon: 'warning', title: 'Archivo no válido', text: 'Elige una imagen (SVG, PNG o JPG).', confirmButtonColor: '#B00020' }));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       if (isFacultad) setFormFacultad(p => ({ ...p, customSvg: event.target?.result as string }));

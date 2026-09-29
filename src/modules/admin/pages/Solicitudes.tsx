@@ -12,6 +12,7 @@ import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 import { componerNombreCompleto } from '../../../lib/texto';
+import { avisoInfo } from '../../../lib/aviso';
 
 export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const { solicitudes, fetchSolicitudes, updateSolicitud, removeSolicitud } = useSolicitudesAdminStore();
@@ -494,7 +495,7 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
                 <p className="text-xs text-gray-500 mb-6">Complete los datos del formato o solicitud.</p>
                 <form onSubmit={(e) => {
                   e.preventDefault();
-                  alert("Demostración UI: Las solicitudes deben ser creadas por los estudiantes desde su portal.");
+                  void avisoInfo('Las crean los estudiantes', 'Una solicitud nace en el portal del estudiante; desde aquí se revisan y se responden.');
                   setModalType(null);
                 }} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Asunto</label><input name="asunto" required placeholder="Ej: Solicitud de uso de laboratorio" className="bg-gray-50 text-sm text-gray-800 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium" /></div>
@@ -555,7 +556,7 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
                   <UploadCloud className="w-10 h-10 text-gray-300 mb-3" />
                   <p className="text-sm font-bold text-gray-600">Haga clic o arrastre un archivo</p>
                   <p className="text-[10px] text-gray-400 mt-1">Formatos: CSV (.csv)</p>
-                  <input type="file" id="import-input" accept=".csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) { alert('Archivo simulado: ' + e.target.files[0].name); setModalType(null); } }} />
+                  <input type="file" id="import-input" accept=".csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) { void avisoInfo('Importación en desarrollo', `Todavía no se procesa ${e.target.files[0].name}.`); setModalType(null); } }} />
                 </div>
                 <div className="flex items-center justify-between mt-6">
                   <button type="button" onClick={downloadCsvTemplate} className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 underline underline-offset-2">

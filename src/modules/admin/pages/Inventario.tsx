@@ -19,6 +19,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Badge } from '../../../components/ui/Badge';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
+import { avisoExito, avisoInfo } from '../../../lib/aviso';
 
 type TabKey = CategoriaInventario | 'todos';
 
@@ -171,7 +172,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
   };
 
   const handleExport = () => {
-    if (filteredData.length === 0) { alert('No hay datos para exportar.'); return; }
+    if (filteredData.length === 0) { void avisoInfo('No hay nada que exportar', 'Ajusta los filtros para que la tabla tenga al menos una fila.'); return; }
     const toExport = selectedIds.length > 0 ? filteredData.filter(d => selectedIds.includes(d.id)) : filteredData;
     let csv = 'ID,Nombre,Serie,Categoria,Aula,Edificio,Estado\n';
     toExport.forEach(e => { csv += `${e.id},${e.nombre},${e.serie},${e.categoria},${e.aula},${e.edificio},${e.estado}\n`; });
@@ -682,7 +683,7 @@ export const Inventario = ({ embedded = false }: { embedded?: boolean } = {}) =>
                 <p className="text-[10px] text-gray-400 mt-1">Formatos: CSV (.csv)</p>
                 <input type="file" id="inv-import-file" accept=".csv" className="hidden" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
-                    alert(`Archivo ${e.target.files[0].name} cargado correctamente.`);
+                    void avisoExito('Archivo cargado', e.target.files[0].name);
                     setModalType(null);
                   }
                 }} />

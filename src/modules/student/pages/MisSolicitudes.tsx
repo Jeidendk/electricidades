@@ -6,6 +6,7 @@ import { generarPDFComprobante } from '../../../utils/pdfGenerator';
 import ExcelJS from 'exceljs';
 import { Link } from 'react-router-dom';
 import { Pagination } from '../../../components/ui/Pagination';
+import { avisoError, avisoExito, confirmarAccion } from '../../../lib/aviso';
 
 export const MisSolicitudes = () => {
   const { user } = useAuthStore();
@@ -100,16 +101,21 @@ export const MisSolicitudes = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('Copiado!');
+    void avisoExito('Copiado');
   };
 
   const cancelarSolicitud = async (id: string) => {
-    if (window.confirm('¿Está seguro de cancelar esta solicitud?')) {
-      try {
-        await storeCancelar(id);
-      } catch (err) {
-        alert('Error al cancelar la solicitud');
-      }
+    const confirmado = await confirmarAccion({
+      title: '¿Cancelar la solicitud?',
+      text: 'La solicitud quedará anulada y tendrás que crearla de nuevo si la necesitas.',
+      confirmar: 'Sí, cancelar',
+      cancelar: 'Volver',
+    });
+    if (!confirmado) return;
+    try {
+      await storeCancelar(id);
+    } catch (err: any) {
+      void avisoError('No se pudo cancelar', err?.message || 'Vuelve a intentarlo.');
     }
   };
 
