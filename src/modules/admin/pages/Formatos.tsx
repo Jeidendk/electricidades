@@ -23,6 +23,7 @@ import { plantillasSolicitudes } from '../data/plantillasSolicitudes';
 import { destinatarioDe, plantillaDe, type PlantillaOficio } from '../../../lib/plantillaOficio';
 import { ImportarCatalogo } from '../components/ImportarCatalogo';
 import { useAuthStore } from '../../../store/authStore';
+import { EditorPlantillaOficio } from '../components/EditorPlantillaOficio';
 
 /** Valor de `tipo` de las plantillas que genera el sistema; el resto son archivos subidos. */
 const TIPO_DINAMICO = 'DINAMICO';
@@ -376,6 +377,17 @@ export const Formatos = () => {
 
   // GENERATOR FORM STATE
   const [genValues, setGenValues] = useState(defaultGenValues);
+  const [plantillaEdicion, setPlantillaEdicion] = useState<PlantillaOficio | null>(null);
+  const [guardandoModelo, setGuardandoModelo] = useState(false);
+
+  const abrirEditorModelo = (formato: typeof data[number]) => {
+    setSelectedFmt(formato);
+    setGenValues({ ...defaultGenValues, ...(formato.data || {}), nombreFormato: formato.nombre });
+    setPlantillaEdicion(plantillaDe(formato.data));
+    setEditingId(formato.id);
+    setCategoriaGenerador(formato.idSerie || '');
+    setModalType('create');
+  };
 
   const handleGenChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setGenValues({ ...genValues, [e.target.name]: e.target.value });
@@ -383,6 +395,7 @@ export const Formatos = () => {
 
   const clearForm = () => {
     setGenValues(defaultGenValues);
+    setPlantillaEdicion(null);
   };
 
   const buildBodyString = (values = genValues) => {
@@ -400,7 +413,17 @@ export const Formatos = () => {
       lugarFecha: formattedLugarFecha,
       cuerpo: buildBodyString(),
       studentName: genValues.nombreFirma,
-      studentCI: genValues.ciFirma
+      studentCI: genValues.ciFirma,
+      ...(plantillaEdicion ? {
+        tituloAutoridad: destinatarioDe(plantillaEdicion.destinatario).titulo,
+        nombreAutoridad: destinatarioDe(plantillaEdicion.destinatario).nombre,
+        cargo: destinatarioDe(plantillaEdicion.destinatario).cargo,
+        cuerpo: plantillaEdicion.parrafos,
+        asunto: plantillaEdicion.asunto,
+        adjuntos: plantillaEdicion.adjuntos.filter(a => a.trim()),
+        presente: 'Presente.',
+        cierre: 'Por la atención dispensada, anticipo mi agradecimiento.',
+      } : {}),
   });
 
   const descargarBlob = (blob: Blob, nombre: string) => {
@@ -795,6 +818,7 @@ export const Formatos = () => {
   };
 
   const saveModel = async () => {
+    if (guardandoModelo) return;
     const S = (await import('sweetalert2')).default;
     if (!genValues.nombreFormato.trim()) {
       S.fire({ icon: 'info', title: 'Falta el nombre', text: 'Ponle un nombre a la plantilla antes de guardarla.', confirmButtonColor: '#B00020' });
@@ -805,14 +829,30 @@ export const Formatos = () => {
       return;
     }
 
-    const descripcion = `Oficio para: ${genValues.descripcion.substring(0, 50)}...`;
+    if (plantillaEdicion && !plantillaEdicion.parrafos.some(p => p.trim())) {
+      S.fire({ icon: 'info', title: 'Falta el contenido', text: 'Escribe al menos un párrafo para el oficio.', confirmButtonColor: '#B00020' });
+      return;
+    }
+    const descripcion = plantillaEdicion
+      ? selectedFmt?.descripcion || plantillaEdicion.asunto
+      : `Oficio para: ${genValues.descripcion.substring(0, 50)}...`;
+    const datosModelo = {
+      ...(editingId ? selectedFmt?.data || {} : {}),
+      ...genValues,
+      ...(plantillaEdicion ? { plantilla: { ...plantillaEdicion,
+        parrafos: plantillaEdicion.parrafos.filter(p => p.trim()),
+        adjuntos: plantillaEdicion.adjuntos.filter(a => a.trim()),
+      } } : {}),
+    };
+    setGuardandoModelo(true);
+    try {
 
     if (editingId) {
       // Actualizar modelo existente (persiste en Supabase)
       await updateFormato(editingId, {
         nombre: genValues.nombreFormato,
         descripcion,
-        datos: { ...genValues },
+        datos: datosModelo,
         id_serie: categoriaGenerador,
       });
     } else {
@@ -822,12 +862,18 @@ export const Formatos = () => {
         tipo: 'DINAMICO',
         estado: 'activo',
         descripcion,
-        datos: { ...genValues },
+        datos: datosModelo,
         id_serie: categoriaGenerador,
       });
     }
+    if (editingId && selectedFormatForDetail?.id === editingId) {
+      setSelectedFormatForDetail({ ...selectedFormatForDetail, nombre: genValues.nombreFormato, descripcion, data: datosModelo, idSerie: categoriaGenerador });
+    }
     setModalType(null);
     setEditingId(null);
+    } catch (error) {
+      S.fire({ icon: 'error', title: 'No se pudo guardar el modelo', text: error instanceof Error ? error.message : 'Inténtalo otra vez.', confirmButtonColor: '#B00020' });
+    } finally { setGuardandoModelo(false); }
   };
 
   // Redimensiona la imagen antes de guardarla: los sellos se usan a ~100px de alto
@@ -1237,8 +1283,9 @@ export const Formatos = () => {
                     else if (selectedFormatForDetail?.id === f.id) setSelectedFormatForDetail(null); 
                   }}
                 >
+                  {/* Solo el nombre: la tabla lista UNA categoría, así que repetirla bajo cada
+                      fila no orienta a nadie; el rastro de navegación ya dice dónde estamos. */}
                   <span className="text-[13px] font-bold text-gray-900 truncate">{f.nombre}</span>
-                  <span className="text-[10px] text-gray-400">{series.find(serie => serie.id === f.idSerie)?.nombre || 'Sin clasificar'}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${f.esDinamico ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-red-50 text-red-600 border-red-200'}`}>{f.etiquetaTipo}</span>
@@ -1272,11 +1319,8 @@ export const Formatos = () => {
                   )}
                   <button onClick={() => { 
                     setSelectedFmt(f); 
-                    if (f.esDinamico && !plantillaDe(f.data)) {
-                      setGenValues(f.data || { ...defaultGenValues, nombreFormato: f.nombre });
-                      setEditingId(f.id);
-                      setCategoriaGenerador(f.idSerie || '');
-                      setModalType('create');
+                    if (f.esDinamico) {
+                      abrirEditorModelo(f);
                     } else {
                       setModalType('edit'); 
                     }
@@ -1349,11 +1393,8 @@ export const Formatos = () => {
                <button 
                   onClick={() => {
                     setSelectedFmt(selectedFormatForDetail);
-                    if (selectedFormatForDetail.tipo === 'DINAMICO' && !plantillaDe(selectedFormatForDetail.data)) {
-                      setGenValues(selectedFormatForDetail.data || { ...defaultGenValues, nombreFormato: selectedFormatForDetail.nombre });
-                      setEditingId(selectedFormatForDetail.id);
-                      setCategoriaGenerador(selectedFormatForDetail.idSerie || '');
-                      setModalType('create');
+                    if (selectedFormatForDetail.tipo === 'DINAMICO') {
+                      abrirEditorModelo(selectedFormatForDetail);
                     } else {
                       setModalType('edit');
                     }
@@ -1389,12 +1430,19 @@ export const Formatos = () => {
             <div className="bg-[#f8fafc] rounded-xl shadow-2xl w-full h-full max-w-[1400px] max-h-[95vh] flex flex-col relative animate-scale-in border border-gray-200">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white rounded-t-xl shrink-0">
                 <h2 className="text-xl font-bold text-[#0f172a]">{editingId ? 'Editar Modelo de Oficio' : 'Generador de Modelos de Oficio'}</h2>
+                {editingId && <button disabled={guardandoModelo} onClick={() => setModalType('edit')} className="ml-auto mr-3 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600">Datos y enlace del documento</button>}
                 <button onClick={() => setModalType(null)} className="text-gray-400 hover:text-gray-600 p-1 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
               </div>
 
               <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
                 <div className="flex-1 overflow-y-auto p-6 bg-white border-r border-gray-200 custom-scrollbar">
                   <div className="max-w-[600px] mx-auto flex flex-col gap-4 pb-20">
+                    {plantillaEdicion ? <EditorPlantillaOficio
+                      plantilla={plantillaEdicion} onChange={setPlantillaEdicion}
+                      nombre={genValues.nombreFormato} onNombre={nombreFormato => setGenValues(v => ({ ...v, nombreFormato }))}
+                      categoria={categoriaGenerador} onCategoria={setCategoriaGenerador}
+                      categorias={seriesPlanas.map(({serie, nivel}) => ({id: serie.id, nombre: `${'— '.repeat(nivel)}${serie.nombre}`}))}
+                    /> : <>
                     <details className="group bg-white border border-gray-200 rounded-xl overflow-hidden [&_summary::-webkit-details-marker]:hidden" open>
                       <summary className="flex items-center justify-between p-4 cursor-pointer font-bold text-gray-900 select-none hover:bg-gray-50">
                         <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-gray-500" /> 1. Datos del Oficio</div>
@@ -1535,6 +1583,7 @@ export const Formatos = () => {
                         </div>
                       </div>
                     </details>
+                    </>}
                   </div>
                 </div>
 
@@ -1550,18 +1599,18 @@ export const Formatos = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="w-full max-w-[700px] aspect-[1/1.414] bg-white shadow-xl relative overflow-hidden text-gray-900">
-                    {renderVistaDocumento(genValues)}
+                  <div className="w-full max-w-[700px] min-h-[700px] shrink-0 bg-white shadow-xl relative text-gray-900">
+                    {renderVistaDocumento(genValues, false, plantillaEdicion)}
                   </div>
                 </div>
               </div>
 
               <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 flex justify-between items-center z-10 rounded-bl-xl rounded-br-xl shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
-                <button onClick={clearForm} className="px-5 py-2.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" /> Limpiar campos
+                <button disabled={guardandoModelo} onClick={() => editingId && selectedFmt ? abrirEditorModelo(selectedFmt) : clearForm()} className="px-5 py-2.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors">
+                  <RotateCcw className="w-3.5 h-3.5" /> {editingId ? 'Restablecer cambios' : 'Limpiar campos'}
                 </button>
-                <button onClick={saveModel} className="bg-[#0f172a] hover:bg-black text-white px-6 py-2.5 rounded-lg text-xs font-bold shadow-lg transition-all flex items-center gap-2">
-                  <FileText className="w-3.5 h-3.5" /> {editingId ? 'Actualizar Modelo' : 'Guardar Modelo'}
+                <button disabled={guardandoModelo} onClick={saveModel} className="bg-[#0f172a] hover:bg-black text-white px-6 py-2.5 rounded-lg text-xs font-bold shadow-lg transition-all flex items-center gap-2 disabled:opacity-50">
+                  <FileText className="w-3.5 h-3.5" /> {guardandoModelo ? 'Guardando…' : editingId ? 'Actualizar Modelo' : 'Guardar Modelo'}
                 </button>
               </div>
             </div>
@@ -1650,6 +1699,7 @@ export const Formatos = () => {
             <div className="bg-white rounded-[20px] p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[400px] relative animate-scale-in">
               <h3 className="text-lg font-extrabold text-gray-900 mb-1">Editar documento</h3>
               <p className="text-xs text-gray-500 mb-6">Modifica los datos del documento, su enlace o su plantilla.</p>
+              {selectedFmt.esDinamico && <button type="button" onClick={() => abrirEditorModelo(selectedFmt)} className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f172a] px-4 py-3 text-xs font-bold text-white"><FileEdit size={16} /> Editar plantilla en el generador</button>}
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
