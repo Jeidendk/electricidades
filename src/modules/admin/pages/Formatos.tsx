@@ -193,43 +193,70 @@ export const Formatos = () => {
   }, [dataPerfil, arbolSeries]);
 
   /** Serie abierta y su camino desde la raíz, para el rastro de navegación. */
-  const rutaSerie = useMemo(() => rutaHasta(series, serieSel), [series, serieSel]);
 
   const [searchQuery, setSearchQuery] = useState(params.get('q') || '');
+
+  /**
+   * La categoría cuyos documentos está listando la tabla.
+   *
+   * Va aparte de `serieSel` —la resaltada en el árbol— porque una categoría con subcategorías
+   * no tiene listado propio: pulsarla solo despliega la rama, y la tabla conserva lo último que
+   * sí tenía documentos. Vaciarla obligaba a mirar un cartel a mitad de camino en cada clic.
+   */
+  const [serieTabla, setSerieTabla] = useState<string | null>(null);
+
+  const serieDeLaTabla = useMemo(
+    () => seriesPlanas.find(({ serie }) => serie.id === serieTabla)?.serie ?? null,
+    [serieTabla, seriesPlanas],
+  );
 
   const serieSeleccionada = useMemo(
     () => seriesPlanas.find(({ serie }) => serie.id === serieSel)?.serie ?? null,
     [serieSel, seriesPlanas],
   );
 
-  /** True cuando la categoría abierta es un contenedor: hay que bajar un nivel más. */
-  const seleccionEsContenedor = !!serieSeleccionada && serieSeleccionada.hijas.length > 0;
-
   /**
-   * Qué series entran en la tabla.
+   * Qué series entran en la tabla: la que se está listando y nada más.
    *
-   * Una categoría CON subcategorías no lista nada: se elige primero la subcategoría. Abrirla
-   * volcaba de golpe los 26 documentos de toda la rama y la tabla se redibujaba entera en cada
-   * clic del árbol, sin que nadie hubiera pedido ese listado.
-   *
-   * Buscando es al revés: la búsqueda es intención explícita, así que abarca la rama completa.
+   * Buscando es al revés: la búsqueda es intención explícita, así que abarca la rama resaltada
+   * completa, subcategorías incluidas.
    */
   const idsDeLaSeleccion = useMemo(() => {
-    if (!serieSeleccionada) return new Set<string>();
-    if (searchQuery.trim()) return new Set(idsConDescendientes(serieSeleccionada));
-    return seleccionEsContenedor ? new Set<string>() : new Set([serieSeleccionada.id]);
-  }, [serieSeleccionada, seleccionEsContenedor, searchQuery]);
+    if (searchQuery.trim()) {
+      return serieSeleccionada ? new Set(idsConDescendientes(serieSeleccionada)) : new Set<string>();
+    }
+    return serieDeLaTabla ? new Set([serieDeLaTabla.id]) : new Set<string>();
+  }, [serieSeleccionada, serieDeLaTabla, searchQuery]);
+
+  /** El rastro describe lo que la tabla está listando, no lo que está resaltado. */
+  const rutaSerie = useMemo(() => rutaHasta(series, serieTabla), [series, serieTabla]);
+
+  /** Elige una categoría del árbol: las contenedoras solo despliegan, las hojas cambian la tabla. */
+  const abrirSerie = (serie: SerieConHijas) => {
+    setSerieSel(serie.id);
+    if (serie.hijas.length) {
+      setExpandidas(previas => new Set(previas).add(serie.id));
+      return;
+    }
+    setSerieTabla(serie.id);
+    setCurrentPage(1);
+    setPanelCategoriasAbierto(false);
+  };
 
   /**
-   * Sin "Todas", la pantalla necesita abrir en alguna parte: la primera categoría del árbol.
-   * Si tiene subcategorías se despliega, para que la siguiente elección esté a la vista.
+   * Sin "Todas", la pantalla necesita abrir en alguna parte: la primera categoría SIN
+   * subcategorías, que es la primera que tiene documentos propios que mostrar. Se despliegan
+   * sus ancestros para que se vea dónde está.
    */
   useEffect(() => {
-    if (serieSel || arbolSeries.length === 0) return;
-    const primera = arbolSeries[0];
-    setSerieSel(primera.id);
-    if (primera.hijas.length) setExpandidas(previas => new Set(previas).add(primera.id));
-  }, [arbolSeries, serieSel]);
+    if (serieTabla || seriesPlanas.length === 0) return;
+    const primeraHoja = seriesPlanas.find(({ serie }) => serie.hijas.length === 0)?.serie;
+    if (!primeraHoja) return;
+    setSerieTabla(primeraHoja.id);
+    setSerieSel(actual => actual ?? primeraHoja.id);
+    const ancestros = rutaHasta(series, primeraHoja.id).slice(0, -1).map(serie => serie.id);
+    if (ancestros.length) setExpandidas(previas => new Set([...previas, ...ancestros]));
+  }, [seriesPlanas, series, serieTabla]);
 
   const alternarExpandida = (id: string) => {
     setExpandidas(previas => {
@@ -460,6 +487,7 @@ export const Formatos = () => {
     try {
       await removeSerie(serieEnEdicion.id);
       if (serieSel === serieEnEdicion.id) setSerieSel(null);
+      if (serieTabla === serieEnEdicion.id) setSerieTabla(null);
       setModalSerie(null);
       setSerieEnEdicion(null);
       await fetchFormatos();
@@ -783,12 +811,7 @@ export const Formatos = () => {
               return (
                 <div
                   key={serie.id}
-                  onClick={() => {
-                    setSerieSel(serie.id);
-                    setCurrentPage(1);
-                    if (tieneHijas) setExpandidas(previas => new Set(previas).add(serie.id));
-                    else setPanelCategoriasAbierto(false);
-                  }}
+                  onClick={() => abrirSerie(serie)}
                   style={{ paddingLeft: `${nivel * 14 + 8}px` }}
                   className={`flex items-center justify-between py-2 pr-2 rounded-lg cursor-pointer group transition-colors ${activa ? 'bg-red-50/80 border-l-4 border-espoch-red -ml-1' : 'hover:bg-gray-50'}`}
                 >
@@ -957,11 +980,9 @@ export const Formatos = () => {
               <div className="px-6 py-14 text-center">
                 <Folder className="mx-auto mb-3 h-9 w-9 text-gray-200" />
                 <p className="text-[13px] font-bold text-gray-600">
-                  {seleccionEsContenedor
-                    ? `Elige una subcategoría de ${serieSeleccionada?.nombre} para ver sus documentos.`
-                    : searchQuery.trim()
-                      ? 'Ningún documento coincide con la búsqueda.'
-                      : 'Esta categoría todavía no tiene documentos.'}
+                  {searchQuery.trim()
+                    ? 'Ningún documento coincide con la búsqueda.'
+                    : 'Esta categoría todavía no tiene documentos.'}
                 </p>
               </div>
             )}
