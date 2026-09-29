@@ -402,18 +402,22 @@ export const Formatos = () => {
     const destino = plantilla ? destinatarioDe(plantilla.destinatario) : null;
     return (
       <div className={`flex min-h-full w-full flex-col bg-white font-serif text-gray-800 ${compacta ? 'p-5 text-[10px] leading-[1.5]' : 'p-12 lg:p-16 text-[13px] leading-relaxed'}`}>
+        {/* Sin sello no se dibuja cabecera: un recuadro vacío con el nombre de la ESPOCH
+            no es el membrete institucional, solo lo aparenta. */}
+        {headerImg && (
         <div className={`flex items-center justify-between border-b border-gray-300 ${compacta ? 'pb-3 mb-4' : 'pb-5 mb-7'}`}>
           <div className={`${compacta ? 'h-10 w-10' : 'h-20 w-24'} flex shrink-0 items-center justify-center rounded bg-gray-50`}>
-            {headerImg ? <img src={headerImg} alt="Sello institucional" className="max-h-full max-w-full object-contain" /> : <ImageIcon className={`${compacta ? 'h-5 w-5' : 'h-8 w-8'} text-gray-300`} />}
+            <img src={headerImg} alt="Sello institucional" className="max-h-full max-w-full object-contain" />
           </div>
           <div className={`${compacta ? 'px-2' : 'px-6'} flex-1 text-center font-sans`}>
             <div className={`${compacta ? 'text-[12px]' : 'text-[16px]'} font-extrabold leading-tight`}>ESCUELA SUPERIOR<br className={compacta ? '' : 'hidden'} /> POLITÉCNICA DE CHIMBORAZO</div>
             <div className={`${compacta ? 'text-[10px]' : 'mt-1 text-[11px]'} uppercase text-gray-500`}>{values.facultad}</div>
           </div>
           <div className={`${compacta ? 'h-10 w-10' : 'h-20 w-24'} flex shrink-0 items-center justify-center rounded bg-gray-50`}>
-            {headerImg ? <img src={headerImg} alt="Sello institucional" className="max-h-full max-w-full object-contain" /> : <ImageIcon className={`${compacta ? 'h-5 w-5' : 'h-8 w-8'} text-gray-300`} />}
+            <img src={headerImg} alt="Sello institucional" className="max-h-full max-w-full object-contain" />
           </div>
         </div>
+        )}
 
         <div className={compacta ? 'mb-6 text-right' : 'mb-10 text-right'}>{fecha}</div>
         <div className={compacta ? 'mb-6' : 'mb-8 leading-tight'}>
@@ -736,7 +740,7 @@ export const Formatos = () => {
       await updateFormato(editingId, {
         nombre: genValues.nombreFormato,
         descripcion,
-        datos: { ...genValues, headerImg, footerImg },
+        datos: { ...genValues },
         id_serie: categoriaGenerador,
       });
     } else {
@@ -746,7 +750,7 @@ export const Formatos = () => {
         tipo: 'DINAMICO',
         estado: 'activo',
         descripcion,
-        datos: { ...genValues, headerImg, footerImg },
+        datos: { ...genValues },
         id_serie: categoriaGenerador,
       });
     }

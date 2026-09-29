@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CalendarDays, Check, ChevronDown, ChevronRight, Download, ExternalLink, Eye, FileText, Folder, GraduationCap, LayoutGrid, List, Printer, Search, UserRound, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, ChevronRight, Download, ExternalLink, Eye, FileText, Folder, LayoutGrid, List, Printer, Search, UserRound, X } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useFormatosStore } from '../../../store/formatosStore';
 import { construirArbol, idsConDescendientes, useSeriesFormatosStore } from '../../../store/seriesFormatosStore';
@@ -302,8 +302,11 @@ export const ModelosOficio = () => {
       carrera: usuario?.carreraNombre || datos.carrera || '',
       facultad: usuario?.facultadNombre || datos.facultad || '',
       numeroPao: usuario?.pao ? `PAO ${usuario.pao}` : (datos.numeroPao || ''),
-      headerImg: datos.headerImg || localStorage.getItem('espoch_header_img') || '',
-      footerImg: datos.footerImg || localStorage.getItem('espoch_footer_img') || '',
+      // Las imágenes institucionales son configuración, no parte del documento: se leen de
+      // "Logos y Sellos" y nunca de lo que la plantilla traiga copiado, o quitarlas ahí no las
+      // quitaría de las plantillas ya guardadas.
+      headerImg: localStorage.getItem('espoch_header_img') || '',
+      footerImg: localStorage.getItem('espoch_footer_img') || '',
     };
   };
 
@@ -673,7 +676,20 @@ export const ModelosOficio = () => {
               <div className="flex min-h-0 flex-1 flex-col bg-slate-100 p-5 lg:p-8">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-extrabold text-gray-700">Vista previa</h3><div className="flex gap-2"><button onClick={() => void descargar('pdf')} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold"><Download className="h-4 w-4" /> PDF</button><button onClick={() => void descargar('docx')} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold"><FileText className="h-4 w-4" /> Word</button><button onClick={abrirParaImprimir} className="flex items-center gap-2 rounded-lg bg-espoch-red px-4 py-2 text-xs font-bold text-white"><Printer className="h-4 w-4" /> Imprimir</button></div></div>
                 <div className="mx-auto aspect-[1/1.414] w-full max-w-[650px] overflow-y-auto bg-white p-10 font-serif text-[12px] leading-relaxed shadow-xl lg:p-14">
-                  <div className="mb-7 flex items-center justify-between border-b border-gray-300 pb-4"><div className="flex h-16 w-20 items-center justify-center">{values.headerImg ? <img src={values.headerImg} alt="Sello" className="max-h-full max-w-full object-contain" /> : <GraduationCap className="h-8 w-8 text-gray-300" />}</div><div className="flex-1 px-4 text-center font-sans"><strong>ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</strong><div className="mt-1 text-[10px] text-gray-500">{values.facultad}</div></div><div className="w-20" /></div>
+                  {/* Sin sello no se dibuja cabecera: un recuadro vacío con el nombre de la
+                      ESPOCH no es el membrete institucional, solo lo aparenta. */}
+                  {values.headerImg && (
+                    <div className="mb-7 flex items-center justify-between border-b border-gray-300 pb-4">
+                      <div className="flex h-16 w-20 items-center justify-center">
+                        <img src={values.headerImg} alt="Sello institucional" className="max-h-full max-w-full object-contain" />
+                      </div>
+                      <div className="flex-1 px-4 text-center font-sans">
+                        <strong>ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</strong>
+                        <div className="mt-1 text-[10px] text-gray-500">{values.facultad}</div>
+                      </div>
+                      <div className="w-20" />
+                    </div>
+                  )}
                   {/* La vista previa se dibuja con los MISMOS parámetros que el PDF y el Word: antes
                       cada uno armaba el documento por su lado y podían decir cosas distintas. */}
                   {(() => {
