@@ -1266,7 +1266,9 @@ export const Formatos = () => {
         
       {/* PANEL DERECHO (Detalle del modelo) */}
       {(selectedFormatForDetail && selectedIds.length <= 1) && (
-          <div className="w-1/4 min-w-[300px] bg-white rounded-[20px] shadow-sm border border-gray-200/60 p-6 flex flex-col relative shrink-0 overflow-hidden animate-fade-in z-10">
+          // El detalle se superpone en vez de robarle ancho a la tabla: encogiéndola, la barra
+          // de herramientas se reacomodaba y los botones saltaban de fila al abrirlo.
+          <div className="absolute inset-y-0 right-0 z-30 flex w-[380px] max-w-[92%] flex-col overflow-hidden rounded-[20px] border border-gray-200/60 bg-white p-6 shadow-2xl animate-fade-in">
             <button onClick={() => setSelectedFormatForDetail(null)} className="absolute top-4 right-4 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
