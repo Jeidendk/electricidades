@@ -1696,11 +1696,32 @@ export const Formatos = () => {
                 <AlertTriangle className="w-7 h-7 text-amber-500" />
               </div>
               <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">{modalType === 'bulkDelete' ? `Eliminar ${selectedIds.length} documentos` : 'Eliminar documento'}</h3>
-              <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
-                {modalType === 'bulkDelete' 
+              <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">
+                {modalType === 'bulkDelete'
                   ? `Se eliminarán permanentemente los ${selectedIds.length} documentos seleccionados. Esta acción no se puede deshacer.`
-                  : `¿Está seguro que desea eliminar "${selectedFmt?.nombre}" permanentemente?`}
+                  : `¿Qué quieres eliminar de "${selectedFmt?.nombre}"?`}
               </p>
+
+              {/* Un documento convertido tiene dos partes, y borrar la fila se lleva las dos.
+                  Aquí se elige: quitar una y conservar la otra, o eliminarlo entero. */}
+              {modalType === 'delete' && !!selectedFmt?.enlace && !!plantillaDe(selectedFmt?.data) && (
+                <div className="mb-5 flex flex-col gap-2 text-left">
+                  <button
+                    onClick={() => void quitarParte(selectedFmt, 'plantilla')}
+                    className="flex flex-col rounded-xl border border-gray-200 px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    <span className="text-[13px] font-bold text-gray-800">Solo la plantilla</span>
+                    <span className="text-[11px] text-gray-500">El documento se queda como enlace al original.</span>
+                  </button>
+                  <button
+                    onClick={() => void quitarParte(selectedFmt, 'enlace')}
+                    className="flex flex-col rounded-xl border border-gray-200 px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    <span className="text-[13px] font-bold text-gray-800">Solo el enlace</span>
+                    <span className="text-[11px] text-gray-500">El documento se queda como plantilla rellenable.</span>
+                  </button>
+                </div>
+              )}
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                 <button onClick={async () => {
@@ -1713,7 +1734,7 @@ export const Formatos = () => {
                   else { await removeFormato(selectedFmt.id); }
                   for (const ruta of rutas) if (ruta) await borrarArchivoFormato(ruta);
                   setModalType(null);
-                }} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Confirmar</button>
+                }} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">{modalType === 'delete' && selectedFmt?.enlace && plantillaDe(selectedFmt?.data) ? 'Todo el documento' : 'Confirmar'}</button>
               </div>
             </div>
           )}
