@@ -32,6 +32,7 @@ export interface AuthUser {
   carreraNombre?: string; // carrera asignada al estudiante o técnico
   pao?: number;           // nivel académico del estudiante
   paralelo?: number;      // paralelo del estudiante para su horario
+  codigoInstitucional?: string; // código estudiantil, que los oficios piden por su nombre
 }
 
 export type LoginResult =
@@ -109,7 +110,7 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
   // 1. Cargar perfil del usuario (sin join para no depender de RLS de roles)
   const { data, error } = await supabase
     .from('usuarios')
-    .select('id, nombre, apellido, email, avatar_url, id_rol, facultad_nombre, carrera_nombre, pao, paralelo')
+    .select('id, nombre, apellido, email, avatar_url, id_rol, facultad_nombre, carrera_nombre, codigo_institucional, pao, paralelo')
     .eq('id', userId)
     .single();
 
@@ -207,6 +208,7 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
     ...(carreraNombre ? { carreraNombre } : {}),
     ...(pao != null ? { pao } : {}),
     ...(paralelo != null ? { paralelo } : {}),
+    ...(data.codigo_institucional ? { codigoInstitucional: data.codigo_institucional } : {}),
   };
 }
 

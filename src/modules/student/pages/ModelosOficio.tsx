@@ -9,6 +9,14 @@ import type { Database } from '../../../lib/database.types';
 import { supabase } from '../../../lib/supabase';
 import { componerNombreCompleto } from '../../../lib/texto';
 import { esUrlSegura } from '../../../lib/urlSegura';
+import {
+  destinatarioDe,
+  marcadoresDe,
+  plantillaDe,
+  prellenarDesdePerfil,
+  rellenarMarcadores,
+  type PlantillaOficio,
+} from '../../../lib/plantillaOficio';
 import { BotonPanelLateral, PanelLateral } from '../../../components/ui/PanelLateral';
 
 type FormatoRow = Database['public']['Tables']['formatos']['Row'];
@@ -104,6 +112,17 @@ export const ModelosOficio = () => {
   const [vista, setVista] = useState<'tarjetas' | 'lista'>('tarjetas');
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null);
   const [plantillaActiva, setPlantillaActiva] = useState<FormatoRow | null>(null);
+  /**
+   * Lo que el estudiante escribe en los huecos de una plantilla transcrita, por marcador.
+   * Las plantillas hechas a mano en el generador no tienen marcadores y siguen el camino de
+   * siempre: los campos fijos del formulario.
+   */
+  const [marcadores, setMarcadores] = useState<Record<string, string>>({});
+
+  const plantillaTranscrita = useMemo(
+    () => (plantillaActiva ? plantillaDe(plantillaActiva.datos) : null),
+    [plantillaActiva],
+  );
   const [values, setValues] = useState<OficioValues>(valoresIniciales);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
 
@@ -288,14 +307,29 @@ export const ModelosOficio = () => {
     };
   };
 
+  /** Datos del estudiante que sirven para prellenar huecos. La cédula no se guarda en el perfil. */
+  const perfilParaOficio = {
+    nombreCompleto: usuario?.nombre || '',
+    codigoInstitucional: usuario?.codigoInstitucional || '',
+    carrera: usuario?.carreraNombre || '',
+    facultad: usuario?.facultadNombre || '',
+    pao: usuario?.pao,
+  };
+
   const abrirPlantilla = (plantilla: FormatoRow) => {
     setValues(valoresDe(plantilla));
+    const transcrita = plantillaDe(plantilla.datos);
+    setMarcadores(transcrita ? prellenarDesdePerfil(marcadoresDe(transcrita), perfilParaOficio) : {});
     setPlantillaActiva(plantilla);
   };
 
   /** Muestra el modelo tal como saldrá impreso, sin abrir el formulario ni pisar lo escrito. */
   const vistaPrevia = (plantilla: FormatoRow) => {
-    const url = URL.createObjectURL(generatePreviewPDF(parametrosDe(valoresDe(plantilla))));
+    const transcrita = plantillaDe(plantilla.datos);
+    const valores = transcrita ? prellenarDesdePerfil(marcadoresDe(transcrita), perfilParaOficio) : {};
+    const url = URL.createObjectURL(
+      generatePreviewPDF(parametrosDeFormato(plantilla, valores, valoresDe(plantilla))),
+    );
     window.open(url, '_blank', 'noopener,noreferrer');
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
@@ -317,9 +351,45 @@ export const ModelosOficio = () => {
     studentCI: v.ciFirma,
   });
 
-  const cuerpo = cuerpoDe(values);
-  const fechaFormateada = fechaDe(values);
-  const parametrosDocumento = (): DocumentParams => parametrosDe(values);
+
+  /** El texto de la plantilla con los huecos ya rellenados, listo para imprimir o previsualizar. */
+  const documentoDePlantilla = (
+    plantilla: PlantillaOficio,
+    valores: Record<string, string>,
+    base: OficioValues,
+  ): DocumentParams => {
+    const { titulo, nombre, cargo } = destinatarioDe(plantilla.destinatario);
+    const rellenar = (texto: string) => rellenarMarcadores(texto, valores);
+    return {
+      headerImgBase64: base.headerImg,
+      footerImgBase64: base.footerImg,
+      tituloAutoridad: titulo,
+      nombreAutoridad: nombre,
+      cargo,
+      lugarFecha: fechaDe(base),
+      asunto: rellenar(plantilla.asunto),
+      // "Presente." es lo que escriben estos oficios; el generador a mano usa otra fórmula.
+      presente: 'Presente.',
+      cuerpo: plantilla.parrafos.map(rellenar),
+      adjuntos: plantilla.adjuntos.map(rellenar),
+      cierre: 'Por la atención dispensada, anticipo mi agradecimiento.',
+      studentName: base.nombreFirma,
+      studentCI: base.ciFirma,
+    };
+  };
+
+  /** Los parámetros de un formato cualquiera: transcrito o armado con los campos fijos. */
+  const parametrosDeFormato = (
+    formato: FormatoRow,
+    valores: Record<string, string>,
+    base: OficioValues,
+  ): DocumentParams => {
+    const plantilla = plantillaDe(formato.datos);
+    return plantilla ? documentoDePlantilla(plantilla, valores, base) : parametrosDe(base);
+  };
+
+  const parametrosDocumento = (): DocumentParams =>
+    plantillaActiva ? parametrosDeFormato(plantillaActiva, marcadores, values) : parametrosDe(values);
 
   const descargar = async (tipo: 'pdf' | 'docx') => {
     const base = (values.nombreFormato || 'Oficio').replace(/[^a-z0-9áéíóúñ]+/gi, '_');
@@ -546,6 +616,37 @@ export const ModelosOficio = () => {
             <header className="flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4"><div><h2 className="text-lg font-extrabold text-gray-900">{values.nombreFormato}</h2><p className="text-xs text-gray-400">Completa tus datos. Esto no crea una solicitud de equipos.</p></div><button onClick={() => setPlantillaActiva(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button></header>
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
               <div className="w-full overflow-y-auto border-r border-gray-200 p-6 lg:w-[48%]">
+                {plantillaTranscrita ? (
+                  <div className="flex flex-col gap-4">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wide text-gray-500">Asunto</p>
+                      <p className="mt-1 text-[13px] font-semibold text-gray-800">{plantillaTranscrita.asunto}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Campo label="Ciudad" value={values.ciudadOficio} onChange={valor => cambiar('ciudadOficio', valor)} />
+                      <Campo label="Fecha" type="date" value={values.fechaOficio} onChange={valor => cambiar('fechaOficio', valor)} />
+                      {/* Un campo por hueco del documento. Salen del texto y no de una lista
+                          aparte, así que no pueden quedar desfasados de lo que se imprime. */}
+                      {marcadoresDe(plantillaTranscrita).map(marcador => (
+                        <Campo
+                          key={marcador}
+                          label={marcador.slice(1, -1).toLocaleLowerCase('es')}
+                          value={marcadores[marcador] ?? ''}
+                          onChange={valor => setMarcadores(actuales => ({ ...actuales, [marcador]: valor }))}
+                        />
+                      ))}
+                      <Campo label="Nombre para la firma" value={values.nombreFirma} onChange={valor => cambiar('nombreFirma', valor)} />
+                      <Campo label="Cédula para la firma" value={values.ciFirma} onChange={valor => cambiar('ciFirma', valor)} />
+                    </div>
+
+                    {plantillaTranscrita.referencia && (
+                      <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-800">
+                        {plantillaTranscrita.referencia}
+                      </p>
+                    )}
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Campo label="Ciudad" value={values.ciudadOficio} onChange={valor => cambiar('ciudadOficio', valor)} />
                   <Campo label="Fecha" type="date" value={values.fechaOficio} onChange={valor => cambiar('fechaOficio', valor)} />
@@ -566,13 +667,50 @@ export const ModelosOficio = () => {
                     <textarea value={values.descripcion} onChange={event => cambiar('descripcion', event.target.value)} rows={5} className="resize-none rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm font-medium normal-case tracking-normal text-gray-800 outline-none focus:border-blue-400" placeholder="Describe claramente lo que solicitas…" />
                   </label>
                 </div>
+                )}
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col bg-slate-100 p-5 lg:p-8">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-extrabold text-gray-700">Vista previa</h3><div className="flex gap-2"><button onClick={() => void descargar('pdf')} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold"><Download className="h-4 w-4" /> PDF</button><button onClick={() => void descargar('docx')} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold"><FileText className="h-4 w-4" /> Word</button><button onClick={abrirParaImprimir} className="flex items-center gap-2 rounded-lg bg-espoch-red px-4 py-2 text-xs font-bold text-white"><Printer className="h-4 w-4" /> Imprimir</button></div></div>
                 <div className="mx-auto aspect-[1/1.414] w-full max-w-[650px] overflow-y-auto bg-white p-10 font-serif text-[12px] leading-relaxed shadow-xl lg:p-14">
                   <div className="mb-7 flex items-center justify-between border-b border-gray-300 pb-4"><div className="flex h-16 w-20 items-center justify-center">{values.headerImg ? <img src={values.headerImg} alt="Sello" className="max-h-full max-w-full object-contain" /> : <GraduationCap className="h-8 w-8 text-gray-300" />}</div><div className="flex-1 px-4 text-center font-sans"><strong>ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</strong><div className="mt-1 text-[10px] text-gray-500">{values.facultad}</div></div><div className="w-20" /></div>
-                  <p className="mb-8 text-right">{fechaFormateada}</p><div className="mb-7 leading-tight"><p>{values.tituloAutoridad} {values.nombreAutoridad}</p><p className="font-bold">{values.cargoDestinatario}</p><p>{values.enSuDespacho}</p></div><p className="mb-5">De mi consideración:</p><p className="mb-7 text-justify">{cuerpo}</p><p>{values.despedida}</p><div className="mt-10 text-center"><p className="mb-8">{values.cierre}</p><div className="mx-auto mb-2 w-56 border-b border-gray-800" /><p className="font-bold">{values.nombreFirma}</p><p>C.I: {values.ciFirma}</p></div>{values.footerImg && <div className="mt-10 border-t border-gray-300 pt-3"><img src={values.footerImg} alt="Pie institucional" className="mx-auto h-10 max-w-full object-contain" /></div>}
+                  {/* La vista previa se dibuja con los MISMOS parámetros que el PDF y el Word: antes
+                      cada uno armaba el documento por su lado y podían decir cosas distintas. */}
+                  {(() => {
+                    const doc = parametrosDocumento();
+                    const parrafos = Array.isArray(doc.cuerpo) ? doc.cuerpo : [doc.cuerpo];
+                    return (
+                      <>
+                        <p className="mb-8 text-right">{doc.lugarFecha}</p>
+                        <div className="mb-7 leading-tight">
+                          {doc.tituloAutoridad && <p>{doc.tituloAutoridad}</p>}
+                          {doc.nombreAutoridad && <p>{doc.nombreAutoridad}</p>}
+                          <p className="font-bold">{doc.cargo}</p>
+                          <p>{doc.presente || values.enSuDespacho}</p>
+                        </div>
+                        {doc.asunto && <p className="mb-5 font-bold">Asunto: {doc.asunto}</p>}
+                        <p className="mb-5">De mi consideración:</p>
+                        {parrafos.map((parrafo, indice) => (
+                          <p key={indice} className="mb-4 text-justify">{parrafo}</p>
+                        ))}
+                        {!!doc.adjuntos?.length && (
+                          <div className="mb-5">
+                            <p className="font-bold">Documentos adjuntos:</p>
+                            <ol className="list-inside list-decimal">
+                              {doc.adjuntos.map((adjunto, indice) => <li key={indice}>{adjunto}</li>)}
+                            </ol>
+                          </div>
+                        )}
+                        <p>{doc.cierre || values.despedida}</p>
+                        <div className="mt-10 text-center">
+                          <p className="mb-8">{values.cierre}</p>
+                          <div className="mx-auto mb-2 w-56 border-b border-gray-800" />
+                          <p className="font-bold">{doc.studentName}</p>
+                          <p>C.I: {doc.studentCI}</p>
+                        </div>
+                      </>
+                    );
+                  })()}{values.footerImg && <div className="mt-10 border-t border-gray-300 pt-3"><img src={values.footerImg} alt="Pie institucional" className="mx-auto h-10 max-w-full object-contain" /></div>}
                 </div>
               </div>
             </div>

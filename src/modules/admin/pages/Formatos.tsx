@@ -19,6 +19,7 @@ import {
 import { perfilesRepositorio, type PerfilRepositorioId } from '../data/repositorioElectricidad';
 import { enMayusculas } from '../../../lib/texto';
 import { esUrlSegura } from '../../../lib/urlSegura';
+import { plantillasSolicitudes } from '../data/plantillasSolicitudes';
 import { ImportarCatalogo } from '../components/ImportarCatalogo';
 import { useAuthStore } from '../../../store/authStore';
 
@@ -536,6 +537,88 @@ export const Formatos = () => {
     }
   };
 
+  /**
+   * Crea, en la categoría abierta, una plantilla por cada solicitud transcrita del repositorio.
+   *
+   * Se omiten las que ya existen ahí con el mismo nombre —importar dos veces no debe duplicar—
+   * y las que traen tabla: el generador todavía no la dibuja, y publicar un oficio al que le
+   * falta su tabla de asignaturas es peor que no publicarlo.
+   */
+  const importarSolicitudes = async () => {
+    if (!serieSel) { void avisarSinCategoria('guardar las plantillas'); return; }
+    const S = (await import('sweetalert2')).default;
+
+    const conTabla = plantillasSolicitudes.filter(p => p.tieneTabla);
+    const candidatas = plantillasSolicitudes.filter(p => !p.tieneTabla);
+    const yaEstan = new Set(
+      formatos.filter((f: any) => f.id_serie === serieSel).map((f: any) => normalizarTexto(f.nombre)),
+    );
+    const nuevas = candidatas.filter(p => !yaEstan.has(normalizarTexto(p.nombre)));
+
+    const nombreSerie = serieSeleccionada?.nombre ?? 'la categoría abierta';
+    if (nuevas.length === 0) {
+      S.fire({
+        icon: 'info',
+        title: 'No hay nada que importar',
+        text: `Las ${candidatas.length} solicitudes transcritas ya están en ${nombreSerie}.`,
+        confirmButtonColor: '#B00020',
+      });
+      return;
+    }
+
+    const confirmacion = await S.fire({
+      icon: 'question',
+      title: `¿Importar ${nuevas.length} solicitudes?`,
+      html: `Se crearán como plantillas dentro de <b>${nombreSerie}</b>.`
+        + (conTabla.length ? `<br/><br/><small>Quedan fuera ${conTabla.length} que llevan tabla de asignaturas: el generador todavía no la imprime.</small>` : ''),
+      showCancelButton: true,
+      confirmButtonText: 'Importar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#B00020',
+      cancelButtonColor: '#64748b',
+      reverseButtons: true,
+    });
+    if (!confirmacion.isConfirmed) return;
+
+    let creadas = 0;
+    const fallidas: string[] = [];
+    for (const plantilla of nuevas) {
+      try {
+        await addFormato({
+          nombre: plantilla.nombre,
+          tipo: TIPO_DINAMICO,
+          estado: 'activo',
+          descripcion: plantilla.asunto,
+          id_serie: serieSel,
+          datos: {
+            plantilla: {
+              asunto: plantilla.asunto,
+              destinatario: plantilla.destinatario,
+              parrafos: plantilla.cuerpo,
+              adjuntos: plantilla.adjuntos,
+              referencia: plantilla.referencia,
+              tieneTabla: plantilla.tieneTabla,
+              docId: plantilla.docId,
+            },
+          },
+        } as any);
+        creadas += 1;
+      } catch (error: any) {
+        fallidas.push(`${plantilla.nombre}: ${error?.message || 'error desconocido'}`);
+      }
+    }
+
+    await fetchFormatos();
+    S.fire({
+      icon: fallidas.length ? 'warning' : 'success',
+      title: `${creadas} plantilla${creadas === 1 ? '' : 's'} importada${creadas === 1 ? '' : 's'}`,
+      html: fallidas.length
+        ? `No se pudieron crear ${fallidas.length}:<br/><small>${fallidas.slice(0, 5).join('<br/>')}</small>`
+        : undefined,
+      confirmButtonColor: '#B00020',
+    });
+  };
+
   /** Aviso de "falta elegir categoría". El resto del sistema usa SweetAlert, no `alert()`. */
   const avisarSinCategoria = async (accion: string) => {
     const S = (await import('sweetalert2')).default;
@@ -950,6 +1033,13 @@ export const Formatos = () => {
             </button>
             <button onClick={() => { setQuitarHeader(false); setQuitarFooter(false); setModalType('settings'); }} className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50">
               <Settings className="w-3.5 h-3.5" /> Logos y Sellos
+            </button>
+            <button
+              onClick={() => void importarSolicitudes()}
+              title="Crear plantillas a partir de las solicitudes transcritas del repositorio"
+              className="flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2.5 text-[12px] font-bold text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              <FileText className="w-3.5 h-3.5" /> Importar solicitudes
             </button>
             <button
               onClick={() => {

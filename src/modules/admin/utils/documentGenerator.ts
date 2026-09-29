@@ -8,10 +8,31 @@ export interface DocumentParams {
   nombreAutoridad: string;
   cargo: string;
   lugarFecha: string;
-  cuerpo: string;
+  /** Uno o varios párrafos. Los oficios institucionales tienen entre dos y cuatro. */
+  cuerpo: string | string[];
   studentName: string;
   studentCI: string;
+  /** Línea "Asunto:" del oficio. Sin ella el destinatario no sabe de qué trata. */
+  asunto?: string;
+  /** Lista de "Documentos adjuntos"; se omite el bloque entero si viene vacía. */
+  adjuntos?: string[];
+  /** Fórmula de cortesía bajo el destinatario. */
+  presente?: string;
+  /** Párrafo de cierre antes de la firma. */
+  cierre?: string;
 }
+
+/** Lo que llevan los oficios de la carrera cuando la plantilla no dice otra cosa. */
+const PRESENTE_POR_DEFECTO = 'En su despacho,';
+const CIERRE_POR_DEFECTO = 'Agradezco de antemano la atención brindada y quedo atento a su respuesta.';
+
+/** El cuerpo admite un string o varios párrafos; adentro siempre se trabaja con la lista. */
+const parrafosDe = (cuerpo: string | string[]): string[] =>
+  (Array.isArray(cuerpo) ? cuerpo : [cuerpo]).map(parrafo => parrafo.trim()).filter(Boolean);
+
+/** Numera los adjuntos como el documento original: "1. …", "2. …". */
+const adjuntosNumerados = (adjuntos: string[] = []): string[] =>
+  adjuntos.filter(adjunto => adjunto.trim()).map((texto, indice) => `${indice + 1}. ${texto.trim()}`);
 
 const escaparXml = (valor: string) => valor
   .replace(/&/g, '&amp;')
@@ -150,10 +171,17 @@ export const generatePreviewDOCX = async (params: DocumentParams): Promise<Blob>
     parrafoWord(params.tituloAutoridad, { espacioDespues: 0 }),
     parrafoWord(params.nombreAutoridad.toUpperCase(), { negrita: true, espacioDespues: 0 }),
     parrafoWord(params.cargo.toUpperCase(), { negrita: true, espacioDespues: 0 }),
-    parrafoWord('En su despacho,', { espacioDespues: 360 }),
+    parrafoWord(params.presente || PRESENTE_POR_DEFECTO, { espacioDespues: params.asunto ? 240 : 360 }),
+    ...(params.asunto ? [parrafoWord(`Asunto: ${params.asunto}`, { negrita: true, espacioDespues: 300 })] : []),
     parrafoWord('De mi consideración:', { espacioDespues: 240 }),
-    parrafoWord(params.cuerpo, { alineacion: 'both', espacioDespues: 300 }),
-    parrafoWord('Agradezco de antemano la atención brindada y quedo atento a su respuesta.', { espacioDespues: 300 }),
+    ...parrafosDe(params.cuerpo).map(parrafo => parrafoWord(parrafo, { alineacion: 'both', espacioDespues: 240 })),
+    ...(adjuntosNumerados(params.adjuntos).length
+      ? [
+        parrafoWord('Documentos adjuntos:', { negrita: true, espacioDespues: 120 }),
+        ...adjuntosNumerados(params.adjuntos).map(linea => parrafoWord(linea, { espacioDespues: 60 })),
+      ]
+      : []),
+    parrafoWord(params.cierre || CIERRE_POR_DEFECTO, { espacioDespues: 300 }),
     parrafoWord('Atentamente,', { espacioDespues: 600 }),
     parrafoWord('_________________________________', { alineacion: 'center', espacioDespues: 60 }),
     parrafoWord(params.studentName, { negrita: true, alineacion: 'center', espacioDespues: 0 }),
@@ -241,26 +269,45 @@ export const generatePreviewPDF = (params: DocumentParams): Blob => {
   doc.text(params.cargo.toUpperCase(), marginX, cursorY);
   cursorY += 6;
   doc.setFont('times', 'normal');
-  doc.text('En su despacho,', marginX, cursorY);
-  cursorY += 15;
+  doc.text(params.presente || PRESENTE_POR_DEFECTO, marginX, cursorY);
+  cursorY += 10;
+
+  if (params.asunto) {
+    doc.setFont('times', 'bold');
+    doc.text(`Asunto: ${params.asunto}`, marginX, cursorY, { maxWidth: contentWidth });
+    doc.setFont('times', 'normal');
+    cursorY += 10;
+  }
 
   // 6. Body
   doc.text('De mi consideración:', marginX, cursorY);
   cursorY += 10;
 
-  // Justified body text with 1.5 line spacing
-  // Pass the raw string to let jsPDF handle splitting and line height natively
-  doc.text(params.cuerpo, marginX, cursorY, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.5 });
-  
-  // Calculate new Y cursor position
-  // 11pt * 1.5 = 16.5pt. 16.5pt in mm = 16.5 * 0.352778 = 5.82 mm per line
-  const splitBody = doc.splitTextToSize(params.cuerpo, contentWidth);
-  const lineHeightMm = doc.getFontSize() * 1.5 * 0.352778;
-  cursorY += (splitBody.length * lineHeightMm) + 15;
+  // 11pt * 1.5 = 16.5pt → 16.5 * 0.352778 = 5.82 mm por línea.
+  const altoLinea = doc.getFontSize() * 1.5 * 0.352778;
+
+  /** Escribe un párrafo justificado y deja el cursor bajo su última línea. */
+  const escribirParrafo = (texto: string, separacion: number) => {
+    doc.text(texto, marginX, cursorY, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.5 });
+    cursorY += doc.splitTextToSize(texto, contentWidth).length * altoLinea + separacion;
+  };
+
+  for (const parrafo of parrafosDe(params.cuerpo)) escribirParrafo(parrafo, 5);
+
+  const adjuntos = adjuntosNumerados(params.adjuntos);
+  if (adjuntos.length) {
+    cursorY += 4;
+    doc.setFont('times', 'bold');
+    doc.text('Documentos adjuntos:', marginX, cursorY);
+    doc.setFont('times', 'normal');
+    cursorY += altoLinea + 1;
+    for (const linea of adjuntos) escribirParrafo(linea, 1);
+  }
+
+  cursorY += 10;
 
   // 7. Closing
-  doc.text('Agradezco de antemano la atención brindada y quedo atento a su respuesta.', marginX, cursorY);
-  cursorY += 15;
+  escribirParrafo(params.cierre || CIERRE_POR_DEFECTO, 15);
   doc.text('Atentamente,', marginX, cursorY);
   
   cursorY += 30;
