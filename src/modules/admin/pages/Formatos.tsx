@@ -1168,7 +1168,14 @@ export const Formatos = () => {
                   <span className="text-[13px] font-bold text-gray-900 truncate">{f.nombre}</span>
                   <span className="text-[10px] text-gray-400">{series.find(serie => serie.id === f.idSerie)?.nombre || 'Sin clasificar'}</span>
                 </div>
-                <div><span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${f.esDinamico ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-red-50 text-red-600 border-red-200'}`}>{f.etiquetaTipo}</span></div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${f.esDinamico ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-red-50 text-red-600 border-red-200'}`}>{f.etiquetaTipo}</span>
+                  {/* Un documento convertido sigue teniendo su enlace: el estudiante puede
+                      completarlo aquí o abrir el original, y la fila tiene que decir las dos. */}
+                  {f.esDinamico && f.enlace && (
+                    <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-600">Enlace</span>
+                  )}
+                </div>
                 <div className="text-[11px] text-gray-500 font-medium">{new Date(f.fecha).toLocaleDateString('es-ES')}</div>
                 <div className="text-[11px] text-gray-500 font-medium">{f.size}</div>
                 <div><span className={`text-[9px] font-extrabold px-2.5 py-1 rounded-full border flex items-center gap-1 w-max bg-green-50 text-green-600 border-green-200/50`}><span className={`w-1.5 h-1.5 rounded-full bg-green-500`}></span>Activo</span></div>

@@ -529,7 +529,11 @@ export const ModelosOficio = () => {
             <div className={vista === 'tarjetas' ? 'grid grid-cols-1 gap-4 pb-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'flex flex-col gap-2.5 pb-2'}>
               {plantillas.map(plantilla => {
                 const categoria = series.find(serie => serie.id === plantilla.id_serie)?.nombre || 'Oficios';
-                const esEnlace = plantilla.tipo === 'ENLACE';
+                // Un documento convertido es plantilla Y enlace: se ofrece completarlo aquí y
+                // abrir el original, que no son alternativas sino dos cosas distintas.
+                const esPlantilla = plantilla.tipo !== 'ENLACE';
+                const tieneEnlace = !!plantilla.enlace;
+                const esEnlace = !esPlantilla;
                 const color = COLORES_CATEGORIA[indiceEstable(categoria)];
                 const actualizado = (plantilla.updated_at || plantilla.created_at || '').slice(0, 10);
                 const descripcion = plantilla.descripcion || (esEnlace ? 'Documento publicado por la facultad.' : 'Modelo institucional listo para completar.');
@@ -545,11 +549,12 @@ export const ModelosOficio = () => {
                         <p className="truncate text-[11px] text-gray-500">{descripcion}</p>
                       </div>
                       <span className={`hidden shrink-0 rounded-md px-2 py-1 text-[10px] font-bold sm:inline ${color.fondo} ${color.texto}`}>{categoria}</span>
-                      {esEnlace ? (
-                        <button onClick={() => abrirEnlace(plantilla.enlace)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-espoch-red px-3.5 py-2 text-[11px] font-bold text-white hover:bg-[#8b0000]">
+                      {tieneEnlace && (
+                        <button onClick={() => abrirEnlace(plantilla.enlace)} title="Abrir el documento original" className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-[11px] font-bold text-gray-600 hover:bg-gray-50">
                           <ExternalLink className="h-3.5 w-3.5" /> Abrir
                         </button>
-                      ) : (
+                      )}
+                      {esPlantilla && (
                         <button onClick={() => abrirPlantilla(plantilla)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-espoch-red px-3.5 py-2 text-[11px] font-bold text-white hover:bg-[#8b0000]">
                           <FileText className="h-3.5 w-3.5" /> Usar modelo
                         </button>
@@ -570,13 +575,14 @@ export const ModelosOficio = () => {
                       </div>
                       {/* Los formatos que SÍ produce este modelo: un enlace no genera archivo. */}
                       <div className="flex shrink-0 flex-col gap-1">
-                        {esEnlace ? (
-                          <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-extrabold text-blue-600">ENLACE</span>
-                        ) : (
+                        {esPlantilla && (
                           <>
                             <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[9px] font-extrabold text-sky-600">DOCX</span>
                             <span className="rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-extrabold text-espoch-red">PDF</span>
                           </>
+                        )}
+                        {tieneEnlace && (
+                          <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-extrabold text-blue-600">ENLACE</span>
                         )}
                       </div>
                     </div>
@@ -590,11 +596,16 @@ export const ModelosOficio = () => {
                     )}
 
                     <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
-                      {esEnlace ? (
-                        <button onClick={() => abrirEnlace(plantilla.enlace)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-espoch-red px-3 py-2 text-[11px] font-bold text-white transition hover:bg-[#8b0000]">
-                          <ExternalLink className="h-3.5 w-3.5" /> Abrir documento
+                      {tieneEnlace && (
+                        <button
+                          onClick={() => abrirEnlace(plantilla.enlace)}
+                          title="Abrir el documento original"
+                          className={`flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-[11px] font-bold text-gray-600 transition hover:bg-gray-50 ${esPlantilla ? '' : 'flex-1'}`}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> {esPlantilla ? '' : 'Abrir documento'}
                         </button>
-                      ) : (
+                      )}
+                      {esPlantilla && (
                         <>
                           <button onClick={() => vistaPrevia(plantilla)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-[11px] font-bold text-gray-600 transition hover:bg-gray-50">
                             <Eye className="h-3.5 w-3.5" /> Vista previa
