@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BookOpen, CalendarDays, ChevronDown, ChevronRight, Eye, FileText, GraduationCap, KeyRound, Layers, LayoutGrid, LogOut, MapPin, Settings, ShieldCheck, ShoppingCart, User, Users, Wrench } from 'lucide-react';
+import { Bell, BookOpen, CalendarDays, ChevronDown, ChevronRight, ClipboardList, Eye, FileText, GraduationCap, KeyRound, Layers, LayoutGrid, LogOut, MapPin, Settings, ShieldCheck, ShoppingCart, User, Users, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '../../../store/cartStore';
@@ -16,20 +16,23 @@ import { useRecursosStore } from '../../../store/recursosStore';
 import { MfaSetupModal } from '../../auth/components/MfaSetupModal';
 
 interface EnlaceNav {
-  to: string;
+  /** Ruta a la que navega. Una sección con hijos no lleva ninguna: solo abre el desplegable,
+   *  y son sus hijos los que navegan. */
+  to?: string;
   label: string;
   Icono: LucideIcon;
-  /** Secciones que cuelgan de esta: se abren en un desplegable en vez de ocupar la barra. */
   hijos?: { to: string; label: string; Icono: LucideIcon }[];
 }
 
 /** Los enlaces del menú, uno solo para escritorio y móvil: estaban escritos dos veces. */
 const ENLACES_NAV: EnlaceNav[] = [
   {
-    to: '/student/catalog',
     label: 'Catálogo',
     Icono: LayoutGrid,
-    hijos: [{ to: '/student/requests', label: 'Reserva de equipos', Icono: Layers }],
+    hijos: [
+      { to: '/student/catalog', label: 'Equipos', Icono: Layers },
+      { to: '/student/requests', label: 'Mis reservas', Icono: ClipboardList },
+    ],
   },
   { to: '/student/oficios', label: 'Formatos', Icono: FileText },
   { to: '/student/horarios', label: 'Horarios', Icono: CalendarDays },
@@ -38,8 +41,9 @@ const ENLACES_NAV: EnlaceNav[] = [
 ];
 
 /** Los enlaces tal como se recorren en móvil: ahí no hay desplegable, se listan todos. */
-const ENLACES_PLANOS: { to: string; label: string; Icono: LucideIcon }[] =
-  ENLACES_NAV.flatMap(enlace => [{ to: enlace.to, label: enlace.label, Icono: enlace.Icono }, ...(enlace.hijos ?? [])]);
+const ENLACES_PLANOS: { to: string; label: string; Icono: LucideIcon }[] = ENLACES_NAV.flatMap(
+  enlace => enlace.hijos ?? (enlace.to ? [{ to: enlace.to, label: enlace.label, Icono: enlace.Icono }] : []),
+);
 
 export const StudentLayout = () => {
   const navigate = useNavigate();
@@ -100,39 +104,35 @@ export const StudentLayout = () => {
           {/* Centro: Navegación Principal */}
           <nav className="absolute left-1/2 hidden h-full -translate-x-1/2 items-center gap-1 lg:flex">
             {ENLACES_NAV.map(({ to, label, Icono, hijos }) => {
-              // La sección queda marcada también cuando la ruta actual es la de un hijo.
-              const activa = pathname.startsWith(to) || !!hijos?.some(hijo => pathname.startsWith(hijo.to));
+              // La sección queda marcada cuando la ruta actual es la suya o la de un hijo.
+              const activa = (!!to && pathname.startsWith(to)) || !!hijos?.some(hijo => pathname.startsWith(hijo.to));
+              const clasesBoton = `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors xl:px-4 ${activa ? 'text-espoch-red' : 'text-gray-500 hover:text-gray-900'}`;
               return (
-                <div key={to} className="relative flex h-full items-center">
-                  <NavLink
-                    to={to}
-                    onClick={() => setMenuAbierto(null)}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors xl:px-4 ${activa ? 'text-espoch-red' : 'text-gray-500 hover:text-gray-900'}`}
-                  >
-                    <Icono className="h-4 w-4 shrink-0" strokeWidth={2.2} />
-                    {label}
-                  </NavLink>
-
-                  {/* El desplegable es un botón aparte del enlace: si abrirlo navegara, la
-                      sección padre dejaría de ser alcanzable con un clic. */}
-                  {hijos && (
+                <div key={label} className="relative flex h-full items-center">
+                  {hijos ? (
                     <button
                       type="button"
-                      onClick={() => setMenuAbierto(actual => (actual === to ? null : to))}
-                      aria-label={`Ver secciones de ${label}`}
-                      aria-expanded={menuAbierto === to}
-                      className={`-ml-2 rounded-lg p-1.5 transition-colors ${activa ? 'text-espoch-red' : 'text-gray-400 hover:text-gray-900'}`}
+                      onClick={() => setMenuAbierto(actual => (actual === label ? null : label))}
+                      aria-expanded={menuAbierto === label}
+                      className={clasesBoton}
                     >
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${menuAbierto === to ? 'rotate-180' : ''}`} />
+                      <Icono className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                      {label}
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${menuAbierto === label ? 'rotate-180' : ''}`} />
                     </button>
+                  ) : (
+                    <NavLink to={to!} onClick={() => setMenuAbierto(null)} className={clasesBoton}>
+                      <Icono className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                      {label}
+                    </NavLink>
                   )}
 
                   {/* La barra va al borde inferior de la cabecera, no debajo del texto:
                       así marca la sección sin robarle alto a la fila. */}
                   {activa && <span className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-full bg-espoch-red" />}
 
-                  {hijos && menuAbierto === to && (
-                    <div className="absolute left-1/2 top-full z-50 w-[260px] -translate-x-1/2 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+                  {hijos && menuAbierto === label && (
+                    <div className="absolute left-1/2 top-full z-50 w-[240px] -translate-x-1/2 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
                       {hijos.map(hijo => (
                         <NavLink
                           key={hijo.to}
