@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Check, ChevronDown, Download, ExternalLink, Eye, FileText, Folder, GraduationCap, LayoutGrid, List, Printer, Search, UserRound, X } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { CalendarDays, Check, ChevronDown, ChevronRight, Download, ExternalLink, Eye, FileText, Folder, GraduationCap, LayoutGrid, List, Printer, Search, UserRound, X } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useFormatosStore } from '../../../store/formatosStore';
 import { construirArbol, idsConDescendientes, useSeriesFormatosStore } from '../../../store/seriesFormatosStore';
@@ -92,6 +92,12 @@ export const ModelosOficio = () => {
   const { series, fetchSeries } = useSeriesFormatosStore();
   const [busqueda, setBusqueda] = useState('');
   const [orden, setOrden] = useState<'recientes' | 'nombre'>('recientes');
+  /**
+   * Camino de categorías abiertas: la posición del arreglo es el nivel. Guardarlo así hace que
+   * abrir una rama cierre a sus hermanas sin tener que buscarlas, que es el "una a la vez" de
+   * Infraestructura; con una lista suelta, 26 subcategorías abiertas vuelven a la lista larga.
+   */
+  const [ramasAbiertas, setRamasAbiertas] = useState<string[]>([]);
   const [vista, setVista] = useState<'tarjetas' | 'lista'>('tarjetas');
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null);
   const [plantillaActiva, setPlantillaActiva] = useState<FormatoRow | null>(null);
@@ -192,6 +198,12 @@ export const ModelosOficio = () => {
     });
   }, [arbolCategorias, plantillasEstudiantes]);
 
+  /** Cuántos modelos tiene cada categoría, contando los de sus subcategorías. */
+  const cantidadPorCategoria = useMemo(
+    () => new Map(categoriasPlanas.map(fila => [fila.id, fila.cantidad])),
+    [categoriasPlanas],
+  );
+
   const plantillas = useMemo(() => {
     const consulta = busqueda.trim().toLocaleLowerCase('es');
     const seleccionada = categoriasPlanas.find(fila => fila.id === categoriaActiva);
@@ -286,6 +298,38 @@ export const ModelosOficio = () => {
     cargoDestinatario: destinatario.cargo,
   }));
 
+  const alternarRama = (id: string, nivel: number) =>
+    setRamasAbiertas(actual => (actual[nivel] === id ? actual.slice(0, nivel) : [...actual.slice(0, nivel), id]));
+
+  /** Dibuja una categoría y, si está abierta, sus subcategorías debajo. */
+  const dibujarRama = (rama: (typeof arbolCategorias)[number], nivel: number): ReactNode => {
+    const activa = rama.id === categoriaActiva;
+    const abierta = ramasAbiertas[nivel] === rama.id;
+    const tieneHijas = rama.hijas.length > 0;
+    return (
+      <div key={rama.id} className="flex flex-col">
+        <button
+          type="button"
+          onClick={() => { setCategoriaActiva(rama.id); if (tieneHijas) alternarRama(rama.id, nivel); }}
+          style={{ paddingLeft: `${12 + nivel * 14}px` }}
+          className={`flex items-center gap-2 rounded-xl py-2.5 pr-3 text-left text-[12px] font-bold transition ${activa ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+        >
+          {/* El espacio de la flecha se reserva siempre: sin él, las hojas y las ramas no
+              alinean sus nombres y la sangría deja de leerse. */}
+          <span className="w-3 shrink-0">
+            {tieneHijas && <ChevronRight className={`h-3 w-3 transition-transform ${abierta ? 'rotate-90' : ''}`} />}
+          </span>
+          <Folder className={`h-4 w-4 shrink-0 ${activa ? '' : 'text-gray-400'}`} />
+          <span className="flex-1 truncate" title={rama.nombre}>{rama.nombre}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${activa ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>
+            {cantidadPorCategoria.get(rama.id) ?? 0}
+          </span>
+        </button>
+        {abierta && rama.hijas.map(hija => dibujarRama(hija, nivel + 1))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#f4f7fb]">
       <div className="relative flex min-h-[92px] shrink-0 items-center overflow-hidden border-b border-gray-800 bg-[#1a1f26] px-6 py-4 shadow-sm lg:px-12">
@@ -310,22 +354,7 @@ export const ModelosOficio = () => {
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${!categoriaActiva ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>{plantillasEstudiantes.length}</span>
           </button>
 
-          {categoriasPlanas.map(categoria => {
-            const activa = categoria.id === categoriaActiva;
-            return (
-              <button
-                type="button"
-                key={categoria.id}
-                onClick={() => setCategoriaActiva(categoria.id)}
-                style={{ paddingLeft: `${14 + categoria.nivel * 12}px` }}
-                className={`flex items-center gap-2.5 rounded-xl py-2.5 pr-3.5 text-left text-[12px] font-bold transition ${activa ? 'bg-espoch-red text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Folder className={`h-4 w-4 shrink-0 ${activa ? '' : 'text-gray-400'}`} />
-                <span className="flex-1 truncate" title={categoria.nombre}>{categoria.nombre}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${activa ? 'bg-white/20' : 'bg-gray-200/70 text-gray-600'}`}>{categoria.cantidad}</span>
-              </button>
-            );
-          })}
+          {arbolCategorias.map(rama => dibujarRama(rama, 0))}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
