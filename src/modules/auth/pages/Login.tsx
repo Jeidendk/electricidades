@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { Moon, Sun, GraduationCap, Zap, Mail, LogIn, HelpCircle, Calendar, ArrowLeft, UserPlus, ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
+import { Moon, Sun, GraduationCap, Mail, LogIn, HelpCircle, Calendar, ArrowLeft, UserPlus, ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ERROR_SIN_CONEXION, esErrorDeRed } from '../../../lib/notifyError';
 import { useAuthStore } from '../../../store/authStore';
@@ -364,9 +364,6 @@ export const Login = () => {
               </div>
               <div className="flex flex-col justify-center text-left">
                 <h1 className="text-gray-900 dark:text-white text-[24px] sm:text-5xl font-bold tracking-tight leading-none m-0 transition-colors">ESPOCH</h1>
-                <span className="text-espoch-red dark:text-espoch-yellow text-[9px] sm:text-[13px] font-bold tracking-[0.18em] sm:tracking-[0.2em] mt-1 sm:ml-1 flex items-center gap-1 sm:gap-1.5 uppercase transition-colors">
-                  <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" /> ELECTRICIDAD
-                </span>
               </div>
             </div>
 
@@ -777,3 +774,4 @@ export const Login = () => {
     </div>
   );
 };
+
