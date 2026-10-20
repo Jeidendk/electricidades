@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
     LayoutGrid, FileText, MonitorSpeaker, ChevronLeft,
     GraduationCap, ChevronDown, Building2,
-    Users, BarChart2, Clock, Library, Landmark, Inbox, MessageSquare
+    Users, BarChart2, Clock, Library, Landmark, Inbox, MessageSquare, ArrowLeftRight
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
@@ -78,10 +78,7 @@ export const AdminSidebar = () => {
               <GraduationCap className="text-white w-6 h-6" strokeWidth={2.5} />
             </div>
             {!collapsed && (
-              <div className="flex flex-col overflow-hidden transition-opacity duration-300">
-                <span className="text-xl font-extrabold tracking-tight text-white leading-none whitespace-nowrap">ESPOCH</span>
-                <span className="text-espoch-yellow text-[9px] font-bold tracking-[0.2em] mt-1 whitespace-nowrap">ELECTRICIDAD</span>
-              </div>
+              <span className="text-xl font-extrabold tracking-tight text-white leading-none whitespace-nowrap">ESPOCH</span>
             )}
           </div>
         </div>
@@ -104,10 +101,18 @@ export const AdminSidebar = () => {
             {!collapsed && <span className="whitespace-nowrap overflow-hidden">DASHBOARD</span>}
           </NavLink>
 
-          {/* 2 · TRÁMITES (Solicitudes + Préstamos unificados) */}
+          {/* 2 · TRÁMITES — oficios y reportes enviados por los estudiantes */}
           <NavLink to="/admin/tramites" className={navLinkClass} title={collapsed ? "TRÁMITES" : ""}>
             <Inbox className="w-5 h-5 shrink-0" />
             {!collapsed && <span className="whitespace-nowrap overflow-hidden">TRÁMITES</span>}
+          </NavLink>
+
+          {/* 3 · PRÉSTAMOS — su propio recorrido: solicitud, entrega y devolución de equipos.
+              Estaba como pestaña dentro de Trámites, donde el contador de pendientes no se veía
+              sin entrar. */}
+          <NavLink to="/admin/prestamos" className={navLinkClass} title={collapsed ? "PRÉSTAMOS" : ""}>
+            <ArrowLeftRight className="w-5 h-5 shrink-0" />
+            {!collapsed && <span className="whitespace-nowrap overflow-hidden">PRÉSTAMOS</span>}
           </NavLink>
 
           {/* 3 · HORARIOS */}
@@ -218,5 +223,8 @@ export const AdminSidebar = () => {
       </aside>
       </div>
     </>
+  );
+};
+
   );
 };
