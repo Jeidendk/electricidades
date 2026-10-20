@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Eye, EyeOff, GraduationCap, Zap, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Eye, EyeOff, GraduationCap, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { limpiarIntentos } from '../../../lib/bloqueoLogin';
 
@@ -68,12 +68,7 @@ export const SetPassword = () => {
           <div className="bg-espoch-red p-2 rounded-xl shadow-[0_4px_15px_rgba(176,0,0,0.4)]">
             <GraduationCap className="text-white w-7 h-7" strokeWidth={1.5} />
           </div>
-          <div className="flex flex-col">
-            <span className="text-gray-900 dark:text-white text-xl font-bold tracking-tight leading-none">ESPOCH</span>
-            <span className="text-espoch-red dark:text-espoch-yellow text-[9px] font-bold tracking-[0.18em] mt-1 flex items-center gap-1 uppercase">
-              <Zap className="w-3 h-3 fill-current" /> ELECTRICIDAD
-            </span>
-          </div>
+          <span className="text-gray-900 dark:text-white text-xl font-bold tracking-tight leading-none">ESPOCH</span>
         </div>
 
         {checking ? (
