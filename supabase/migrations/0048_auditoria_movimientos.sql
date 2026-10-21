@@ -14,7 +14,11 @@
 -- `usuario_id` nulo, porque no hay sesión de la cual deducirlo. Tampoco registra LECTURAS: saber
 -- quién CONSULTÓ un dato necesitaría otro mecanismo y multiplicaría el volumen.
 --
--- Ejecutar en Supabase → SQL Editor.
+-- CÓMO EJECUTARLA. En Supabase → SQL Editor, con el script COMPLETO pegado y SIN NADA
+-- SELECCIONADO (si hay texto seleccionado, el editor ejecuta solo eso y corta la función por la
+-- mitad: da "syntax error at or near ..." señalando una línea del medio).
+-- Si aun así falla, ejecutar los bloques numerados DE A UNO, en orden: 0 y 1, luego 2, luego 3,
+-- luego 4. Cada bloque es independiente.
 
 begin;
 
@@ -100,23 +104,14 @@ begin
   v_id   := v_fila ->> 'id';
 
   -- Nombre legible. Se prueban varias columnas porque no todas las tablas usan `nombre`.
-  v_etiqueta := coalesce(
-    v_fila ->> 'nombre',
-    v_fila ->> 'titulo',
-    v_fila ->> 'codigo',
-    v_fila ->> 'serie',
-    v_fila ->> 'numero'
-  );
+  -- CADA SENTENCIA EN UNA SOLA LÍNEA, aunque queden largas: partida en varias, el editor SQL
+  -- de Supabase la corta y aparece "syntax error" señalando el principio de la segunda línea.
+  v_etiqueta := coalesce(v_fila ->> 'nombre', v_fila ->> 'titulo', v_fila ->> 'codigo', v_fila ->> 'serie', v_fila ->> 'numero');
 
   if tg_op = 'UPDATE' then
-    -- Qué columnas cambiaron de verdad.
-    select array_agg(clave order by clave)
-      into v_campos
-      from jsonb_object_keys(v_despues) as clave
-     where v_despues -> clave is distinct from v_antes -> clave
-       -- `updated_at` lo mueve un trigger en cada guardado: incluirlo haría que toda fila
-       -- parezca modificada aunque no se haya tocado ningún dato real.
-       and clave <> 'updated_at';
+    -- Qué columnas cambiaron de verdad. `updated_at` se excluye: lo mueve un trigger en cada
+    -- guardado y haría parecer modificada toda fila aunque no se tocara ningún dato real.
+    select array_agg(clave order by clave) into v_campos from jsonb_object_keys(v_despues) as clave where v_despues -> clave is distinct from v_antes -> clave and clave <> 'updated_at';
 
     -- Un UPDATE que no cambia nada no se registra: son la mayoría del ruido de una bitácora
     -- (guardar un formulario sin editar nada) y enterrarían los cambios que sí importan.
@@ -125,17 +120,9 @@ begin
     end if;
   end if;
 
-  -- Quién está haciendo el cambio. Se resuelve a una variable antes del INSERT: dentro de la
-  -- lista de `values` una llamada con esquema confunde a los separadores de scripts.
   v_usuario := auth.uid();
 
-  insert into public.auditoria (
-    tabla, operacion, registro_id, registro_etiqueta,
-    usuario_id, datos_antes, datos_despues, campos_cambiados
-  ) values (
-    tg_table_name, tg_op, v_id, v_etiqueta,
-    v_usuario, v_antes, v_despues, v_campos
-  );
+  insert into public.auditoria (tabla, operacion, registro_id, registro_etiqueta, usuario_id, datos_antes, datos_despues, campos_cambiados) values (tg_table_name, tg_op, v_id, v_etiqueta, v_usuario, v_antes, v_despues, v_campos);
 
   return null; -- AFTER trigger: el valor de retorno se ignora.
 end;

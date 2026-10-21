@@ -72,18 +72,13 @@ begin
 
   -- Solo tablas que la 0048 audita. El valor viene del propio trigger, pero la lista acota el
   -- SQL dinámico a un conjunto conocido en vez de confiar en el contenido de una fila.
-  if not exists (
-    select 1 from information_schema.triggers
-     where trigger_name = 'auditar_' || v.tabla
-       and event_object_table = v.tabla
-  ) then
+  if not exists (select 1 from information_schema.triggers where trigger_name = 'auditar_' || v.tabla and event_object_table = v.tabla) then
     raise exception 'La tabla % no está bajo auditoría: no se restaura desde aquí.', v.tabla;
   end if;
 
   -- ── DELETE → volver a insertar ──────────────────────────────────────────────
   if v.operacion = 'DELETE' then
-    execute format('select exists (select 1 from public.%I where id::text = $1)', v.tabla)
-      into v_existe using v.registro_id;
+    execute format('select exists (select 1 from public.%I where id::text = $1)', v.tabla) into v_existe using v.registro_id;
 
     if v_existe then
       raise exception 'Ya existe un registro con ese id: alguien lo volvió a crear. Revísalo antes de restaurar.';
@@ -91,15 +86,11 @@ begin
 
     -- Si falta algo a lo que la fila apuntaba (su edificio, su materia), esto falla con 23503
     -- y el mensaje del cliente lo explica. Es lo correcto: insertar una fila huérfana sería peor.
-    execute format(
-      'insert into public.%I select * from jsonb_populate_record(null::public.%I, $1)',
-      v.tabla, v.tabla
-    ) using v.datos_antes;
+    execute format('insert into public.%I select * from jsonb_populate_record(null::public.%I, $1)', v.tabla, v.tabla) using v.datos_antes;
 
   -- ── UPDATE → devolver los campos que cambiaron ──────────────────────────────
   elsif v.operacion = 'UPDATE' then
-    execute format('select to_jsonb(t) from public.%I t where t.id::text = $1', v.tabla)
-      into v_actual using v.registro_id;
+    execute format('select to_jsonb(t) from public.%I t where t.id::text = $1', v.tabla) into v_actual using v.registro_id;
 
     if v_actual is null then
       raise exception 'El registro ya no existe: primero restaura su eliminación.';
@@ -109,24 +100,17 @@ begin
     -- sin avisar. Se compara contra el estado que este movimiento dejó.
     foreach v_campo in array v.campos_cambiados loop
       if v_actual -> v_campo is distinct from v.datos_despues -> v_campo then
-        raise exception
-          'El campo "%" cambió después de este movimiento. Restaurar borraría ese cambio más reciente; revísalo primero.',
-          v_campo;
+        raise exception 'El campo "%" cambió después de este movimiento. Restaurar borraría ese cambio más reciente; revísalo primero.', v_campo;
       end if;
     end loop;
 
-    select string_agg(format('%I', c), ', ') into v_cols
-      from unnest(v.campos_cambiados) as c;
+    select string_agg(format('%I', c), ', ') into v_cols from unnest(v.campos_cambiados) as c;
 
-    execute format(
-      'update public.%I t set (%s) = (select %s from jsonb_populate_record(null::public.%I, $1)) where t.id::text = $2',
-      v.tabla, v_cols, v_cols, v.tabla
-    ) using v.datos_antes, v.registro_id;
+    execute format('update public.%I t set (%s) = (select %s from jsonb_populate_record(null::public.%I, $1)) where t.id::text = $2', v.tabla, v_cols, v_cols, v.tabla) using v.datos_antes, v.registro_id;
 
   -- ── INSERT → borrar lo que se creó ──────────────────────────────────────────
   elsif v.operacion = 'INSERT' then
-    execute format('select exists (select 1 from public.%I where id::text = $1)', v.tabla)
-      into v_existe using v.registro_id;
+    execute format('select exists (select 1 from public.%I where id::text = $1)', v.tabla) into v_existe using v.registro_id;
 
     if not v_existe then
       raise exception 'El registro ya no existe: no hay nada que deshacer.';
@@ -139,9 +123,7 @@ begin
 
   v_usuario := auth.uid();
 
-  update public.auditoria
-     set restaurado_en = now(), restaurado_por = v_usuario
-   where id = p_id;
+  update public.auditoria set restaurado_en = now(), restaurado_por = v_usuario where id = p_id;
 
   return format('Movimiento %s sobre %s restaurado.', v.operacion, v.tabla);
 end;
