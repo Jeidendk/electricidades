@@ -38,6 +38,38 @@ export const esOficina = (tipo: string | null | undefined): boolean =>
  */
 export const esLaboratorio = (tipo: string | null | undefined): boolean =>
   !esAula(tipo) && !esOficina(tipo);
+
+export interface OpcionPiso {
+  valor: number;
+  etiqueta: string;
+  corta: string;
+}
+
+export const formatoPiso = (piso: number | string | null | undefined): string => {
+  if (piso === null || piso === undefined) return 'Piso 1';
+  const num = typeof piso === 'string' ? parseInt(piso, 10) : piso;
+  if (isNaN(num)) return String(piso);
+  if (num === 0) return 'Planta Baja';
+  return `Piso ${num}`;
+};
+
+export const formatoPisoCorto = (piso: number | string | null | undefined): string => {
+  if (piso === null || piso === undefined) return 'P1';
+  const num = typeof piso === 'string' ? parseInt(piso, 10) : piso;
+  if (isNaN(num)) return String(piso);
+  if (num === 0) return 'PB';
+  return `P${num}`;
+};
+
+export const OPCIONES_PISO: OpcionPiso[] = [
+  { valor: 0, etiqueta: 'Planta Baja', corta: 'PB' },
+  { valor: 1, etiqueta: 'Piso 1', corta: 'P1' },
+  { valor: 2, etiqueta: 'Piso 2', corta: 'P2' },
+  { valor: 3, etiqueta: 'Piso 3', corta: 'P3' },
+];
+
+export const generarOpcionesPisos = (): OpcionPiso[] => OPCIONES_PISO;
+
 export type EstadoEspacio = 'disponible' | 'ocupada' | 'mantenimiento';
 
 export interface Espacio {

@@ -45,9 +45,12 @@ const MapaEstudiantil = lazy(() => cargarPagina(() => import('../modules/student
 const HorariosEstudiante = lazy(() => cargarPagina(() => import('../modules/student/pages/HorariosEstudiante').then(m => ({ default: m.HorariosEstudiante }))));
 const RecursosEstudiante = lazy(() => cargarPagina(() => import('../modules/student/pages/RecursosEstudiante').then(m => ({ default: m.RecursosEstudiante }))));
 const ModelosOficio = lazy(() => cargarPagina(() => import('../modules/student/pages/ModelosOficio').then(m => ({ default: m.ModelosOficio }))));
+const MisTramites = lazy(() => cargarPagina(() => import('../modules/student/pages/MisTramites').then(m => ({ default: m.MisTramites }))));
 const AdminLayout = lazy(() => cargarPagina(() => import('../modules/admin/layout/AdminLayout').then(m => ({ default: m.AdminLayout }))));
 const TecnicoLayout = lazy(() => cargarPagina(() => import('../modules/tecnico/layout/TecnicoLayout').then(m => ({ default: m.TecnicoLayout }))));
 const TecnicoDashboard = lazy(() => cargarPagina(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard }))));
+const DocenteLayout = lazy(() => cargarPagina(() => import('../modules/docente/layout/DocenteLayout').then(m => ({ default: m.DocenteLayout }))));
+const DocenteDashboard = lazy(() => cargarPagina(() => import('../modules/docente/pages/DocenteDashboard').then(m => ({ default: m.DocenteDashboard }))));
 const Dashboard = lazy(() => cargarPagina(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard }))));
 const Solicitudes = lazy(() => cargarPagina(() => import('../modules/admin/pages/Solicitudes').then(m => ({ default: m.Solicitudes }))));
 const Formatos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Formatos').then(m => ({ default: m.Formatos }))));
@@ -91,6 +94,7 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
   // para inspeccionar todas las interfaces. El resto se limita a su rol.
   if (allowedRoles && user.role !== 'admin' && !allowedRoles.includes(user.role)) {
     if (user.role === 'tecnico') return <Navigate to="/tecnico" replace />;
+    if (user.role === 'docente') return <Navigate to="/docente" replace />;
     return <Navigate to="/student" replace />;
   }
 
@@ -99,7 +103,7 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
 
 // Ruta inicial por rol.
 const homeFor = (role: Rol) =>
-  role === 'admin' ? '/admin' : role === 'tecnico' ? '/tecnico/dashboard' : '/student';
+  role === 'admin' ? '/admin' : role === 'tecnico' ? '/tecnico/dashboard' : role === 'docente' ? '/docente/dashboard' : '/student';
 
 // ---------------------------------------------------------------------------
 // Ruta pública: si el usuario ya tiene sesión, redirige a su dashboard
@@ -121,9 +125,11 @@ const PublicRoute = () => {
     const lastPath = useUiPrefsStore.getState().lastPath;
     const target = user.role === 'tecnico'
       ? '/tecnico/dashboard'
-      : lastPath && lastPath !== '/login' && lastPath !== '/'
-        ? lastPath
-        : homeFor(user.role);
+      : user.role === 'docente'
+        ? '/docente/dashboard'
+        : lastPath && lastPath !== '/login' && lastPath !== '/'
+          ? lastPath
+          : homeFor(user.role);
     return <Navigate to={target} replace />;
   }
 
@@ -178,6 +184,7 @@ export const AppRouter = () => {
             <Route path="horarios" element={<HorariosEstudiante />} />
             <Route path="recursos" element={<RecursosEstudiante />} />
             <Route path="oficios" element={<ModelosOficio />} />
+            <Route path="tramites" element={<MisTramites />} />
           </Route>
         </Route>
 
@@ -193,7 +200,7 @@ export const AppRouter = () => {
             <Route path="activos" element={<Activos />} />
             <Route path="inventario" element={<Navigate to="/admin/activos" replace />} />
             <Route path="mantenimiento" element={<Navigate to="/admin/activos?tab=mantenimiento" replace />} />
-            <Route path="prestamos" element={<Navigate to="/admin/tramites?tab=prestamos" replace />} />
+            <Route path="prestamos" element={<Prestamos />} />
             {/* Rutas antiguas → redirigen al centro de activos unificado */}
             <Route path="herramientas" element={<Navigate to="/admin/activos" replace />} />
             <Route path="equipos" element={<Navigate to="/admin/activos" replace />} />
@@ -225,9 +232,31 @@ export const AppRouter = () => {
             <Route path="horarios" element={<Horarios />} />
             <Route path="mantenimiento" element={<Mantenimiento />} />
             <Route path="asignaciones" element={<Asignaciones />} />
+            <Route path="infraestructura" element={<Navigate to="/tecnico/dashboard" replace />} />
+            <Route path="edificios" element={<Navigate to="/tecnico/dashboard" replace />} />
+            <Route path="espacios" element={<Navigate to="/tecnico/dashboard" replace />} />
+            <Route path="aulas" element={<Navigate to="/tecnico/dashboard" replace />} />
+            <Route path="laboratorios" element={<Navigate to="/tecnico/dashboard" replace />} />
             <Route path="estructura-academica" element={<EstructuraAcademica />} />
             <Route path="academico" element={<Navigate to="/tecnico/estructura-academica" replace />} />
             <Route path="usuarios" element={<Usuarios />} />
+            <Route path="recursos" element={<Recursos />} />
+            <Route path="formatos" element={<Formatos />} />
+            {ASISTENTE_VISIBLE && <Route path="asistente" element={<Asistente />} />}
+            <Route path="reportes" element={<Reportes />} />
+          </Route>
+        </Route>
+
+        {/* ── Rutas del Docente ── */}
+        <Route element={<RequireAuth allowedRoles={['docente']} />}>
+          <Route path="/docente" element={<DocenteLayout />}>
+            <Route index element={<Navigate to="/docente/dashboard" replace />} />
+            <Route path="dashboard" element={<DocenteDashboard />} />
+            <Route path="horarios" element={<Horarios />} />
+            <Route path="estructura-academica" element={<EstructuraAcademica />} />
+            <Route path="academico" element={<Navigate to="/docente/estructura-academica" replace />} />
+            <Route path="solicitudes" element={<Solicitudes />} />
+            <Route path="prestamos" element={<Prestamos />} />
             <Route path="recursos" element={<Recursos />} />
             <Route path="formatos" element={<Formatos />} />
             {ASISTENTE_VISIBLE && <Route path="asistente" element={<Asistente />} />}

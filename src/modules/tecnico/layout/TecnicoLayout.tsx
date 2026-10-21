@@ -8,11 +8,13 @@ import { usePrestamosStore } from '../../../store/prestamosStore';
 import { useMantenimientoStore } from '../../../store/mantenimientoStore';
 import { useAsignacionesStore } from '../../../store/asignacionesStore';
 import { useRecursosStore } from '../../../store/recursosStore';
+import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useEffect } from 'react';
 export const TecnicoLayout = () => {
   const currentUser = useAuthStore(s => s.user);
 
   useEffect(() => {
+    useEdificiosStore.getState().fetchEdificios();
     useInventarioStore.getState().fetchItems();
     useEspaciosStore.getState().fetchEspacios();
     usePrestamosStore.getState().fetchPrestamos();

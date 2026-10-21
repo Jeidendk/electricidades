@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronUp, Settings, ShieldCheck, KeyRound, User, LogOut, Eye, Users, Wrench, GraduationCap, Bell } from 'lucide-react';
+import { ChevronUp, Settings, ShieldCheck, KeyRound, User, LogOut, Eye, Users, Wrench, GraduationCap, BookOpen, Bell } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore, ETIQUETA_ROL } from '../../store/authStore';
 import { useUiPrefsStore } from '../../store/uiPrefsStore';
@@ -36,15 +36,21 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
   const esAdmin = usuario?.role === 'admin';
 
   // Vista activa según el prefijo de la URL (para el selector de vista del admin).
-  const vistaActual: 'admin' | 'tecnico' | 'student' =
+  const vistaActual: 'admin' | 'tecnico' | 'docente' | 'student' =
     location.pathname.startsWith('/tecnico') ? 'tecnico'
+    : location.pathname.startsWith('/docente') ? 'docente'
     : location.pathname.startsWith('/student') ? 'student'
     : 'admin';
 
-  const cambiarVista = (vista: 'admin' | 'tecnico' | 'student') => {
+  const cambiarVista = (vista: 'admin' | 'tecnico' | 'docente' | 'student') => {
     setAbierto(false);
     if (vista === vistaActual) return;
-    navigate(vista === 'admin' ? '/admin' : vista === 'tecnico' ? '/tecnico/dashboard' : '/student/catalog');
+    navigate(
+      vista === 'admin' ? '/admin'
+      : vista === 'tecnico' ? '/tecnico/dashboard'
+      : vista === 'docente' ? '/docente/dashboard'
+      : '/student/catalog'
+    );
   };
 
   const cerrarSesion = async () => {
@@ -146,13 +152,13 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
                   </span>
                 </div>
                 <div className="px-2 pb-1 flex gap-1">
-                  {([['admin', 'Admin', Users], ['tecnico', 'Técnico', Wrench], ['student', 'Estudiante', GraduationCap]] as const).map(([clave, etiqueta, Icono]) => (
+                  {([['admin', 'Admin', Users], ['tecnico', 'Técnico', Wrench], ['docente', 'Docente', BookOpen], ['student', 'Estudiante', GraduationCap]] as const).map(([clave, etiqueta, Icono]) => (
                     <button
                       key={clave}
                       onClick={() => cambiarVista(clave)}
-                      className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-bold transition-colors ${vistaActual === clave ? 'bg-espoch-red text-white' : 'text-gray-400 hover:bg-espoch-sidebarhover hover:text-white'}`}
+                      className={`flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-[9px] font-bold transition-colors ${vistaActual === clave ? 'bg-espoch-red text-white' : 'text-gray-400 hover:bg-espoch-sidebarhover hover:text-white'}`}
                     >
-                      <Icono className="w-4 h-4" />
+                      <Icono className="w-3.5 h-3.5" />
                       {etiqueta}
                     </button>
                   ))}

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { formatoPiso } from '../data/espaciosData';
 
 interface Espacio {
   id: string;
@@ -75,7 +76,7 @@ export const EdificioPopupCard = ({ ed, onEdit, onDelete }: EdificioPopupCardPro
               <div key={piso} className="flex flex-col bg-gray-50/50 rounded-lg border border-gray-100 overflow-hidden shrink-0">
                 <button onClick={(e) => { e.stopPropagation(); setOpenPiso(isOpen ? null : piso); }} className="w-full flex items-center justify-between p-2 hover:bg-gray-100/80 transition-colors">
                   <div className="flex flex-col items-start">
-                    <span className="text-xs font-bold text-gray-800">Piso {piso}</span>
+                    <span className="text-xs font-bold text-gray-800">{formatoPiso(piso)}</span>
                     <span className="text-[9px] font-semibold text-gray-500">{disponibles} disponibles / {espacios.length} total</span>
                   </div>
                   {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}

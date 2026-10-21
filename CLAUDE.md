@@ -71,6 +71,112 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Horarios: se eliminó la importación por Excel/CSV.** Fuera el botón "Importar", su modal
+  (`ImportarHorarioModal.tsx`), el analizador y validador de filas (`importarHorario.ts`), el
+  generador de la plantilla CSV y `addClases` del `clasesStore`, que se quedó sin llamadores.
+  Las clases se cargan solo con "Nueva Clase". Se quitaron también el prop `handleImportar` de
+  `HorarioVista` y dos lecturas de store (`materias`, `docentes`) que únicamente alimentaban los
+  catálogos del modal — sus `fetch` se conservan porque los consume el formulario de clase.
+- **Infraestructura: columna EDIFICIO en la tabla de espacios** (entre Nombre y Tipo, ordenable). **Técnico sin Infraestructura**: se quitó del `TecnicoSidebar` y `/tecnico/infraestructura` (y los alias edificios/espacios/aulas/laboratorios) redirigen a `/tecnico/dashboard`. Solo UI: falta revisar que la RLS de `edificios`/`espacios` no deje escribir al técnico. Fix build: 5 errores TS en `docente/` (imports y selectores sin usar, `s.items` inexistente).
+- **Trámites académicos: del borrador a la decisión del coordinador (migraciones 0044 y 0045,
+  EJECUTAR LA 0044, DESPUÉS LA 0045, Y AMBAS ANTES DE DESPLEGAR).** "Modelos de oficio" llenaba
+  un documento, lo descargaba y ahí terminaba el sistema: no se presentaba nada. Ahora el
+  estudiante guarda borrador, presenta al coordinador, ve el estado, corrige lo que le devuelven
+  y vuelve a presentar. Es otro módulo que Préstamos —documentos, no equipos— y otra tabla
+  (`solicitudes_admin`), que sigue viviendo en Trámites.
+  **Descargar, guardar y presentar son tres botones distintos.** Descargar no envía nada y
+  presentar no obliga a descargar. Quien solo quiere el papel para llevarlo a ventanilla sigue
+  pudiendo imprimirlo sin crear ningún trámite.
+  **El coordinador tiene que ser una cuenta.** Existía solo como texto (`carreras.director`),
+  que sirve para imprimirlo pero no para mandarle nada ni para darle permisos. La 0045 agrega
+  `carreras.id_director` y `facultades.id_decano`. **Hay que configurarlo**: el paso 10.5 de la
+  migración lista las carreras sin coordinador. Mientras esté vacío, la pantalla lo dice y no
+  deja presentar — inventar un destinatario o mandárselo a todos los administradores sería peor.
+  **Estados**: `borrador` y `cambios_solicitados` se suman a `pendiente`/`aprobado`/`rechazado`.
+  **No hay estado "reenviada"**: el reenvío se deduce de `version > 1`, y un estado duplicado se
+  desincronizaría solo. Guardar, presentar y revisar son funciones `security definer` que
+  comprueban las transiciones; el frontend ya no elige estado. Antes había un `<select>` con los
+  tres estados: cualquiera con acceso ponía "aprobado" sin dejar rastro de quién ni por qué.
+  **Nadie decide sobre lo suyo**, ni siendo administrador, y rechazar o pedir cambios exige
+  observaciones —sin ellas el estudiante no sabe qué corregir—.
+  **Cada envío deja una instantánea inmutable** en `solicitudes_admin_versiones`: los datos, el
+  texto ya resuelto, el destinatario, los logos y la imagen de firma que llevaba. Cambiar después
+  la plantilla, el sello o la firma del perfil no toca lo ya presentado, que es justo lo que se
+  espera de un documento entregado. `solicitudes_admin_eventos` guarda quién hizo qué y cuándo.
+  **La firma es opcional y ya no vive en `localStorage`.** La clave era compartida
+  (`espoch_student_firma`): en un equipo del laboratorio, el siguiente estudiante heredaba la
+  firma del anterior y bastaba abrir el navegador para copiarla. Ahora va al bucket **privado**
+  `firmas`, en una carpeta con el id del usuario, con validación de tipo y tamaño (2 MB). Se
+  puede subir, reemplazar, eliminar y **elegir en cada documento** si se incorpora: aunque haya
+  una guardada, no se inserta sin marcarlo. Sin imagen, el PDF y el Word dejan el espacio para
+  firmar a mano. Se llama "imagen de firma" en todas partes: no es una firma electrónica
+  certificada, y aprobar tampoco inserta la firma del coordinador.
+  **Bug corregido de paso**: el `document.xml` del Word no declaraba los espacios de nombres
+  `wp`, `a` ni `pic`, así que una imagen en el cuerpo habría producido un .docx que Word se
+  niega a abrir. Los llevaba el encabezado, no el documento.
+  **Navegación**: el portal del estudiante gana el menú "Trámites" con "Modelos de oficio" y
+  "Mis trámites". Se evita así una segunda opción llamada "Mis solicitudes" junto a la de
+  equipos, que obligaba a entrar en las dos para saber cuál era cuál.
+  **RLS**: `solicitudes_admin` pierde su política abierta. Lee el autor, el destinatario y el
+  personal de la bandeja; no hay INSERT ni UPDATE directos (solo las funciones) y el borrado
+  queda para el administrador. Las dos tablas nuevas se leen por el mismo criterio y no tienen
+  escritura: una versión presentada no se reescribe.
+  **Sin verificar contra la base**: las migraciones no se ejecutaron desde aquí. Falta comprobar
+  el bucket privado, las políticas, el caso de dos revisores a la vez y el reenvío conservando
+  versiones. Las solicitudes históricas quedan con las columnas nuevas en NULL, `version = 0` y
+  su estado intacto.
+- **Préstamos: pantalla propia y recorrido completo (migraciones 0042 y 0043, EJECUTAR LA 0042,
+  DESPUÉS LA 0043, Y AMBAS ANTES DE DESPLEGAR).** Préstamos era una pestaña de Trámites; ahora
+  es una opción del menú lateral, justo debajo, con `/admin/prestamos` como ruta y
+  `?tab=prestamos` redirigiendo ahí. Son dos recorridos y dos tablas distintas
+  (`solicitudes_admin` frente a `solicitudes_equipo` + `prestamos`), y mezclarlos escondía el
+  contador de solicitudes por revisar detrás de una pestaña. La pantalla tiene tres secciones —
+  Solicitudes, Préstamos activos y Devoluciones— porque son tres momentos del mismo recorrido.
+  **Aprobar ya no es entregar.** Aprobar reserva unidades; la entrega física es otra acción y es
+  la que arranca el plazo de devolución. Antes aprobar creaba el préstamo directamente en
+  `activo`, así que la fecha de devolución se contaba desde la firma y no desde que el equipo
+  salía del laboratorio.
+  **Una fila de `prestamos` = una unidad física** (`id_inventario`). Antes `equipo_id` guardaba
+  el id del **primer** equipo del grupo del catálogo —que agrupa por artículo Y ubicación—, así
+  que prestar tres multímetros dejaba tres filas apuntando a la misma unidad. Con una fila por
+  unidad la devolución parcial sale sola y la solicitud se cierra cuando no le queda ninguna
+  unidad fuera. El vínculo con la solicitud es `id_solicitud`, no la frase "Generado de
+  solicitud X" dentro de `observaciones`.
+  **La protección contra doble reserva está en la base**, no en el botón: índice único parcial
+  `prestamos_unidad_ocupada` sobre `id_inventario where estado in ('reservado','activo')`, y la
+  selección de unidades usa `for update ... skip locked`. Dos administradores aprobando a la vez
+  toman unidades distintas; el segundo, si la solicitud ya fue procesada, recibe un error claro.
+  Aprobar, entregar, rechazar, devolver y cancelar son funciones `security definer` que validan
+  permisos con `es_staff()` y corren enteras o no corren. Antes eran dos escrituras sueltas desde
+  el navegador: si la segunda fallaba quedaban préstamos sin solicitud aprobada.
+  **Disponibilidad ≠ estado físico.** El catálogo contaba disponible toda unidad en `bueno`,
+  aunque estuviera prestada. Ahora descuenta las ocupadas leyendo la vista `unidades_ocupadas`,
+  que devuelve **solo ids**: el estudiante necesita saber qué no puede pedir sin poder leer
+  `prestamos`, donde están los nombres de otras personas. Una unidad que vuelve dañada no
+  vuelve a estar disponible: se corrige `inventario.estado`, no el estado del préstamo.
+  **La solicitud del estudiante no se guardaba.** `id_materia` era NOT NULL y el formulario
+  mandaba `null`; el error caía en un `console.error` y el estudiante se quedaba con un
+  comprobante en PDF —generado ANTES del insert— de una solicitud inexistente, y con el carrito
+  ya vaciado. Ahora la materia se guarda por id, el envío va primero y el PDF después, el
+  carrito se conserva si falla, el botón se bloquea mientras guarda y reintentar tras un corte
+  de red devuelve la MISMA solicitud en vez de crear una gemela (la función compara ítems y
+  usuario en los últimos 5 minutos). El número sale de una secuencia del servidor: el
+  `SOL-AAAA-` + 4 dígitos al azar repetía números con unas decenas de solicitudes.
+  **Datos personales que estaban escritos en el código**: el comprobante llevaba el mismo
+  nombre, la misma cédula y la misma carrera para todo el mundo (`'Juan Carlos Pérez López'`,
+  `'0604789123'`). Ahora salen de la ficha de quien inició sesión, la cédula se reemplazó por el
+  código institucional y el PDF dice su estado real y que **no autoriza el retiro**. Las tres
+  cifras del banner de Mis Solicitudes (15 / 8 / 5) también estaban escritas a mano.
+  **Cancelar ya no es rechazar**: el estudiante escribía `estado = 'Rechazada'` con un update
+  directo sobre la tabla —pudiendo tocar cualquier fila, no solo la suya—. Ahora hay `Cancelada`
+  y una función que comprueba que sea el dueño y que nadie la haya revisado todavía.
+  **RLS**: `solicitudes_equipo` y `prestamos` pierden `allow_all`. El estudiante solo lee lo
+  suyo y no tiene ninguna escritura; el personal conserva el alta manual de mostrador. Quedan
+  ~11 tablas con `allow_all`.
+  **Sin verificar contra la base**: las migraciones no se han ejecutado desde aquí. Falta
+  comprobar en Supabase el índice único, las políticas y el comportamiento con dos aprobaciones
+  simultáneas. Los préstamos anteriores quedan con las columnas nuevas en NULL y no se
+  reinterpretan.
 - **Horario del estudiante por carrera + PAO + PARALELO (migración 0041, EJECUTARLA ANTES DE
   DESPLEGAR).** `usuarios` gana `paralelo smallint null` con `check (paralelo is null or
   paralelo >= 1)`, y el trigger `handle_new_auth_user` lo copia de la metadata. **Nullable a

@@ -11,6 +11,7 @@ import { normalizarTexto } from '../../../../lib/texto';
 import { AcentoTarjeta } from '../../../../components/ui/AcentoTarjeta';
 import { Pagination } from '../../../../components/ui/Pagination';
 import { dias, horasSeleccionables } from './horariosData';
+import { formatoPiso } from '../../data/espaciosData';
 
 const primeraHora = horasSeleccionables[0];
 const ultimaHora = horasSeleccionables[horasSeleccionables.length - 1];
@@ -341,7 +342,7 @@ export function DisponibilidadEspacios({ onVerHorario, onVolver }: {
                   <td className="p-4">
                     <div className="text-[13px] font-bold text-gray-900">{r.espacio.nombre}</div>
                     <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-gray-500"><Building2 className="h-3 w-3" /> {r.edificio?.nombre || 'Sin edificio'}</div>
-                    <div className="mt-0.5 text-[10px] font-medium text-gray-400">{r.espacio.tipo} · Piso {r.espacio.piso} · {r.espacio.capacidad} personas</div>
+                    <div className="mt-0.5 text-[10px] font-medium text-gray-400">{r.espacio.tipo} · {formatoPiso(r.espacio.piso)} · {r.espacio.capacidad} personas</div>
                   </td>
 
                   <td className="p-4">

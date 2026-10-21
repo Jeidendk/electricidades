@@ -33,4 +33,6 @@ export const HERO_BG = {
   aula: unsplashUrl('photo-1509062522246-3755977927d7'),
   /** Estación de trabajo con monitores */
   tecnico: unsplashUrl('photo-1581094794329-c8112a89af12'),
+  /** Aula y profesor dando cátedra */
+  docente: unsplashUrl('photo-1524178232363-1fb2b075b655'),
 } as const;

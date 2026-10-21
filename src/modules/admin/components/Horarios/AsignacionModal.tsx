@@ -9,21 +9,18 @@ import { useEdificiosStore } from '../../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../../store/espaciosStore';
 import { SearchableSelect } from '../../../../components/ui/SearchableSelect';
 import { useExclusiveModal } from '../../../../hooks/useExclusiveModal';
-
-/** Valor del select de piso para los espacios que no tienen piso registrado. */
-const PISO_SIN_ASIGNAR = 'sin-piso';
+import { formatoPiso, OPCIONES_PISO } from '../../data/espaciosData';
 
 const clavePiso = (espacio: any): string =>
-  espacio.piso == null || espacio.piso === '' ? PISO_SIN_ASIGNAR : String(espacio.piso);
+  espacio.piso == null || espacio.piso === '' ? '0' : String(espacio.piso);
 
-const etiquetaPiso = (clave: string) => (clave === PISO_SIN_ASIGNAR ? 'Sin piso' : `Piso ${clave}`);
-
-/** Ordena los pisos por número y deja al final los espacios sin piso. */
-const compararPisos = (a: string, b: string) => {
-  if (a === PISO_SIN_ASIGNAR) return 1;
-  if (b === PISO_SIN_ASIGNAR) return -1;
-  return Number(a) - Number(b);
+const etiquetaPiso = (clave: string) => {
+  const n = Number(clave);
+  return isNaN(n) ? 'Sin piso' : formatoPiso(n);
 };
+
+/** Ordena los pisos por número. */
+const compararPisos = (a: string, b: string) => Number(a) - Number(b);
 
 interface AsignacionModalProps {
   isModalOpen?: boolean;
@@ -84,8 +81,9 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
   });
 
   const pisosDisponibles = useMemo(() => {
-    const pisos = [...new Set(espaciosFiltrados.map(clavePiso))];
-    return pisos.sort(compararPisos);
+    const delEdificio = espaciosFiltrados.map(clavePiso);
+    const lista = OPCIONES_PISO.map(op => String(op.valor)).concat(delEdificio);
+    return [...new Set(lista)].sort(compararPisos);
   }, [espaciosFiltrados]);
 
   const espaciosDelPiso = useMemo(

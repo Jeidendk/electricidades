@@ -34,7 +34,16 @@ const ENLACES_NAV: EnlaceNav[] = [
       { to: '/student/requests', label: 'Mis reservas', Icono: ClipboardList },
     ],
   },
-  { to: '/student/oficios', label: 'Formatos', Icono: FileText },
+  {
+    // "Mis trámites" son oficios al coordinador; "Mis reservas", equipos. Dos entradas llamadas
+    // "Mis solicitudes" obligaban a entrar en las dos para saber cuál era cuál.
+    label: 'Trámites',
+    Icono: FileText,
+    hijos: [
+      { to: '/student/oficios', label: 'Modelos de oficio', Icono: FileText },
+      { to: '/student/tramites', label: 'Mis trámites', Icono: ClipboardList },
+    ],
+  },
   { to: '/student/horarios', label: 'Horarios', Icono: CalendarDays },
   { to: '/student/map', label: 'Ubicaciones', Icono: MapPin },
   { to: '/student/recursos', label: 'Recursos', Icono: BookOpen },
@@ -95,10 +104,7 @@ export const StudentLayout = () => {
             <div className="bg-espoch-red p-1.5 lg:p-2 rounded-lg shadow-[0_0_10px_rgba(176,0,0,0.3)]">
               <GraduationCap className="text-white w-4 h-4 lg:w-5 lg:h-5" strokeWidth={2.5} />
             </div>
-            <div className="hidden sm:flex flex-col">
-              <span className="text-base lg:text-lg font-extrabold tracking-tight text-gray-900 leading-none">ESPOCH</span>
-              <span className="text-espoch-red text-[7px] lg:text-[8px] font-black tracking-[0.2em] mt-0.5">ELECTRICIDAD</span>
-            </div>
+            <span className="hidden sm:inline text-base lg:text-lg font-extrabold tracking-tight text-gray-900 leading-none">ESPOCH</span>
           </div>
 
           {/* Centro: Navegación Principal */}
@@ -236,13 +242,13 @@ export const StudentLayout = () => {
                           <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Eye className="w-3 h-3" /> Ver como</span>
                         </div>
                         <div className="px-1.5 pb-1 flex gap-1">
-                          {([['/admin', 'Admin', Users], ['/tecnico/dashboard', 'Técnico', Wrench], ['/student/catalog', 'Estudiante', GraduationCap]] as const).map(([path, label, Icon]) => (
+                          {([['/admin', 'Admin', Users], ['/tecnico/dashboard', 'Técnico', Wrench], ['/docente/dashboard', 'Docente', BookOpen], ['/student/catalog', 'Estudiante', GraduationCap]] as const).map(([path, label, Icon]) => (
                             <button
                               key={path}
                               onClick={() => { setProfileOpen(false); navigate(path); }}
-                              className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-bold transition-colors ${label === 'Estudiante' ? 'bg-espoch-ink text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                              className={`flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-[9px] font-bold transition-colors ${label === 'Estudiante' ? 'bg-espoch-ink text-white' : 'text-gray-500 hover:bg-gray-100'}`}
                             >
-                              <Icon className="w-4 h-4" />
+                              <Icon className="w-3.5 h-3.5" />
                               {label}
                             </button>
                           ))}

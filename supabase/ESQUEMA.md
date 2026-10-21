@@ -24,9 +24,9 @@ no da error, simplemente no devuelve nada**.
 | `estado_inscripcion` | `inscrito`, `asistiendo`, `completado`, `rechazado` |
 | `estado_inventario` | `bueno`, `malo`, `dañado` |
 | `estado_ot` | `pendiente`, `en_proceso`, `resuelto` |
-| `estado_prestamo` | `activo`, `devuelto` |
-| `estado_solicitud` | `Aprobada`, `Pendiente`, `Devuelto`, `Rechazada` ⚠️ **con mayúscula** |
-| `estado_solicitud_admin` | `pendiente`, `aprobado`, `rechazado` ⚠️ **minúscula, y en masculino** |
+| `estado_prestamo` | `reservado` (0042), `activo` (= entregado), `devuelto`, `cancelado` (0042) |
+| `estado_solicitud` | `Aprobada`, `Pendiente`, `Devuelto`, `Rechazada`, `Entregada` (0042), `Cancelada` (0042) ⚠️ **con mayúscula** |
+| `estado_solicitud_admin` | `pendiente`, `aprobado`, `rechazado`, `borrador` (0044), `cambios_solicitados` (0044) ⚠️ **minúscula, y en masculino** |
 | `estado_usuario` | `activo`, `inactivo` |
 | `prioridad_ot` | `baja`, `media`, `alta` |
 | `tipo_espacio` | `Académica`, `Laboratorio Técnico`, `Laboratorio de Informática`, `Oficina de Docentes` (migración 0040) |

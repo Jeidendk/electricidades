@@ -4,7 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { aNumeroOpcional, normalizarTexto } from '../lib/texto';
 import { componerNombreCompleto } from '../lib/texto';
 
-export type Rol = 'admin' | 'tecnico' | 'student';
+export type Rol = 'admin' | 'tecnico' | 'student' | 'docente';
 
 /**
  * Texto del rol para mostrar en pantalla.
@@ -17,6 +17,7 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
   admin: 'Administrador',
   tecnico: 'Técnico',
   student: 'Estudiante',
+  docente: 'Docente',
 };
 
 export interface AuthUser {
@@ -156,6 +157,8 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
       rolFuncional = 'admin';
     } else if (nombreRol.includes('tecnico') || nombreRol.includes('técnico')) {
       rolFuncional = 'tecnico';
+    } else if (nombreRol.includes('docente')) {
+      rolFuncional = 'docente';
     }
   }
 

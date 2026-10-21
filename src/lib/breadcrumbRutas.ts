@@ -12,6 +12,7 @@ export interface RutaNombrada {
 const RUTAS: Record<string, RutaNombrada> = {
   '/admin/dashboard': { seccion: 'Inicio', titulo: 'Panel de Control' },
   '/admin/tramites': { seccion: 'Trámites', titulo: 'Trámites' },
+  '/admin/prestamos': { seccion: 'Trámites', titulo: 'Préstamos' },
   '/admin/formatos': { seccion: 'Recursos', titulo: 'Repositorio' },
   '/admin/asistente': { seccion: 'Ayuda', titulo: 'Asistente' },
   '/admin/horarios': { seccion: 'Académico', titulo: 'Horarios' },

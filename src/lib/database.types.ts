@@ -39,10 +39,13 @@ export interface Database {
           nombre: string
           apellido: string
           titulo: string | null
+          cedula: string | null
           email: string | null
           id_rol: number
           estado: string
           avatar_url: string | null
+          /** Ruta de la imagen de firma en el bucket privado `firmas` (migración 0045). */
+          firma_path: string | null
           ultima_conexion: string | null
           codigo_institucional: string | null
           facultad_nombre: string | null
@@ -57,10 +60,12 @@ export interface Database {
           nombre: string
           apellido: string
           titulo?: string | null
-          email: string | null
+          cedula?: string | null
+          email?: string | null
           id_rol: number
           estado?: string
           avatar_url?: string | null
+          firma_path?: string | null
           ultima_conexion?: string | null
           codigo_institucional?: string | null
           facultad_nombre?: string | null
@@ -74,10 +79,12 @@ export interface Database {
           nombre?: string
           apellido?: string
           titulo?: string | null
+          cedula?: string | null
           email?: string | null
           id_rol?: number
           estado?: string
           avatar_url?: string | null
+          firma_path?: string | null
           ultima_conexion?: string | null
           codigo_institucional?: string | null
           facultad_nombre?: string | null
@@ -96,6 +103,8 @@ export interface Database {
           icono: string
           custom_svg: string | null
           decano: string
+          /** Cuenta del decano (migración 0045). */
+          id_decano: string | null
           estado: string
           created_at: string
           updated_at: string
@@ -108,6 +117,7 @@ export interface Database {
           icono?: string
           custom_svg?: string | null
           decano?: string
+          id_decano?: string | null
           estado?: string
           created_at?: string
           updated_at?: string
@@ -119,6 +129,7 @@ export interface Database {
           icono?: string
           custom_svg?: string | null
           decano?: string
+          id_decano?: string | null
           estado?: string
           updated_at?: string
         }
@@ -132,6 +143,8 @@ export interface Database {
           icono: string
           custom_svg: string | null
           semestres: number
+          /** Cuenta del coordinador de carrera (migración 0045). `director` sigue siendo el nombre impreso. */
+          id_director: string | null
           director: string
           estado: string
           created_at: string
@@ -145,6 +158,7 @@ export interface Database {
           icono?: string
           custom_svg?: string | null
           semestres?: number
+          id_director?: string | null
           director?: string
           estado?: string
           created_at?: string
@@ -157,6 +171,7 @@ export interface Database {
           icono?: string
           custom_svg?: string | null
           semestres?: number
+          id_director?: string | null
           director?: string
           estado?: string
           updated_at?: string
@@ -511,6 +526,16 @@ export interface Database {
           fecha_devolucion_real: string | null
           estado: string
           observaciones: string | null
+          /** Solicitud que originó el préstamo (migración 0043). Null en los préstamos de mostrador. */
+          id_solicitud: number | null
+          /** Unidad física prestada. Una fila = una unidad. Null en los préstamos anteriores a la 0043. */
+          id_inventario: string | null
+          item_indice: number | null
+          fecha_entrega: string | null
+          aprobado_por: string | null
+          entregado_por: string | null
+          recibido_por: string | null
+          condicion_devolucion: string | null
           created_at: string
           updated_at: string
         }
@@ -526,6 +551,14 @@ export interface Database {
           fecha_devolucion_real?: string | null
           estado?: string
           observaciones?: string | null
+          id_solicitud?: number | null
+          id_inventario?: string | null
+          item_indice?: number | null
+          fecha_entrega?: string | null
+          aprobado_por?: string | null
+          entregado_por?: string | null
+          recibido_por?: string | null
+          condicion_devolucion?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -540,6 +573,14 @@ export interface Database {
           fecha_devolucion_real?: string | null
           estado?: string
           observaciones?: string | null
+          id_solicitud?: number | null
+          id_inventario?: string | null
+          item_indice?: number | null
+          fecha_entrega?: string | null
+          aprobado_por?: string | null
+          entregado_por?: string | null
+          recibido_por?: string | null
+          condicion_devolucion?: string | null
           updated_at?: string
         }
       }
@@ -596,12 +637,17 @@ export interface Database {
           id: number
           numero: string
           id_usuario: string | null
-          id_materia: string
+          id_materia: string | null
           fecha: string
           hora: string
           estado: string
           items: Json
           observacion: string | null
+          /** Asignatura escrita a mano cuando el estudiante no tiene materias cargadas (0043). */
+          asignatura_libre: string | null
+          decidido_por: string | null
+          decidido_en: string | null
+          motivo_rechazo: string | null
           created_at: string
           updated_at: string
         }
@@ -609,24 +655,32 @@ export interface Database {
           id?: number
           numero: string
           id_usuario?: string | null
-          id_materia: string
+          id_materia: string | null
           fecha: string
           hora: string
           estado?: string
           items?: Json
           observacion?: string | null
+          asignatura_libre?: string | null
+          decidido_por?: string | null
+          decidido_en?: string | null
+          motivo_rechazo?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           numero?: string
           id_usuario?: string | null
-          id_materia?: string
+          id_materia?: string | null
           fecha?: string
           hora?: string
           estado?: string
           items?: Json
           observacion?: string | null
+          asignatura_libre?: string | null
+          decidido_por?: string | null
+          decidido_en?: string | null
+          motivo_rechazo?: string | null
           updated_at?: string
         }
       }
@@ -640,6 +694,16 @@ export interface Database {
           fecha: string
           estado: string
           descripcion: string | null
+          /** Cuenta que debe revisar el trámite (migración 0045). */
+          id_destinatario: string | null
+          id_formato: string | null
+          /** Veces presentado. 0 = borrador; 2 o más = hubo reenvío. */
+          version: number
+          borrador: Json | null
+          enviada_en: string | null
+          decidida_en: string | null
+          decidido_por: string | null
+          observaciones: string | null
           created_at: string
           updated_at: string
         }
@@ -652,6 +716,14 @@ export interface Database {
           fecha: string
           estado?: string
           descripcion?: string | null
+          id_destinatario?: string | null
+          id_formato?: string | null
+          version?: number
+          borrador?: Json | null
+          enviada_en?: string | null
+          decidida_en?: string | null
+          decidido_por?: string | null
+          observaciones?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -663,8 +735,57 @@ export interface Database {
           fecha?: string
           estado?: string
           descripcion?: string | null
+          id_destinatario?: string | null
+          id_formato?: string | null
+          version?: number
+          borrador?: Json | null
+          enviada_en?: string | null
+          decidida_en?: string | null
+          decidido_por?: string | null
+          observaciones?: string | null
           updated_at?: string
         }
+      }
+      solicitudes_admin_versiones: {
+        Row: {
+          id: number
+          id_solicitud: number
+          version: number
+          /** Instantánea completa del documento presentado. No se reescribe nunca. */
+          documento: Json
+          creada_por: string | null
+          creada_en: string
+        }
+        Insert: {
+          id?: number
+          id_solicitud: number
+          version: number
+          documento: Json
+          creada_por?: string | null
+          creada_en?: string
+        }
+        Update: Record<string, never>
+      }
+      solicitudes_admin_eventos: {
+        Row: {
+          id: number
+          id_solicitud: number
+          id_version: number | null
+          accion: string
+          actor: string | null
+          observaciones: string | null
+          creado_en: string
+        }
+        Insert: {
+          id?: number
+          id_solicitud: number
+          id_version?: number | null
+          accion: string
+          actor?: string | null
+          observaciones?: string | null
+          creado_en?: string
+        }
+        Update: Record<string, never>
       }
       asignaciones: {
         Row: {
@@ -778,7 +899,17 @@ export interface Database {
         }
       }
     }
-    Views: Record<string, never>
+    Views: {
+      /**
+       * Unidades del inventario con un préstamo vivo. Solo ids: el estudiante necesita saber
+       * qué NO está disponible sin poder leer `prestamos`, donde hay nombres de otras personas.
+       */
+      unidades_ocupadas: {
+        Row: {
+          id: string
+        }
+      }
+    }
     Functions: Record<string, never>
     Enums: Record<string, never>
   }

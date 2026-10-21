@@ -50,3 +50,33 @@ export const confirmarAccion = async (opciones: {
   });
   return resultado.isConfirmed;
 };
+
+/**
+ * Pide un texto antes de una acción que necesita justificarse (rechazar, cancelar, describir
+ * cómo volvió un equipo). Devuelve `null` si se cierra el diálogo, para poder distinguir
+ * "no quiso" de "lo dejó vacío".
+ */
+export const pedirTexto = async (opciones: {
+  title: string;
+  text?: string;
+  placeholder?: string;
+  confirmar?: string;
+  /** Con `true` no deja confirmar en blanco: el motivo llega al estudiante. */
+  obligatorio?: boolean;
+}): Promise<string | null> => {
+  const resultado = await abrir({
+    title: opciones.title,
+    text: opciones.text,
+    input: 'textarea',
+    inputPlaceholder: opciones.placeholder ?? 'Escribe el motivo…',
+    inputAttributes: { 'aria-label': opciones.title },
+    showCancelButton: true,
+    confirmButtonText: opciones.confirmar ?? 'Confirmar',
+    cancelButtonText: 'Cancelar',
+    cancelButtonColor: '#64748b',
+    reverseButtons: true,
+    inputValidator: (valor: string) =>
+      opciones.obligatorio && !valor.trim() ? 'Escribe el motivo para continuar.' : undefined,
+  });
+  return resultado.isConfirmed ? String(resultado.value ?? '').trim() : null;
+};
