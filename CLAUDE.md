@@ -71,6 +71,22 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Monitoreo: fuera los nombres técnicos y los identificadores.** La pantalla mostraba el id
+  del registro bajo su nombre y los nombres de columna crudos en Cambios (`ultima_conexion`).
+  Un uuid no identifica nada para quien revisa y delata cómo se llaman las cosas por dentro.
+  Ahora: la columna Registro **no muestra el id** (si no hay nombre dice "Sin nombre"), los
+  campos se traducen con `CAMPO_ETIQUETA` y `esCampoInterno()` **oculta** los identificadores
+  (`id`, `id_*`, `*_id`), las marcas de tiempo y los `*_json`. Las tablas sin traducir ya no
+  salen como `ordenes_mantenimiento` sino capitalizadas y sin guiones bajos.
+  **Si un movimiento solo tocó campos ocultos se dice "Datos internos"**, en vez de dejar la
+  celda vacía, que haría pensar que no cambió nada. La búsqueda **sigue aceptando el id**
+  aunque no se muestre: sirve para pegarlo y encontrar el movimiento.
+- **Auditoría sin el ruido de los inicios de sesión (migración 0050, OPCIONAL pero recomendada).**
+  `usuarios.ultima_conexion` se actualiza en cada login, así que la bitácora se llenaba de
+  "Fulano editó a Fulano": 7 de cada 10 movimientos en la primera prueba. Se trata igual que
+  `updated_at`: si es lo ÚNICO que cambió, no se registra. **Se pierde** el rastro de los
+  inicios de sesión, que no es el objetivo de esta bitácora y Supabase ya guarda en Auth.
+  La migración trae la consulta para borrar lo ya acumulado, **sin ejecutarla**.
 - **Restaurar un cambio desde Monitoreo (migración 0049, EJECUTARLA DESPUÉS DE LA 0048).**
   `restaurar_auditoria(id)` deshace un movimiento: el DELETE vuelve a insertar la fila, el
   UPDATE devuelve **solo los campos que ese movimiento cambió** y el INSERT borra lo creado.

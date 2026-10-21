@@ -34,7 +34,37 @@ const TABLA_ETIQUETA: Record<string, string> = {
   recursos: 'Recursos',
 };
 
-const nombreTabla = (t: string) => TABLA_ETIQUETA[t] ?? t;
+/**
+ * Si aparece una tabla sin traducir, se muestra algo legible en vez del nombre técnico:
+ * «ordenes_mantenimiento» no le dice nada a quien revisa, y delata cómo se llama por dentro.
+ */
+const nombreTabla = (t: string) =>
+  TABLA_ETIQUETA[t] ?? t.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+
+/** Nombre técnico de la columna → cómo se lo nombra en pantalla. */
+const CAMPO_ETIQUETA: Record<string, string> = {
+  nombre: 'Nombre', apellido: 'Apellido', titulo: 'Título', codigo: 'Código', serie: 'Serie',
+  email: 'Correo', estado: 'Estado', tipo: 'Tipo', piso: 'Piso', capacidad: 'Capacidad',
+  m2: 'Área (m²)', equipamiento: 'Equipamiento', descripcion: 'Descripción',
+  observaciones: 'Observaciones', direccion: 'Dirección', departamento: 'Departamento',
+  dia: 'Día', hora_inicio: 'Hora de inicio', hora_fin: 'Hora de fin', paralelo: 'Paralelo',
+  semestre: 'PAO', creditos: 'Créditos', pao: 'PAO', categoria: 'Categoría',
+  danio_desc: 'Descripción del daño', prioridad: 'Prioridad', cantidad: 'Cantidad',
+  fecha_devolucion: 'Fecha de devolución', ultima_conexion: 'Última conexión',
+  codigo_institucional: 'Código institucional', facultad_nombre: 'Facultad',
+  carrera_nombre: 'Carrera', avatar_url: 'Avatar', lat: 'Latitud', lng: 'Longitud',
+};
+
+const nombreCampo = (c: string) =>
+  CAMPO_ETIQUETA[c] ?? c.replace(/_/g, ' ').replace(/^./, l => l.toUpperCase());
+
+/**
+ * Columnas que no se muestran: identificadores y marcas internas. No aportan a quien revisa
+ * —un uuid no dice de qué registro habla— y son ruido que tapa el dato que sí importa.
+ */
+const esCampoInterno = (c: string) =>
+  c === 'id' || /^id_|_id$/.test(c) || /_json$/.test(c) ||
+  ['created_at', 'updated_at', 'creado_por', 'password', 'fotos'].includes(c);
 
 /** Las tres operaciones, con el color y el verbo con que se leen. */
 const OPERACIONES: { valor: OperacionAuditoria; etiqueta: string; Icon: React.ElementType; clases: string }[] = [
@@ -201,24 +231,32 @@ export const Monitoreo = () => {
     },
     {
       key: 'registro', header: 'Registro', width: '1.3fr',
-      sortValue: m => m.registroEtiqueta ?? m.registroId ?? '',
+      sortValue: m => m.registroEtiqueta ?? '',
+      // El id no se muestra: un uuid no identifica nada para quien revisa. Si el registro no
+      // tenía nombre, se dice eso en vez de caer al identificador.
       render: m => (
-        <div className="flex flex-col min-w-0">
-          <span className="text-[12px] font-bold text-gray-800 truncate">{m.registroEtiqueta || '(sin nombre)'}</span>
-          {m.registroId && <span className="text-[9.5px] text-gray-400 truncate">{m.registroId}</span>}
-        </div>
+        <span className="truncate text-[12px] font-bold text-gray-800">
+          {m.registroEtiqueta || <span className="font-semibold italic text-gray-400">Sin nombre</span>}
+        </span>
       ),
     },
     {
       key: 'cambios', header: 'Cambios', width: '1.1fr',
-      render: m => (
-        m.operacion === 'UPDATE' && m.camposCambiados.length > 0 ? (
-          <span className="text-[11px] text-gray-500 truncate" title={m.camposCambiados.join(', ')}>
-            {m.camposCambiados.slice(0, 3).join(', ')}
-            {m.camposCambiados.length > 3 && ` +${m.camposCambiados.length - 3}`}
+      render: m => {
+        if (m.operacion !== 'UPDATE') return <span className="text-[11px] text-gray-300">—</span>;
+        const visibles = m.camposCambiados.filter(c => !esCampoInterno(c)).map(nombreCampo);
+        // Si solo cambiaron columnas internas, decirlo: una celda vacía haría pensar que no
+        // cambió nada, cuando el movimiento sí ocurrió.
+        if (visibles.length === 0) {
+          return <span className="text-[11px] italic text-gray-400">Datos internos</span>;
+        }
+        return (
+          <span className="truncate text-[11px] text-gray-500" title={visibles.join(', ')}>
+            {visibles.slice(0, 3).join(', ')}
+            {visibles.length > 3 && ` +${visibles.length - 3}`}
           </span>
-        ) : <span className="text-[11px] text-gray-300">—</span>
-      ),
+        );
+      },
     },
     {
       key: 'estado', header: '', width: '0.5fr', align: 'center',
@@ -383,11 +421,16 @@ export const Monitoreo = () => {
                 // diferencia a ojo, que es justo lo que esta pantalla tiene que evitar.
                 <div className="flex flex-col gap-2">
                   <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
-                    Campos modificados ({detalle.camposCambiados.length})
+                    Campos modificados ({detalle.camposCambiados.filter(c => !esCampoInterno(c)).length})
                   </p>
-                  {detalle.camposCambiados.map(campo => (
+                  {detalle.camposCambiados.filter(c => !esCampoInterno(c)).length === 0 && (
+                    <p className="py-2 text-[11.5px] italic text-gray-400">
+                      Solo cambiaron datos internos del registro.
+                    </p>
+                  )}
+                  {detalle.camposCambiados.filter(c => !esCampoInterno(c)).map(campo => (
                     <div key={campo} className="rounded-xl border border-gray-100 bg-gray-50/50 p-3">
-                      <p className="mb-1.5 text-[11px] font-extrabold text-gray-700">{campo}</p>
+                      <p className="mb-1.5 text-[11px] font-extrabold text-gray-700">{nombreCampo(campo)}</p>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <div className="min-w-0 rounded-lg border border-red-100 bg-red-50/50 p-2">
                           <span className="block text-[9px] font-extrabold uppercase tracking-widest text-red-400">Antes</span>
@@ -411,12 +454,14 @@ export const Monitoreo = () => {
                     {detalle.operacion === 'DELETE' ? 'Datos eliminados' : 'Datos creados'}
                   </p>
                   <div className="flex flex-col divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50/50">
-                    {Object.entries(detalle.datosDespues ?? detalle.datosAntes ?? {}).map(([campo, valor]) => (
-                      <div key={campo} className="flex gap-3 px-3 py-2">
-                        <span className="w-[38%] shrink-0 break-words text-[11px] font-extrabold text-gray-600">{campo}</span>
-                        <span className="min-w-0 flex-1 break-words text-[11.5px] font-semibold text-gray-700">{valorLegible(valor)}</span>
-                      </div>
-                    ))}
+                    {Object.entries(detalle.datosDespues ?? detalle.datosAntes ?? {})
+                      .filter(([campo]) => !esCampoInterno(campo))
+                      .map(([campo, valor]) => (
+                        <div key={campo} className="flex gap-3 px-3 py-2">
+                          <span className="w-[38%] shrink-0 break-words text-[11px] font-extrabold text-gray-600">{nombreCampo(campo)}</span>
+                          <span className="min-w-0 flex-1 break-words text-[11.5px] font-semibold text-gray-700">{valorLegible(valor)}</span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
