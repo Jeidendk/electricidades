@@ -471,9 +471,12 @@ export const Monitoreo = () => {
                 </h3>
               </div>
               <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-medium text-gray-500">
+                {/* "Por" explícito: en un movimiento sobre la ficha de una persona, su nombre
+                    sale dos veces —como autor y como registro afectado— y sin esto no se
+                    distingue quién hizo el cambio de a quién se lo hicieron. */}
                 <span className="flex items-center gap-1.5">
                   <User className="h-3.5 w-3.5 text-gray-400" />
-                  {detalle.usuarioNombre ?? 'Sistema'}{detalle.usuarioRol ? ` · ${detalle.usuarioRol}` : ''}
+                  Por {detalle.usuarioNombre ?? 'el sistema'}{detalle.usuarioRol ? ` · ${detalle.usuarioRol}` : ''}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5 text-gray-400" />
