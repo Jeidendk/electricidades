@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ShieldCheck, Plus, Pencil, Trash2, Search, RotateCcw, X, User, Clock, Database, FileSearch,
-  Undo2, CheckCircle2,
+  Undo2, CheckCircle2, LogIn,
 } from 'lucide-react';
 import { confirmarAccion, avisoExito } from '../../../lib/aviso';
 import { PageHero } from '../../../components/ui/PageHero';
@@ -73,8 +73,28 @@ const OPERACIONES: { valor: OperacionAuditoria; etiqueta: string; Icon: React.El
   { valor: 'DELETE', etiqueta: 'Eliminó', Icon: Trash2, clases: 'bg-red-50 text-red-700 border-red-200' },
 ];
 
+/**
+ * Un inicio de sesión no es una edición. `usuarios.ultima_conexion` la mueve el propio sistema
+ * al entrar, así que un UPDATE que SOLO toca esa columna es alguien ingresando, y presentarlo
+ * como "Editó" hacía buscar un cambio que no existe.
+ */
+const esIngreso = (m: MovimientoAuditoria) =>
+  m.tabla === 'usuarios' && m.operacion === 'UPDATE' &&
+  m.camposCambiados.length === 1 && m.camposCambiados[0] === 'ultima_conexion';
+
+const INFO_INGRESO = {
+  valor: 'INGRESO' as const,
+  etiqueta: 'Ingresó',
+  Icon: LogIn,
+  clases: 'bg-slate-50 text-slate-600 border-slate-200',
+};
+
 const infoOperacion = (op: OperacionAuditoria) =>
   OPERACIONES.find(o => o.valor === op) ?? OPERACIONES[1];
+
+/** Cómo se presenta el movimiento: el ingreso tiene su propia insignia, no la de "Editó". */
+const infoMovimiento = (m: MovimientoAuditoria) =>
+  esIngreso(m) ? INFO_INGRESO : infoOperacion(m.operacion);
 
 /**
  * La frase que resume el movimiento: "Editó el aula Aula 103 · cambió Nombre y Capacidad".
@@ -82,6 +102,8 @@ const infoOperacion = (op: OperacionAuditoria) =>
  * había que recomponerlo mentalmente; dicho en una línea se lee de corrido.
  */
 const resumenMovimiento = (m: MovimientoAuditoria): string => {
+  if (esIngreso(m)) return 'Ingresó al sistema';
+
   const verbo = infoOperacion(m.operacion).etiqueta;
   const nombre = etiquetaRegistro(m);
   const objeto = `${entidadDe(m.tabla)}${nombre ? ` ${nombre}` : ''}`.trim();
@@ -180,7 +202,10 @@ export const Monitoreo = () => {
   const [restaurando, setRestaurando] = useState(false);
 
   const [fTabla, setFTabla] = useState('');
-  const [fOperacion, setFOperacion] = useState<OperacionAuditoria | ''>('');
+  // 'INGRESO' no existe en la base: es un UPDATE sobre `usuarios` que solo tocó la última
+  // conexión. Se pide como UPDATE al servidor y se separa de las ediciones ya en el cliente.
+  const [fOperacion, setFOperacion] = useState<OperacionAuditoria | 'INGRESO' | ''>('');
+  const operacionConsultada = fOperacion === 'INGRESO' ? 'UPDATE' : fOperacion;
   const [fDesde, setFDesde] = useState('');
   const [fHasta, setFHasta] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -191,7 +216,7 @@ export const Monitoreo = () => {
   useEffect(() => {
     fetchMovimientos({
       tabla: fTabla || undefined,
-      operacion: fOperacion || undefined,
+      operacion: operacionConsultada || undefined,
       desde: fDesde || undefined,
       hasta: fHasta || undefined,
     });
@@ -205,7 +230,7 @@ export const Monitoreo = () => {
 
   const recargar = () => fetchMovimientos({
     tabla: fTabla || undefined,
-    operacion: fOperacion || undefined,
+    operacion: operacionConsultada || undefined,
     desde: fDesde || undefined,
     hasta: fHasta || undefined,
   });
@@ -233,21 +258,30 @@ export const Monitoreo = () => {
   };
 
   const filtrados = useMemo(() => {
+    let lista = movimientos;
+
+    // Ingreso y edición viajan como el mismo UPDATE: se separan aquí para que "Editó" muestre
+    // cambios de verdad y "Ingresó" solo accesos.
+    if (fOperacion === 'INGRESO') lista = lista.filter(esIngreso);
+    else if (fOperacion === 'UPDATE') lista = lista.filter(m => !esIngreso(m));
+
     const q = normalizarTexto(busqueda.trim());
-    if (!q) return movimientos;
-    return movimientos.filter(m =>
+    if (!q) return lista;
+    return lista.filter(m =>
       normalizarTexto(m.usuarioNombre ?? '').includes(q) ||
       normalizarTexto(etiquetaRegistro(m)).includes(q) ||
       normalizarTexto(m.registroId ?? '').includes(q) ||
       normalizarTexto(nombreTabla(m.tabla)).includes(q),
     );
-  }, [movimientos, busqueda]);
+  }, [movimientos, busqueda, fOperacion]);
 
   const kpis = useMemo(() => ({
     total: filtrados.length,
     creados: filtrados.filter(m => m.operacion === 'INSERT').length,
-    editados: filtrados.filter(m => m.operacion === 'UPDATE').length,
+    // Los ingresos no cuentan como ediciones: si no, el número promete cambios que no hubo.
+    editados: filtrados.filter(m => m.operacion === 'UPDATE' && !esIngreso(m)).length,
     eliminados: filtrados.filter(m => m.operacion === 'DELETE').length,
+    ingresos: filtrados.filter(esIngreso).length,
   }), [filtrados]);
 
   const columnas: DataTableColumn<MovimientoAuditoria>[] = [
@@ -282,9 +316,9 @@ export const Monitoreo = () => {
     },
     {
       key: 'operacion', header: 'Acción', width: '0.7fr', align: 'center',
-      sortValue: m => m.operacion,
+      sortValue: m => infoMovimiento(m).etiqueta,
       render: m => {
-        const { etiqueta, Icon, clases } = infoOperacion(m.operacion);
+        const { etiqueta, Icon, clases } = infoMovimiento(m);
         return (
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${clases}`}>
             <Icon className="h-3 w-3" /> {etiqueta}
@@ -294,8 +328,13 @@ export const Monitoreo = () => {
     },
     {
       key: 'tabla', header: 'Módulo', width: '1fr',
-      sortValue: m => nombreTabla(m.tabla),
-      render: m => <span className="text-[12px] font-semibold text-gray-700 truncate">{nombreTabla(m.tabla)}</span>,
+      sortValue: m => (esIngreso(m) ? 'Acceso' : nombreTabla(m.tabla)),
+      // Un ingreso no pertenece a "Usuarios y docentes": no es gestión de fichas.
+      render: m => (
+        <span className="truncate text-[12px] font-semibold text-gray-700">
+          {esIngreso(m) ? 'Acceso al sistema' : nombreTabla(m.tabla)}
+        </span>
+      ),
     },
     {
       key: 'registro', header: 'Registro', width: '1.3fr',
@@ -311,6 +350,7 @@ export const Monitoreo = () => {
     {
       key: 'cambios', header: 'Cambios', width: '1.1fr',
       render: m => {
+        if (esIngreso(m)) return <span className="text-[11px] text-gray-300">—</span>;
         if (m.operacion !== 'UPDATE') return <span className="text-[11px] text-gray-300">—</span>;
         const visibles = m.camposCambiados.filter(c => !esCampoInterno(c)).map(nombreCampo);
         // Si solo cambiaron columnas internas, decirlo: una celda vacía haría pensar que no
@@ -353,6 +393,7 @@ export const Monitoreo = () => {
           { Icon: Plus, value: kpis.creados, label: 'Creados' },
           { Icon: Pencil, value: kpis.editados, label: 'Editados' },
           { Icon: Trash2, value: kpis.eliminados, label: 'Eliminados' },
+          { Icon: LogIn, value: kpis.ingresos, label: 'Ingresos' },
         ]}
       />
 
@@ -372,11 +413,12 @@ export const Monitoreo = () => {
 
           <select
             value={fOperacion}
-            onChange={e => setFOperacion(e.target.value as OperacionAuditoria | '')}
+            onChange={e => setFOperacion(e.target.value as OperacionAuditoria | 'INGRESO' | '')}
             className="rounded-lg border border-gray-200 bg-white py-2 px-3 text-[12px] font-bold text-gray-700 outline-none transition-colors focus:border-indigo-400 cursor-pointer"
           >
             <option value="">Toda acción</option>
             {OPERACIONES.map(o => <option key={o.valor} value={o.valor}>{o.etiqueta}</option>)}
+            <option value="INGRESO">{INFO_INGRESO.etiqueta}</option>
           </select>
 
           <select
@@ -459,7 +501,7 @@ export const Monitoreo = () => {
                   módulo y la lista de campos de más abajo. */}
               <div className="flex items-start gap-2.5 pr-8">
                 {(() => {
-                  const { Icon, clases } = infoOperacion(detalle.operacion);
+                  const { Icon, clases } = infoMovimiento(detalle);
                   return (
                     <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${clases}`}>
                       <Icon className="h-3.5 w-3.5" />
@@ -489,7 +531,16 @@ export const Monitoreo = () => {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6">
-              {detalle.operacion === 'UPDATE' ? (
+              {esIngreso(detalle) ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Acceso</p>
+                  <p className="text-[12.5px] leading-relaxed text-gray-600">
+                    Inició sesión el <b className="text-gray-800">{fechaLegible(detalle.createdAt).fecha}</b> a
+                    las <b className="text-gray-800">{fechaLegible(detalle.createdAt).hora}</b>. No se modificó
+                    ningún dato: el sistema solo anotó la fecha de último acceso.
+                  </p>
+                </div>
+              ) : detalle.operacion === 'UPDATE' ? (
                 // Solo los campos que cambiaron: volcar la fila entera obliga a buscar la
                 // diferencia a ojo, que es justo lo que esta pantalla tiene que evitar.
                 <div className="flex flex-col gap-2">
@@ -540,9 +591,11 @@ export const Monitoreo = () => {
               )}
             </div>
 
-            {/* PIE: restaurar */}
+            {/* PIE: restaurar. Un ingreso no se deshace: no cambió ningún dato. */}
             <div className="shrink-0 border-t border-gray-100 bg-gray-50/60 px-5 py-3.5 sm:px-6">
-              {detalle.restauradoEn ? (
+              {esIngreso(detalle) ? (
+                <p className="text-center text-[11px] text-gray-400">Un acceso no se deshace.</p>
+              ) : detalle.restauradoEn ? (
                 <p className="flex items-center justify-center gap-2 text-[11.5px] font-bold text-sky-700">
                   <CheckCircle2 className="h-4 w-4" />
                   Restaurado el {fechaLegible(detalle.restauradoEn).fecha}, {fechaLegible(detalle.restauradoEn).hora}

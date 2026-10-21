@@ -93,12 +93,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
   **Si un movimiento solo tocó campos ocultos se dice "Datos internos"**, en vez de dejar la
   celda vacía, que haría pensar que no cambió nada. La búsqueda **sigue aceptando el id**
   aunque no se muestre: sirve para pegarlo y encontrar el movimiento.
-- **Auditoría sin el ruido de los inicios de sesión (migración 0050, OPCIONAL pero recomendada).**
-  `usuarios.ultima_conexion` se actualiza en cada login, así que la bitácora se llenaba de
-  "Fulano editó a Fulano": 7 de cada 10 movimientos en la primera prueba. Se trata igual que
-  `updated_at`: si es lo ÚNICO que cambió, no se registra. **Se pierde** el rastro de los
-  inicios de sesión, que no es el objetivo de esta bitácora y Supabase ya guarda en Auth.
-  La migración trae la consulta para borrar lo ya acumulado, **sin ejecutarla**.
+- **Monitoreo: un inicio de sesión se muestra como "Ingresó", no como "Editó".**
+  `usuarios.ultima_conexion` la mueve el sistema al entrar, así que esos movimientos aparecían
+  como "Fulano editó la ficha de Fulano · cambió Última conexión" y mandaban a buscar un cambio
+  que no existía. Un UPDATE sobre `usuarios` que toca **solo** esa columna (`esIngreso`) pasa a
+  tener su propia insignia, el módulo dice "Acceso al sistema" en vez de "Usuarios y docentes",
+  el detalle explica que no se modificó ningún dato y **no se ofrece deshacerlo**. Se suma el
+  contador "Ingresos" y una opción en el filtro; "Editó" deja de incluirlos, así que ese número
+  ya solo cuenta cambios de verdad.
+  **Esto reemplaza a la migración 0050**, que se escribió para DEJAR DE REGISTRAR esos
+  movimientos y se eliminó sin ejecutar: mostrarlos bien es mejor que esconderlos, y Supabase
+  los guarda igual en Auth. El filtro INGRESO se resuelve en el cliente porque en la base son
+  UPDATE como cualquier otro.
 - **Restaurar un cambio desde Monitoreo (migración 0049, EJECUTARLA DESPUÉS DE LA 0048).**
   `restaurar_auditoria(id)` deshace un movimiento: el DELETE vuelve a insertar la fila, el
   UPDATE devuelve **solo los campos que ese movimiento cambió** y el INSERT borra lo creado.
