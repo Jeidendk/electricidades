@@ -24,13 +24,18 @@ begin;
 --    difiere de lo que supongamos, cambiaríamos el comportamiento de esas dos. Se comprueba
 --    que exista y, si no, se aborta con un mensaje claro.
 -- ───────────────────────────────────────────────────────────────────────────────
-do $$
+-- NOTA SOBRE LAS COMILLAS: los bloques se delimitan con etiquetas con nombre
+-- (guarda_admin, fn_auditar, enganchar) en vez del delimitador anónimo de dos signos de dólar.
+-- El editor SQL de Supabase parte el script por punto y coma, y con el delimitador anónimo puede
+-- cortar el cuerpo de una función por la mitad; el trozo suelto da "syntax error at or near ...".
+-- Con etiqueta propia el cuerpo viaja entero.
+do $guarda_admin$
 begin
   if to_regprocedure('public.is_admin()') is null then
     raise exception
       'Falta la función public.is_admin(). La usan las migraciones 0028 y 0029; créala antes de correr esta.';
   end if;
-end $$;
+end $guarda_admin$;
 
 -- ───────────────────────────────────────────────────────────────────────────────
 -- 1. La bitácora.
@@ -71,7 +76,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $fn_auditar$
 declare
   v_antes    jsonb;
   v_despues  jsonb;
@@ -79,6 +84,7 @@ declare
   v_id       text;
   v_etiqueta text;
   v_fila     jsonb;
+  v_usuario  uuid;
 begin
   if tg_op = 'INSERT' then
     v_despues := to_jsonb(new);
@@ -119,17 +125,21 @@ begin
     end if;
   end if;
 
+  -- Quién está haciendo el cambio. Se resuelve a una variable antes del INSERT: dentro de la
+  -- lista de `values` una llamada con esquema confunde a los separadores de scripts.
+  v_usuario := auth.uid();
+
   insert into public.auditoria (
     tabla, operacion, registro_id, registro_etiqueta,
     usuario_id, datos_antes, datos_despues, campos_cambiados
   ) values (
     tg_table_name, tg_op, v_id, v_etiqueta,
-    auth.uid(), v_antes, v_despues, v_campos
+    v_usuario, v_antes, v_despues, v_campos
   );
 
   return null; -- AFTER trigger: el valor de retorno se ignora.
 end;
-$$;
+$fn_auditar$;
 
 comment on function public.registrar_auditoria() is
   'Trigger AFTER que vuelca cada INSERT/UPDATE/DELETE en public.auditoria.';
@@ -138,7 +148,7 @@ comment on function public.registrar_auditoria() is
 -- 3. Enganchar el trigger a las tablas que interesan.
 --    Para auditar una tabla nueva basta agregarla a esta lista y volver a correr el bloque.
 -- ───────────────────────────────────────────────────────────────────────────────
-do $$
+do $enganchar$
 declare
   t text;
   tablas text[] := array[
@@ -162,7 +172,7 @@ begin
     );
     raise notice 'Auditoría activada en %.', t;
   end loop;
-end $$;
+end $enganchar$;
 
 -- ───────────────────────────────────────────────────────────────────────────────
 -- 4. RLS. Solo el administrador lee; NADIE escribe desde la API.

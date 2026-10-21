@@ -41,13 +41,17 @@ returns text
 language plpgsql
 security definer
 set search_path = public
-as $$
+-- Delimitador con etiqueta (fn_restaurar) y no el anónimo de dos signos de dólar: el editor SQL
+-- de Supabase parte el script por punto y coma y con el anónimo corta el cuerpo por la mitad.
+-- Es lo que hacía fallar a la 0048.
+as $fn_restaurar$
 declare
   v           public.auditoria%rowtype;
   v_cols      text;
   v_existe    boolean;
   v_actual    jsonb;
   v_campo     text;
+  v_usuario   uuid;
 begin
   if not public.is_admin() then
     raise exception 'Solo un administrador puede restaurar cambios.';
@@ -133,13 +137,15 @@ begin
     execute format('delete from public.%I where id::text = $1', v.tabla) using v.registro_id;
   end if;
 
+  v_usuario := auth.uid();
+
   update public.auditoria
-     set restaurado_en = now(), restaurado_por = auth.uid()
+     set restaurado_en = now(), restaurado_por = v_usuario
    where id = p_id;
 
   return format('Movimiento %s sobre %s restaurado.', v.operacion, v.tabla);
 end;
-$$;
+$fn_restaurar$;
 
 comment on function public.restaurar_auditoria(bigint) is
   'Deshace un movimiento de la bitácora. Solo administradores. La restauración queda registrada.';
