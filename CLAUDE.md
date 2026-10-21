@@ -71,6 +71,20 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Exportar horario por carrera.** Un aula la ocupan varias carreras, así que el PDF/Word del
+  aula mezclaba todas y no servía para entregar "el horario de Electricidad". El panel Generar
+  Formato gana un select **Carrera**, debajo de Aula, que filtra el documento; "Todas las
+  carreras" conserva el comportamiento anterior y es el valor por defecto.
+  **Las opciones salen de las clases del aula**, no del catálogo completo de carreras: ofrecer
+  todas dejaría elegir una que no dicta ahí y bajar una hoja en blanco. Si el aula no tiene
+  clases cargadas, el select queda deshabilitado y lo dice.
+  **No se persiste en localStorage** como el resto de la configuración de exportación: depende
+  del aula, y al cambiarla una carrera recordada ya no tendría clases. Un efecto la devuelve a
+  "Todas" cuando deja de estar en la lista, lo que cubre a la vez el cambio de aula, el de
+  edificio, la preselección al abrir el panel y Restablecer parámetros.
+  El filtro compara por **id** de carrera, no por nombre, y el nombre se agrega al archivo
+  exportado — si no, sacar aula por aula y carrera por carrera produce varios documentos
+  distintos llamados igual. Falta probarlo con sesión real: no se puede previsualizar admin.
 - **Horarios: se eliminó la importación por Excel/CSV.** Fuera el botón "Importar", su modal
   (`ImportarHorarioModal.tsx`), el analizador y validador de filas (`importarHorario.ts`), el
   generador de la plantilla CSV y `addClases` del `clasesStore`, que se quedó sin llamadores.

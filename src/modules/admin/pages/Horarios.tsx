@@ -141,6 +141,34 @@ export const Horarios = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportEdificio, setExportEdificio] = useState('');
   const [exportAula, setExportAula] = useState('');
+  // Id de carrera por la que se filtra el documento; '' = todas. No se persiste junto al resto
+  // de preferencias: depende del aula, y al cambiarla una carrera recordada ya no tendría clases.
+  const [exportCarrera, setExportCarrera] = useState('');
+
+  // Solo las carreras que realmente dictan en el aula elegida: ofrecer el catálogo completo
+  // dejaría elegir carreras que devuelven una hoja en blanco.
+  const carrerasEnAulaExport = useMemo(() => {
+    const encontradas = new Map<string, string>();
+    clases.forEach(clase => {
+      if (clase.aula === exportAula && clase.idCarrera && clase.carrera) {
+        encontradas.set(clase.idCarrera, clase.carrera);
+      }
+    });
+    return [...encontradas].map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [clases, exportAula]);
+
+  // Va al nombre del archivo: exportar aula por aula y carrera por carrera produciría si no
+  // varios documentos distintos con el mismo nombre.
+  const nombreCarreraExport = carrerasEnAulaExport.find(carrera => carrera.id === exportCarrera)?.nombre ?? '';
+
+  // Al cambiar de aula la carrera elegida puede no dictar ahí: se vuelve a "todas" en vez de
+  // dejar un filtro activo que no aparece en la lista y produce un horario vacío.
+  useEffect(() => {
+    if (exportCarrera && !carrerasEnAulaExport.some(carrera => carrera.id === exportCarrera)) {
+      setExportCarrera('');
+    }
+  }, [carrerasEnAulaExport, exportCarrera]);
   const [exportPeriodo, setExportPeriodo] = useState(() => loadExportPrefs().exportPeriodo ?? 'MARZO 2026 - SEPTIEMBRE 2026');
   const [pdfZoom, setPdfZoom] = useState(100);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -395,7 +423,7 @@ export const Horarios = () => {
     const observador = new ResizeObserver(medir);
     observador.observe(documento);
     return () => observador.disconnect();
-  }, [isExportModalOpen, orientation, paperSize, documentFontSize, typography, includeFooter, camposClase, clases, exportAula, exportEdificio]);
+  }, [isExportModalOpen, orientation, paperSize, documentFontSize, typography, includeFooter, camposClase, clases, exportAula, exportEdificio, exportCarrera]);
 
   // Si al cambiar de papel u orientación el documento encoge, la página actual puede quedar
   // fuera de rango.
@@ -446,7 +474,7 @@ export const Horarios = () => {
         <html>
         <head>
           <meta charset="utf-8">
-          <title>${exportEdificio}_${exportAula || 'Blanco'}</title>
+          <title>${exportEdificio}_${exportAula || 'Blanco'}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}</title>
           ${styleTags}
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Roboto:wght@400;500;700;900&family=Montserrat:wght@400;500;700;900&family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
           <style>
@@ -519,12 +547,12 @@ export const Horarios = () => {
     const blob = new Blob([fullHTML], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `${exportEdificio}_${exportAula || 'Blanco'}.doc`; a.click();
+    a.href = url; a.download = `${exportEdificio}_${exportAula || 'Blanco'}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}.doc`; a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleResetFilters = () => {
-    setExportEdificio(''); setExportAula(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
+    setExportEdificio(''); setExportAula(''); setExportCarrera(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
     setPaperSize('A4'); setIncludeFooter(true); setDocumentFontSize(11); setTypography('Inter');
   };
 
@@ -668,6 +696,8 @@ export const Horarios = () => {
                 setIsExportModalOpen={setIsExportModalOpen}
                 exportEdificio={exportEdificio} setExportEdificio={setExportEdificio}
                 exportAula={exportAula} setExportAula={setExportAula}
+                exportCarrera={exportCarrera} setExportCarrera={setExportCarrera}
+                carrerasDisponibles={carrerasEnAulaExport}
                 exportPeriodo={exportPeriodo} setExportPeriodo={setExportPeriodo}
                 orientation={orientation} setOrientation={setOrientation}
                 paperSize={paperSize} setPaperSize={setPaperSize}
@@ -752,6 +782,7 @@ export const Horarios = () => {
                     documentFontSize={documentFontSize}
                     exportAula={exportAula}
                     exportEdificio={exportEdificio}
+                    exportCarrera={exportCarrera}
                     exportPeriodo={exportPeriodo}
                     clases={clases}
                     includeFooter={includeFooter}
@@ -769,6 +800,7 @@ export const Horarios = () => {
                       documentFontSize={documentFontSize}
                       exportAula={exportAula}
                       exportEdificio={exportEdificio}
+                      exportCarrera={exportCarrera}
                       exportPeriodo={exportPeriodo}
                       clases={clases}
                       includeFooter={includeFooter}

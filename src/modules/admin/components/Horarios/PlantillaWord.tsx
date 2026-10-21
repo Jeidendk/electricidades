@@ -11,6 +11,8 @@ interface PlantillaWordProps {
   footerImg: string;
   exportAula: string;
   exportEdificio: string;
+  /** Id de carrera; vacío imprime las clases de todas las carreras del aula. */
+  exportCarrera?: string;
   exportPeriodo: string;
   clases: any[];
   includeFooter: boolean;
@@ -25,6 +27,7 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
   footerImg,
   exportAula,
   exportEdificio,
+  exportCarrera = '',
   exportPeriodo,
   clases,
   includeFooter,
@@ -48,7 +51,8 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
   };
 
   const getClaseParaExportacion = (dia: string, hora: string, aulaTarget: string) => {
-    return clases.find(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && c.aula === aulaTarget);
+    return clases.find(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && c.aula === aulaTarget
+      && (!exportCarrera || c.idCarrera === exportCarrera));
   };
 
   const getHeader1Size = () => `${documentFontSize + 7}px`;

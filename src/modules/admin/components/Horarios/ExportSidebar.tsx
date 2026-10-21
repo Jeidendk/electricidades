@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Download, ChevronDown, Clock, Building2, Users, Printer, RefreshCcw } from 'lucide-react';
+import { X, Download, ChevronDown, Clock, Building2, Users, GraduationCap, Printer, RefreshCcw } from 'lucide-react';
 import { useEdificiosStore } from '../../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../../store/espaciosStore';
 import type { CamposClase } from './horariosData';
@@ -17,6 +17,11 @@ interface ExportSidebarProps {
   setExportEdificio: (val: string) => void;
   exportAula: string;
   setExportAula: (val: string) => void;
+  /** Id de carrera por la que se filtra el documento; '' imprime todas. */
+  exportCarrera: string;
+  setExportCarrera: (val: string) => void;
+  /** Solo las carreras que dictan en el aula elegida. */
+  carrerasDisponibles: { id: string; nombre: string }[];
   exportPeriodo: string;
   setExportPeriodo: (val: string) => void;
   orientation: 'vertical' | 'horizontal';
@@ -43,6 +48,9 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
   setExportEdificio,
   exportAula,
   setExportAula,
+  exportCarrera,
+  setExportCarrera,
+  carrerasDisponibles,
   exportPeriodo,
   setExportPeriodo,
   orientation,
@@ -102,6 +110,29 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
               </select>
               <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
+          </div>
+
+          {/* Un aula la comparten varias carreras: este filtro deja sacar el horario de una sola.
+              Las opciones salen de las clases del aula, no del catálogo completo de carreras. */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Carrera</label>
+            <div className="relative">
+              <select
+                value={exportCarrera}
+                onChange={e => setExportCarrera(e.target.value)}
+                disabled={!exportAula || carrerasDisponibles.length === 0}
+                className="bg-white text-xs text-gray-800 rounded-xl py-3 pl-4 pr-10 outline-none border border-gray-200 focus:border-red-500 font-semibold cursor-pointer w-full appearance-none shadow-sm transition-all hover:border-gray-300 disabled:opacity-50 disabled:bg-gray-50"
+              >
+                <option value="">Todas las carreras</option>
+                {carrerasDisponibles.map(carrera => (
+                  <option key={carrera.id} value={carrera.id}>{carrera.nombre}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+            {exportAula && carrerasDisponibles.length === 0 && (
+              <span className="text-[10px] font-semibold text-gray-400">Esta aula no tiene clases cargadas.</span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -211,6 +242,12 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
             <div className="flex items-center justify-between border-t border-red-100/30 pt-2.5">
               <span className="flex items-center gap-2 text-gray-500 font-semibold"><Users className="w-3.5 h-3.5 text-gray-400" /> Aula o laboratorio</span>
               <span className="font-extrabold text-gray-900 truncate max-w-[150px]">{exportAula || '-'}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-red-100/30 pt-2.5">
+              <span className="flex items-center gap-2 text-gray-500 font-semibold"><GraduationCap className="w-3.5 h-3.5 text-gray-400" /> Carrera</span>
+              <span className="font-extrabold text-gray-900 truncate max-w-[150px]">
+                {carrerasDisponibles.find(carrera => carrera.id === exportCarrera)?.nombre ?? 'Todas'}
+              </span>
             </div>
             <div className="flex items-center justify-between border-t border-red-100/30 pt-2.5">
               <span className="flex items-center gap-2 text-gray-500 font-semibold"><Clock className="w-3.5 h-3.5 text-gray-400" /> Generado el</span>
