@@ -20,7 +20,18 @@ export interface DocumentParams {
   presente?: string;
   /** Párrafo de cierre antes de la firma. */
   cierre?: string;
+  /**
+   * Imagen de firma del estudiante, en data URL, si decidió incorporarla.
+   *
+   * Es opcional a propósito: sin ella el documento deja el espacio en blanco para firmar a
+   * mano, que es como se ha presentado siempre. Nunca se inserta sin que el estudiante lo pida.
+   * Es una imagen, no una firma electrónica certificada.
+   */
+  firmaImagen?: string | null;
 }
+
+/** Alto con el que se imprime la imagen de firma. El ancho sale de su proporción real. */
+const ALTO_FIRMA_MM = 18;
 
 /** Lo que llevan los oficios de la carrera cuando la plantilla no dice otra cosa. */
 const PRESENTE_POR_DEFECTO = 'En su despacho,';
@@ -146,9 +157,13 @@ export const generatePreviewDOCX = async (params: DocumentParams): Promise<Blob>
     <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
       <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="22"/></w:rPr></w:style>
     </w:styles>`);
+  // 45 mm de ancho como mucho: una firma más grande tapa el nombre que va debajo.
+  const imagenFirma = await cargarImagenWord(params.firmaImagen || undefined, 45, 18);
+
   const relacionesDocumento = [
     imagenEncabezado ? '<Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>' : '',
     imagenPie ? '<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' : '',
+    imagenFirma ? `<Relationship Id="rIdFirma" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/firma.${imagenFirma.extension}"/>` : '',
   ].join('');
   zip.folder('word')!.folder('_rels')!.file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relacionesDocumento}</Relationships>`);
@@ -164,6 +179,10 @@ export const generatePreviewDOCX = async (params: DocumentParams): Promise<Blob>
     zip.folder('word')!.folder('_rels')!.file('footer1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/footer.${imagenPie.extension}"/></Relationships>`);
     zip.folder('word')!.folder('media')!.file(`footer.${imagenPie.extension}`, imagenPie.base64, { base64: true });
+  }
+
+  if (imagenFirma) {
+    zip.folder('word')!.folder('media')!.file(`firma.${imagenFirma.extension}`, imagenFirma.base64, { base64: true });
   }
 
   const contenido = [
@@ -182,14 +201,21 @@ export const generatePreviewDOCX = async (params: DocumentParams): Promise<Blob>
       ]
       : []),
     parrafoWord(params.cierre || CIERRE_POR_DEFECTO, { espacioDespues: 300 }),
-    parrafoWord('Atentamente,', { espacioDespues: 600 }),
+    parrafoWord('Atentamente,', { espacioDespues: imagenFirma ? 240 : 600 }),
+    ...(imagenFirma
+      ? [`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${dibujoWord('rIdFirma', imagenFirma, 3, 'Imagen de firma')}</w:p>`]
+      : []),
     parrafoWord('_________________________________', { alineacion: 'center', espacioDespues: 60 }),
     parrafoWord(params.studentName, { negrita: true, alineacion: 'center', espacioDespues: 0 }),
     parrafoWord(`C.I: ${params.studentCI}`, { negrita: true, alineacion: 'center' }),
   ].join('');
 
   zip.folder('word')!.file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+      xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+      xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+      xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+      xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
       <w:body>${contenido}<w:sectPr>
         ${imagenEncabezado ? '<w:headerReference w:type="default" r:id="rIdHeader"/>' : ''}
         ${imagenPie ? '<w:footerReference w:type="default" r:id="rIdFooter"/>' : ''}
@@ -315,7 +341,20 @@ export const generatePreviewPDF = (params: DocumentParams): Blob => {
   // 8. Signature Block
   const sigLine = '_________________________________';
   const sigX = pageWidth / 2;
-  
+
+  // Con imagen se dibuja sobre la línea, respetando su proporción; sin imagen el hueco anterior
+  // queda libre para firmar a mano sobre el papel.
+  if (params.firmaImagen) {
+    try {
+      const propiedades = doc.getImageProperties(params.firmaImagen);
+      const ancho = (propiedades.width / propiedades.height) * ALTO_FIRMA_MM;
+      doc.addImage(params.firmaImagen, sigX - ancho / 2, cursorY - ALTO_FIRMA_MM - 1, ancho, ALTO_FIRMA_MM);
+    } catch {
+      // Una imagen ilegible no puede impedir que salga el oficio: se imprime sin ella y la línea
+      // queda para firmar a mano.
+    }
+  }
+
   doc.text(sigLine, sigX, cursorY, { align: 'center' });
   cursorY += 6;
   doc.setFont('times', 'bold');
