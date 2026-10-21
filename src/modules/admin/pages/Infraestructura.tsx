@@ -25,7 +25,7 @@ import { useEspaciosStore } from '../../../store/espaciosStore';
 import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
 import { TIPOS_ESPACIO, esAula, esLaboratorio, esOficina, formatoPiso, formatoPisoCorto, generarOpcionesPisos } from '../data/espaciosData';
-import { PanelLateral, BotonPanelLateral } from '../../../components/ui/PanelLateral';
+import { BotonPanelLateral } from '../../../components/ui/PanelLateral';
 import { avisoError, avisoInfo } from '../../../lib/aviso';
 
 // --- CONSTANTS ---
@@ -500,24 +500,22 @@ export const Infraestructura = () => {
         // lista quedaba recortada sin forma de desplazarse.
         <div className="relative flex-1 flex items-start lg:items-stretch p-3 sm:p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-y-auto lg:overflow-hidden">
           {/* LEFT: MAESTRO-DETALLE DE EDIFICIOS (mismo patrón que Ubicaciones en Horarios) */}
-          <PanelLateral
-            abierto={panelAbierto}
-            onCerrar={() => setPanelAbierto(false)}
-            ancho="w-full sm:w-[560px]"
-            titulo="Edificios y espacios"
-            accion={<button onClick={() => openCreateEdificio()} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm" title="Nuevo edificio">
-                  <Plus className="w-4 h-4" />
-                </button>}
-            buscador={<div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input type="text" placeholder="Buscar edificio o espacio..." value={searchNav} onChange={e => setSearchNav(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-[12px] font-medium text-gray-700 outline-none focus:border-indigo-400 transition-all placeholder:text-gray-400" />
-              </div>}
-            pie={<span className="text-[10.5px] font-bold text-gray-500">{edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios</span>}
-          >
-            <div className="flex min-h-0 flex-1 items-stretch gap-2 p-3">
-              {/* IZQUIERDA: edificios. Seleccionar uno muestra sus pisos a la derecha, así que
-                  nunca hay dos edificios desplegados a la vez como pasaba con el árbol. */}
-              <div className="flex w-[42%] shrink-0 flex-col gap-0.5 overflow-y-auto custom-scrollbar rounded-2xl border border-gray-200 bg-white p-1.5 sm:w-[230px]">
+          {/* PANEL UBICACIONES — flotante, mismo lenguaje que Horarios: dos tarjetas sueltas
+              sobre el contenido en vez de un contenedor blanco con cabecera y pie. */}
+          {panelAbierto && <div className="absolute inset-0 z-[30]" onClick={() => setPanelAbierto(false)} />}
+          <div className={`absolute inset-y-0 left-0 z-[40] flex w-[620px] max-w-[94%] flex-col transition-transform duration-300 pointer-events-none ${panelAbierto ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="shrink-0 px-3 pt-3 pb-2 pointer-events-auto">
+              <div className="relative w-[280px] max-w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <input type="text" placeholder="Buscar edificio o espacio..." value={searchNav} onChange={e => setSearchNav(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-[12.5px] text-gray-700 shadow-sm outline-none transition-colors focus:border-indigo-400 focus:bg-white placeholder:text-gray-400" />
+              </div>
+            </div>
+
+            {/* En celular las dos tarjetas se apilan: a 375px no entran 280px + el detalle. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto custom-scrollbar px-3 pb-3 pointer-events-none sm:flex-row sm:items-start sm:overflow-visible">
+              {/* IZQUIERDA: edificios. Seleccionar uno muestra sus pisos al lado, así que nunca
+                  hay dos edificios desplegados a la vez como pasaba con el árbol. */}
+              <div className="pointer-events-auto flex w-full shrink-0 flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:max-h-full sm:w-[280px] sm:overflow-y-auto">
                 <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
                   <Building2 className="h-3 w-3" /> Edificios
                 </div>
@@ -532,24 +530,28 @@ export const Infraestructura = () => {
                     <button
                       key={ed.id}
                       onClick={() => selectEdificio(ed.id)}
-                      title={ed.nombre}
-                      className={`flex items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors ${isSel ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                      className={`flex items-start gap-2 rounded-xl px-2 py-2 text-left transition-colors ${isSel ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${ed.estado === 'operativo' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
+                      <span className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${ed.estado === 'operativo' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
                         <IconCmp className="h-3.5 w-3.5" />
                       </span>
-                      <span className={`flex-1 truncate text-[12px] ${isSel ? 'font-extrabold' : 'font-bold'}`}>{ed.nombre}</span>
-                      <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500">{edSpaces.length}</span>
+                      {/* Sin `truncate`: el nombre completo se parte en dos líneas. Abreviado
+                          ("MODULAR DE TELEC...") no se distingue de los otros tres modulares. */}
+                      <span className={`flex-1 break-words text-[12px] leading-snug ${isSel ? 'font-extrabold' : 'font-bold'}`}>{ed.nombre}</span>
+                      <span className="mt-0.5 shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500">{edSpaces.length}</span>
                     </button>
                   );
                 })}
                 <button onClick={() => openCreateEdificio()} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
                   <Plus className="h-3 w-3" /> Nuevo edificio
                 </button>
+                <p className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-bold text-gray-400">
+                  {edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios
+                </p>
               </div>
 
-              {/* DERECHA: pisos y aulas del edificio seleccionado. Un solo piso abierto a la vez. */}
-              <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-y-auto custom-scrollbar rounded-2xl border border-gray-200 bg-white p-1.5">
+              {/* DERECHA: pisos y aulas del edificio elegido. Un solo piso abierto a la vez. */}
+              <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:max-h-full sm:overflow-y-auto">
                 <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
                   <Layers className="h-3 w-3" /> Pisos y aulas
                 </div>
@@ -578,7 +580,7 @@ export const Infraestructura = () => {
                           >
                             <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} />
                             <Layers className="h-3 w-3 shrink-0 text-gray-400" />
-                            <span className="flex-1 text-left truncate">{formatoPiso(piso)}</span>
+                            <span className="flex-1 truncate text-left">{formatoPiso(piso)}</span>
                             <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500">{delPiso.length}</span>
                           </button>
                           {abierto && (
@@ -586,7 +588,7 @@ export const Infraestructura = () => {
                               {delPiso.map(sp => (
                                 <div key={sp.id} onClick={() => { openEditEspacio(sp); setPanelAbierto(false); }} title={`Editar ${sp.nombre}`} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50">
                                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sp.estado === 'disponible' ? 'bg-emerald-500' : sp.estado === 'ocupada' ? 'bg-blue-500' : 'bg-orange-500'}`} />
-                                  <span className="truncate text-[11.5px] font-semibold text-gray-700">{sp.nombre}</span>
+                                  <span className="flex-1 break-words text-[11.5px] font-semibold leading-snug text-gray-700">{sp.nombre}</span>
                                 </div>
                               ))}
                             </div>
@@ -602,8 +604,7 @@ export const Infraestructura = () => {
                 )}
               </div>
             </div>
-
-          </PanelLateral>
+          </div>
 
 
           {/* RIGHT: BUILDING DETAIL */}

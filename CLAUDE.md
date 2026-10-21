@@ -82,8 +82,12 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
   **Elegir un edificio ya no cierra el panel** —es el maestro, y sus pisos salen al lado—; lo
   cierra elegir un espacio, que además **abre directamente su modal de edición**, que es el
   camino para ubicarlo en el mapa desde el celular.
-  `PanelLateral` acepta `ancho` (por defecto `w-[280px]`, intacto para Repositorio y Estructura
-  Académica); Infraestructura usa `w-full sm:w-[560px]`.
+  **No usa `PanelLateral`**: se copió el lenguaje visual de Horarios, que son dos tarjetas
+  **flotantes** sobre el contenido, sin el contenedor blanco con cabecera, buscador y pie. El
+  recuento ("9 edificios · 89 espacios") baja al pie de la tarjeta de edificios.
+  **Los nombres de edificio van completos**, partidos en dos líneas en vez de `truncate`:
+  abreviado, "MODULAR DE TELEC…" no se distingue de los otros tres modulares. En celular las
+  dos tarjetas se **apilan**: a 375px no entran 280px más el detalle.
 - **Infraestructura: fuera el campo Equipamiento.** Deja de verse y de editarse: el input, el
   botón "Vincular del inventario" con su selector y chips, y el "N/A" bajo el nombre de cada
   espacio en la tabla y en las tarjetas. **El valor se sigue reenviando al guardar**, así que lo
