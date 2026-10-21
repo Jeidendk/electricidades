@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   FileText, ChevronLeft, GraduationCap, ChevronDown, LayoutGrid,
-  Clock, Library, UserCog, Inbox, Wrench, ArrowLeftRight, GraduationCap as GradCap, BarChart2, MessageSquare
+  Clock, Library, UserCog, Inbox, Wrench, ArrowLeftRight, GraduationCap as GradCap, BarChart2, MessageSquare,
+  Building2
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
@@ -137,6 +138,11 @@ export const TecnicoSidebar = () => {
               <MessageSquare className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">ASISTENTE</span>}
             </NavLink>
           )}
+
+          {/* INFRAESTRUCTURA */}
+          <NavLink to="/tecnico/infraestructura" className={navLinkClass} title={collapsed ? 'INFRAESTRUCTURA' : ''}>
+            <Building2 className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">INFRAESTRUCTURA</span>}
+          </NavLink>
 
           {/* ESTRUCTURA ACADÉMICA */}
           <NavLink to="/tecnico/estructura-academica" className={navLinkClass} title={collapsed ? 'ESTRUCTURA ACADÉMICA' : ''}>
