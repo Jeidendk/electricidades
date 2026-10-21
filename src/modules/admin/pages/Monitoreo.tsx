@@ -13,7 +13,7 @@ import {
   useAuditoriaStore, LIMITE_AUDITORIA,
   type MovimientoAuditoria, type OperacionAuditoria,
 } from '../../../store/auditoriaStore';
-import { normalizarTexto } from '../../../lib/texto';
+import { normalizarTexto, componerNombreCompleto } from '../../../lib/texto';
 
 /** Nombre técnico de la tabla → cómo se lo nombra en pantalla. */
 const TABLA_ETIQUETA: Record<string, string> = {
@@ -76,6 +76,26 @@ const OPERACIONES: { valor: OperacionAuditoria; etiqueta: string; Icon: React.El
 const infoOperacion = (op: OperacionAuditoria) =>
   OPERACIONES.find(o => o.valor === op) ?? OPERACIONES[1];
 
+/**
+ * La frase que resume el movimiento: "Editó el aula Aula 103 · cambió Nombre y Capacidad".
+ * El dato ya estaba repartido entre cuatro columnas —acción, módulo, registro, cambios— y
+ * había que recomponerlo mentalmente; dicho en una línea se lee de corrido.
+ */
+const resumenMovimiento = (m: MovimientoAuditoria): string => {
+  const verbo = infoOperacion(m.operacion).etiqueta;
+  const nombre = etiquetaRegistro(m);
+  const objeto = `${entidadDe(m.tabla)}${nombre ? ` ${nombre}` : ''}`.trim();
+
+  if (m.operacion !== 'UPDATE') return `${verbo} ${objeto}`;
+
+  const campos = m.camposCambiados.filter(c => !esCampoInterno(c)).map(nombreCampo);
+  if (campos.length === 0) return `${verbo} ${objeto} · solo datos internos`;
+  const lista = campos.length === 1
+    ? campos[0]
+    : `${campos.slice(0, -1).join(', ')} y ${campos[campos.length - 1]}`;
+  return `${verbo} ${objeto} · cambió ${lista}`;
+};
+
 const fechaLegible = (iso: string) => {
   const d = new Date(iso);
   return {
@@ -84,9 +104,57 @@ const fechaLegible = (iso: string) => {
   };
 };
 
-/** Valor de una celda del detalle. Los objetos se imprimen como JSON y lo vacío se marca. */
+/** Cómo se nombra UN registro de cada tabla. Se lee "Editó el Aula 103". */
+const ENTIDAD_SINGULAR: Record<string, string> = {
+  espacios: 'el aula o laboratorio', edificios: 'el edificio', clases: 'la clase',
+  materias: 'la materia', carreras: 'la carrera', facultades: 'la facultad',
+  inventario: 'el equipo', usuarios: 'la ficha de', asignaciones: 'la asignación',
+  ordenes_mantenimiento: 'la orden de mantenimiento', prestamos: 'el préstamo',
+  solicitudes_equipo: 'la solicitud de equipos', solicitudes_admin: 'el trámite',
+  formatos: 'el formato', recursos: 'el recurso',
+};
+
+const entidadDe = (t: string) => ENTIDAD_SINGULAR[t] ?? 'el registro en';
+
+/**
+ * Nombre del registro afectado. El trigger guarda `registro_etiqueta` tomando la columna
+ * `nombre`, pero desde la migración 0030 `usuarios.nombre` es SOLO el nombre de pila: así
+ * salía "ENRIQUE" en vez de "ENRIQUE GUAMBO". Se recompone leyendo la instantánea guardada,
+ * lo que además arregla los movimientos ya registrados sin tocar la base.
+ */
+const etiquetaRegistro = (m: MovimientoAuditoria): string => {
+  const datos = (m.datosDespues ?? m.datosAntes ?? {}) as Record<string, unknown>;
+  if (m.tabla === 'usuarios') {
+    const completo = componerNombreCompleto(datos.nombre as string, datos.apellido as string);
+    if (completo) return completo;
+  }
+  return m.registroEtiqueta || '';
+};
+
+/** True si el texto parece una marca de tiempo ISO: `2026-10-21T23:10:56.834+00:00`. */
+const esFechaIso = (v: string) => /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(v);
+
+/**
+ * Valor de una celda del detalle. Las fechas crudas no se leen, y «true/false» tampoco dice
+ * mucho: se traducen. Los objetos se imprimen como JSON y lo vacío se marca.
+ */
 const valorLegible = (v: unknown): string => {
   if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if (typeof v === 'string') {
+    if (esFechaIso(v)) {
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString('es-EC', {
+          day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+        });
+      }
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      return new Date(`${v}T12:00:00`).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return v;
+  }
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 };
@@ -169,7 +237,7 @@ export const Monitoreo = () => {
     if (!q) return movimientos;
     return movimientos.filter(m =>
       normalizarTexto(m.usuarioNombre ?? '').includes(q) ||
-      normalizarTexto(m.registroEtiqueta ?? '').includes(q) ||
+      normalizarTexto(etiquetaRegistro(m)).includes(q) ||
       normalizarTexto(m.registroId ?? '').includes(q) ||
       normalizarTexto(nombreTabla(m.tabla)).includes(q),
     );
@@ -231,12 +299,12 @@ export const Monitoreo = () => {
     },
     {
       key: 'registro', header: 'Registro', width: '1.3fr',
-      sortValue: m => m.registroEtiqueta ?? '',
+      sortValue: m => etiquetaRegistro(m),
       // El id no se muestra: un uuid no identifica nada para quien revisa. Si el registro no
       // tenía nombre, se dice eso en vez de caer al identificador.
       render: m => (
         <span className="truncate text-[12px] font-bold text-gray-800">
-          {m.registroEtiqueta || <span className="font-semibold italic text-gray-400">Sin nombre</span>}
+          {etiquetaRegistro(m) || <span className="font-semibold italic text-gray-400">Sin nombre</span>}
         </span>
       ),
     },
@@ -387,17 +455,19 @@ export const Monitoreo = () => {
               <button onClick={() => setDetalle(null)} className="absolute right-4 top-4 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700">
                 <X className="h-4 w-4" />
               </button>
-              <div className="flex items-center gap-2.5 pr-8">
+              {/* Qué pasó, en una frase. Antes había que recomponerlo entre la insignia, el
+                  módulo y la lista de campos de más abajo. */}
+              <div className="flex items-start gap-2.5 pr-8">
                 {(() => {
-                  const { etiqueta, Icon, clases } = infoOperacion(detalle.operacion);
+                  const { Icon, clases } = infoOperacion(detalle.operacion);
                   return (
-                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold ${clases}`}>
-                      <Icon className="h-3 w-3" /> {etiqueta}
+                    <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${clases}`}>
+                      <Icon className="h-3.5 w-3.5" />
                     </span>
                   );
                 })()}
-                <h3 className="truncate text-[17px] font-bold tracking-tight text-gray-900">
-                  {detalle.registroEtiqueta || '(sin nombre)'}
+                <h3 className="text-[16px] font-bold leading-snug tracking-tight text-gray-900">
+                  {resumenMovimiento(detalle)}
                 </h3>
               </div>
               <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-medium text-gray-500">

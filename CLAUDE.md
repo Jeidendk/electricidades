@@ -71,6 +71,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Monitoreo: el detalle dice en una frase qué pasó.** La cabecera mostraba la insignia de la
+  acción y el nombre del registro por separado, y el módulo más abajo: había que recomponer
+  mentalmente entre cuatro datos qué había ocurrido. Ahora encabeza una sola línea —"Editó el
+  aula Aula 103 · cambió Nombre y Capacidad", "Creó la materia REDES WAN", "Eliminó el equipo
+  X"— con `ENTIDAD_SINGULAR` nombrando en singular el registro de cada tabla.
+  **Las fechas dejan de salir crudas**: `2026-10-21T23:10:56.834+00:00` se imprime legible, y
+  los booleanos como Sí/No.
+  **Fix: el nombre de las fichas de usuario salía cortado.** El trigger guarda
+  `registro_etiqueta` desde la columna `nombre`, que desde la migración 0030 es SOLO el nombre
+  de pila: se veía "ENRIQUE" en vez de "ENRIQUE GUAMBO". Se recompone al mostrar, leyendo la
+  instantánea guardada, lo que **arregla también los movimientos ya registrados** sin tocar la
+  base ni rehacer el trigger.
 - **Monitoreo: fuera los nombres técnicos y los identificadores.** La pantalla mostraba el id
   del registro bajo su nombre y los nombres de columna crudos en Cambios (`ultima_conexion`).
   Un uuid no identifica nada para quien revisa y delata cómo se llaman las cosas por dentro.
