@@ -7,8 +7,6 @@ import { HorarioVista } from '../components/Horarios/HorarioVista';
 import { MapaEspacios } from '../components/Horarios/MapaEspacios';
 import { DisponibilidadEspacios } from '../components/Horarios/DisponibilidadEspacios';
 import { AsignacionModal } from '../components/Horarios/AsignacionModal';
-import { ImportarHorarioModal } from '../components/Horarios/ImportarHorarioModal';
-import type { ClaseImportable } from '../components/Horarios/importarHorario';
 import { ExportSidebar } from '../components/Horarios/ExportSidebar';
 import { PlantillaPDF } from '../components/Horarios/PlantillaPDF';
 import { PlantillaWord } from '../components/Horarios/PlantillaWord';
@@ -34,13 +32,13 @@ const loadExportPrefs = (): Record<string, any> => {
 
 export const Horarios = () => {
   // === SUPABASE STORES ===
-  const { clases: rawClases, fetchClases, addClase, addClases, updateClase, removeClase, removeClasesByEspacio, removeAllClases } = useClasesStore();
+  const { clases: rawClases, fetchClases, addClase, updateClase, removeClase, removeClasesByEspacio, removeAllClases } = useClasesStore();
   const { items: espaciosRaw, fetchEspacios } = useEspaciosStore();
   const { carreras, fetchAll: fetchFacultades } = useFacultadesStore();
 
   const { items: edificiosRaw, fetchEdificios } = useEdificiosStore();
-  const { materias, fetchMaterias } = useMateriasStore();
-  const { docentes: docentesRegistrados, fetchDocentes } = useDocentesStore();
+  const { fetchMaterias } = useMateriasStore();
+  const { fetchDocentes } = useDocentesStore();
   
   useEffect(() => {
     fetchClases();
@@ -138,7 +136,6 @@ export const Horarios = () => {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedClaseId, setSelectedClaseId] = useState<string | null>(null);
   const [formValues, setFormValues] = useState({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: '', tipoEspacio: '', idEspacio: '', paralelo: PARALELO_POR_DEFECTO, dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' });
-  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Export State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -369,31 +366,6 @@ export const Horarios = () => {
       Swal.fire('Horario borrado', `Se eliminaron ${eliminadas} ${eliminadas === 1 ? 'clase' : 'clases'} de ${aulaSeleccionada.nombre}.`, 'success');
     } catch (err: any) {
       Swal.fire('No se pudo borrar', err?.message || 'Error desconocido al borrar el horario del aula.', 'error');
-    }
-  };
-
-  // ── Importación desde Excel/CSV ───────────────────────────────────────────
-  const handleImportarClases = async (importables: ClaseImportable[]): Promise<number> => {
-    try {
-      const marcaTiempo = Date.now();
-      const insertadas = await addClases(
-        importables.map((clase, indice) => ({
-          id: `CLA${marcaTiempo}-${indice}`,
-          id_materia: clase.idMateria,
-          id_docente: clase.idDocente,
-          id_espacio: clase.idEspacio,
-          paralelo: clase.paralelo,
-          dia: clase.dia,
-          hora_inicio: `${clase.horaInicio}:00`,
-          hora_fin: `${clase.horaFin}:00`,
-          creado_por: currentUser?.id || null,
-        })),
-      );
-      Swal.fire('Horario importado', `Se registraron ${insertadas} ${insertadas === 1 ? 'clase' : 'clases'}.`, 'success');
-      return insertadas;
-    } catch (err: any) {
-      Swal.fire('No se pudo importar', err?.message || 'Error desconocido al importar el horario.', 'error');
-      throw err;
     }
   };
 
@@ -660,7 +632,6 @@ export const Horarios = () => {
                   setSelectedClaseId={setSelectedClaseId}
                   handleFormatAll={handleFormatAll}
                   canFormatAll={!esTecnico}
-                  handleImportar={() => setIsImportOpen(true)}
                   handleBorrarClasesDelAula={handleBorrarClasesDelAula}
                   canBorrarAula={!esTecnico}
                   clasesEnAulaSeleccionada={clasesDelAula.length}
@@ -808,22 +779,6 @@ export const Horarios = () => {
               </div>
             </div>
           </div>
-        )}
-
-        {isImportOpen && (
-          <ImportarHorarioModal
-            onClose={() => setIsImportOpen(false)}
-            nombreAulaPorDefecto={aulaSeleccionada?.nombre || ''}
-            catalogos={{
-              materias,
-              docentes: docentesRegistrados,
-              espacios: espaciosRaw,
-              edificios: edificiosRaw,
-              clasesExistentes: rawClases,
-              idEspacioPorDefecto: filterAula,
-            }}
-            onImportar={handleImportarClases}
-          />
         )}
 
         {isModalOpen && (

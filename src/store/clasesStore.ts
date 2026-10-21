@@ -14,7 +14,6 @@ interface ClasesState {
   fetchClases: () => Promise<void>;
   addClase: (data: ClaseInsert) => Promise<void>;
   /** Inserta varias clases de una sola vez (importación). Devuelve cuántas se insertaron. */
-  addClases: (data: ClaseInsert[]) => Promise<number>;
   updateClase: (id: string, patch: ClaseUpdate) => Promise<void>;
   removeClase: (id: string) => Promise<void>;
   /** Borra las clases de un aula. Devuelve cuántas filas se eliminaron realmente. */
@@ -63,19 +62,6 @@ export const useClasesStore = create<ClasesState>()((set) => ({
       await useClasesStore.getState().fetchClases();
     } catch (err: any) { 
       console.error('Error adding clase:', err); 
-      throw err;
-    }
-  },
-
-  addClases: async (payloads) => {
-    if (payloads.length === 0) return 0;
-    try {
-      const { data, error } = await supabase.from('clases').insert(payloads).select('id');
-      if (error) throw error;
-      await useClasesStore.getState().fetchClases();
-      return data?.length ?? 0;
-    } catch (err: any) {
-      notifyStoreError('Error importing clases:', err);
       throw err;
     }
   },

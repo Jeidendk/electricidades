@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Download, Upload, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash, Lock, LockOpen, CalendarSearch } from 'lucide-react';
+import { Download, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash, Lock, LockOpen, CalendarSearch } from 'lucide-react';
 import { dias, horas, availableIcons, rangoIncluyeBloque, etiquetaPaoParalelo, PARALELO_POR_DEFECTO } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import { SearchInput } from '../../../../components/ui/SearchInput';
+import { formatoPiso } from '../../data/espaciosData';
 
 interface HorarioVistaProps {
   searchQuery: string;
@@ -24,7 +25,6 @@ interface HorarioVistaProps {
   setSelectedClaseId: (val: string | null) => void;
   handleFormatAll: () => void;
   canFormatAll: boolean;
-  handleImportar: () => void;
   handleBorrarClasesDelAula: () => void;
   canBorrarAula: boolean;
   /** Cuántas clases tiene el aula filtrada: en 0 no se ofrece borrar (evita un borrado vacío). */
@@ -59,7 +59,6 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   setSelectedClaseId,
   handleFormatAll,
   canFormatAll,
-  handleImportar,
   handleBorrarClasesDelAula,
   canBorrarAula,
   clasesEnAulaSeleccionada,
@@ -154,7 +153,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
           ) : (
             <>
               <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap max-w-[180px]"><Building2 className="w-3.5 h-3.5 text-gray-500 shrink-0" /> <span className="truncate">{nombreEdificioFiltrado || 'Sin edificio'}</span></span>
-              <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap"><Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" /> {pisoActual != null ? `Piso ${pisoActual}` : 'Sin piso'}</span>
+              <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap"><Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" /> {pisoActual != null ? formatoPiso(pisoActual) : 'Sin piso'}</span>
               <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap max-w-[160px]"><DoorOpen className="w-3.5 h-3.5 text-gray-500 shrink-0" /> <span className="truncate">{nombreAulaFiltrada || 'Sin aula'}</span></span>
             </>
           )}
@@ -208,9 +207,6 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
               )}
             </button>
           )}
-          <button onClick={handleImportar} title="Importar horario desde Excel o CSV" className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
-            <Upload className="w-3.5 h-3.5" /> Importar
-          </button>
           <button onClick={() => { setIsExportModalOpen(true); if (nombreEdificioFiltrado) setExportEdificio(nombreEdificioFiltrado); if (nombreAulaFiltrada) setExportAula(nombreAulaFiltrada); }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> Exportar
           </button>
@@ -322,7 +318,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                                 <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Building2 className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {nombreEdificioDeClase(clase)}</span>
                               )}
                               {searchActive && pisoDeClase(clase) != null && (
-                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Layers className="w-[12px] h-[12px] text-gray-400 shrink-0"/> Piso {pisoDeClase(clase)}</span>
+                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Layers className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {formatoPiso(pisoDeClase(clase))}</span>
                               )}
                               <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><BookOpen className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.aula}</span>
                               {etiquetaPaoParalelo(clase.pao, clase.paralelo) && (
@@ -394,17 +390,17 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
               const q = navSearch.toLowerCase();
               const aulasEd = espacios.filter(e => e.id_edificio === navEd && (!q || e.nombre.toLowerCase().includes(q)));
               if (!navEd) return <span className="text-[12px] text-gray-400 px-2 py-3">Elige un edificio.</span>;
-              const pisos = [...new Set(aulasEd.map(a => a.piso ?? 1))].sort((x, y) => x - y);
+              const pisos = [...new Set(aulasEd.map(a => a.piso ?? 0))].sort((x, y) => x - y);
               if (pisos.length === 0) return <span className="text-[12px] text-gray-400 px-2 py-3">Sin aulas.</span>;
               return pisos.map(piso => {
                 const pisoKey = `${navEd}::${piso}`;
-                const aulasPiso = aulasEd.filter(a => (a.piso ?? 1) === piso).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+                const aulasPiso = aulasEd.filter(a => (a.piso ?? 0) === piso).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
                 const abierto = openPiso === pisoKey || !!navSearch;
                 return (
                   <div key={pisoKey} className="border border-gray-100 rounded-xl overflow-hidden">
                     <button onClick={() => togglePiso(pisoKey)} className={`w-full flex items-center gap-1.5 px-3 py-2 text-[12px] font-bold transition-colors ${abierto ? 'bg-espoch-red/5 text-espoch-red' : 'text-gray-700 hover:bg-gray-50'}`}>
                       <ChevronRight className={`w-3.5 h-3.5 transition-transform ${abierto ? 'rotate-90' : ''}`} />
-                      <span className="flex-1 text-left">Piso {piso}</span>
+                      <span className="flex-1 text-left">{formatoPiso(piso)}</span>
                       <span className="text-[10px] font-bold bg-gray-100 text-gray-500 rounded-full px-1.5">{aulasPiso.length}</span>
                     </button>
                     {abierto && (
