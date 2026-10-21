@@ -21,6 +21,8 @@ export interface MovimientoAuditoria {
   datosDespues: Record<string, unknown> | null;
   camposCambiados: string[];
   createdAt: string;
+  /** Cuándo se deshizo este movimiento; null si sigue vigente (migración 0049). */
+  restauradoEn: string | null;
 }
 
 export interface FiltrosAuditoria {
@@ -38,6 +40,12 @@ interface AuditoriaState {
   /** False cuando la consulta falla: distingue "no hay movimientos" de "no se pudo leer". */
   disponible: boolean;
   fetchMovimientos: (filtros?: FiltrosAuditoria) => Promise<void>;
+  /**
+   * Deshace un movimiento. Devuelve el mensaje del servidor si salió bien, o `null` si falló
+   * (el error ya se mostró). Toda la lógica y las comprobaciones viven en la función SQL
+   * `restaurar_auditoria`: el cliente solo la invoca.
+   */
+  restaurar: (id: number) => Promise<string | null>;
 }
 
 /**
@@ -58,7 +66,7 @@ export const useAuditoriaStore = create<AuditoriaState>()((set) => ({
         .from('auditoria')
         .select(
           'id, tabla, operacion, registro_id, registro_etiqueta, usuario_id, ' +
-          'datos_antes, datos_despues, campos_cambiados, created_at, ' +
+          'datos_antes, datos_despues, campos_cambiados, created_at, restaurado_en, ' +
           'usuarios(nombre, apellido, roles(nombre))',
         )
         .order('created_at', { ascending: false })
@@ -89,6 +97,7 @@ export const useAuditoriaStore = create<AuditoriaState>()((set) => ({
           datosDespues: fila.datos_despues ?? null,
           camposCambiados: fila.campos_cambiados ?? [],
           createdAt: fila.created_at,
+          restauradoEn: fila.restaurado_en ?? null,
         })),
       });
     } catch (error: any) {
@@ -99,6 +108,19 @@ export const useAuditoriaStore = create<AuditoriaState>()((set) => ({
       notifyStoreError('No se pudo cargar la auditoría:', error);
     } finally {
       set({ loading: false });
+    }
+  },
+
+  restaurar: async (id) => {
+    try {
+      const { data, error } = await supabase.rpc('restaurar_auditoria', { p_id: id });
+      if (error) throw error;
+      return (data as string) ?? 'Movimiento restaurado.';
+    } catch (error: any) {
+      // Los `raise exception` de la función llegan con su texto en español y explican el caso
+      // concreto (id ocupado, campo cambiado después, clave foránea). Se muestran tal cual.
+      notifyStoreError('No se pudo restaurar:', error);
+      return null;
     }
   },
 }));

@@ -71,6 +71,23 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Restaurar un cambio desde Monitoreo (migración 0049, EJECUTARLA DESPUÉS DE LA 0048).**
+  `restaurar_auditoria(id)` deshace un movimiento: el DELETE vuelve a insertar la fila, el
+  UPDATE devuelve **solo los campos que ese movimiento cambió** y el INSERT borra lo creado.
+  **Es una función `security definer` y no escrituras desde el navegador** porque restaurar toca
+  claves foráneas e ids únicos, necesita comprobaciones que no se pueden confiar al cliente y
+  debe ser atómica: a medias deja la base peor que antes. Control: `is_admin()`.
+  **Tres guardas que evitan destrozos**: (1) si el id ya existe, no se re-inserta —alguien lo
+  volvió a crear—; (2) al deshacer un UPDATE se compara el estado actual contra el que ese
+  movimiento dejó, y si alguien lo modificó después **se aborta nombrando el campo**, en vez de
+  pisar el cambio más nuevo en silencio; (3) un movimiento ya restaurado no se restaura dos
+  veces (`restaurado_en`).
+  **NO restaura en cascada**, y está dicho en el diálogo de confirmación: si al borrar un aula se
+  borraron sus clases, hay que restaurarlas aparte, el aula primero. Tampoco revive lo que la
+  fila referenciaba: si el edificio también se borró, falla por clave foránea hasta restaurarlo.
+  Automatizarlo significaría adivinar qué borrados van juntos.
+  **Deshacer queda registrado**: los triggers de la 0048 siguen activos, así que la restauración
+  se suma al rastro en vez de borrarlo.
 - **Monitoreo: quién crea, edita y borra (migración 0048, EJECUTARLA).** No había forma de saber
   quién hizo un cambio: si un aula desaparecía, la única pista era preguntar. Se agrega la tabla
   `auditoria` y el trigger `registrar_auditoria()` sobre 15 tablas (espacios, clases, inventario,

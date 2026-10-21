@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ShieldCheck, Plus, Pencil, Trash2, Search, RotateCcw, X, User, Clock, Database, FileSearch,
+  Undo2, CheckCircle2,
 } from 'lucide-react';
+import { confirmarAccion, avisoExito } from '../../../lib/aviso';
 import { PageHero } from '../../../components/ui/PageHero';
 import { HERO_BG } from '../../../components/ui/heroBackgrounds';
 import { DataTable, type DataTableColumn } from '../../../components/ui/DataTable';
@@ -59,8 +61,25 @@ const valorLegible = (v: unknown): string => {
   return String(v);
 };
 
+/** Qué significa deshacer cada operación, dicho en los términos del usuario. */
+const TEXTO_RESTAURAR: Record<OperacionAuditoria, { boton: string; confirma: string }> = {
+  DELETE: {
+    boton: 'Restaurar registro',
+    confirma: 'Se volverá a crear el registro con los datos que tenía antes de borrarse.',
+  },
+  UPDATE: {
+    boton: 'Deshacer cambios',
+    confirma: 'Los campos modificados volverán a su valor anterior. El resto del registro no se toca.',
+  },
+  INSERT: {
+    boton: 'Deshacer creación',
+    confirma: 'Se eliminará el registro que se creó en este movimiento.',
+  },
+};
+
 export const Monitoreo = () => {
-  const { movimientos, loading, disponible, fetchMovimientos } = useAuditoriaStore();
+  const { movimientos, loading, disponible, fetchMovimientos, restaurar } = useAuditoriaStore();
+  const [restaurando, setRestaurando] = useState(false);
 
   const [fTabla, setFTabla] = useState('');
   const [fOperacion, setFOperacion] = useState<OperacionAuditoria | ''>('');
@@ -84,6 +103,35 @@ export const Monitoreo = () => {
 
   const limpiar = () => {
     setFTabla(''); setFOperacion(''); setFDesde(''); setFHasta(''); setBusqueda('');
+  };
+
+  const recargar = () => fetchMovimientos({
+    tabla: fTabla || undefined,
+    operacion: fOperacion || undefined,
+    desde: fDesde || undefined,
+    hasta: fHasta || undefined,
+  });
+
+  const pedirRestaurar = async (m: MovimientoAuditoria) => {
+    const { boton, confirma } = TEXTO_RESTAURAR[m.operacion];
+    const ok = await confirmarAccion({
+      title: `¿${boton}?`,
+      // Se nombra el registro y se avisa de lo que NO hace: restaurar un aula no devuelve
+      // las clases que se borraron con ella, y esa expectativa es la que más fácil falla.
+      text: `${m.registroEtiqueta || 'El registro'} · ${nombreTabla(m.tabla)}. ${confirma} `
+        + 'No se restauran en cascada los registros relacionados, y la restauración queda registrada.',
+      confirmar: boton,
+    });
+    if (!ok) return;
+
+    setRestaurando(true);
+    const mensaje = await restaurar(m.id);
+    setRestaurando(false);
+    if (mensaje) {
+      setDetalle(null);
+      await recargar();
+      void avisoExito('Restaurado', mensaje);
+    }
   };
 
   const filtrados = useMemo(() => {
@@ -170,6 +218,19 @@ export const Monitoreo = () => {
             {m.camposCambiados.length > 3 && ` +${m.camposCambiados.length - 3}`}
           </span>
         ) : <span className="text-[11px] text-gray-300">—</span>
+      ),
+    },
+    {
+      key: 'estado', header: '', width: '0.5fr', align: 'center',
+      render: m => (
+        m.restauradoEn ? (
+          <span
+            title={`Restaurado el ${fechaLegible(m.restauradoEn).fecha}`}
+            className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[9.5px] font-extrabold text-sky-700"
+          >
+            <Undo2 className="h-3 w-3" /> Restaurado
+          </span>
+        ) : null
       ),
     },
   ];
@@ -262,7 +323,7 @@ export const Monitoreo = () => {
               rowKey={m => String(m.id)}
               columns={columnas}
               onRowClick={m => setDetalle(m)}
-              minWidthClass="min-w-[920px]"
+              minWidthClass="min-w-[1020px]"
               defaultPerPage={15}
               emptyState={
                 <EmptyState
@@ -357,6 +418,32 @@ export const Monitoreo = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* PIE: restaurar */}
+            <div className="shrink-0 border-t border-gray-100 bg-gray-50/60 px-5 py-3.5 sm:px-6">
+              {detalle.restauradoEn ? (
+                <p className="flex items-center justify-center gap-2 text-[11.5px] font-bold text-sky-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Restaurado el {fechaLegible(detalle.restauradoEn).fecha}, {fechaLegible(detalle.restauradoEn).hora}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-[11px] leading-snug text-gray-500">
+                    Deshacer no borra el rastro: queda registrado como un movimiento más.
+                  </p>
+                  <button
+                    onClick={() => pedirRestaurar(detalle)}
+                    disabled={restaurando}
+                    className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-gray-800 bg-espoch-ink px-5 py-2.5 text-[12px] font-bold text-white shadow-lg transition-all hover:bg-black disabled:opacity-50"
+                  >
+                    {restaurando
+                      ? <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      : <Undo2 className="h-3.5 w-3.5" />}
+                    {TEXTO_RESTAURAR[detalle.operacion].boton}
+                  </button>
                 </div>
               )}
             </div>
