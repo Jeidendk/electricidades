@@ -67,6 +67,7 @@ export const Usuarios = () => {
       /** La base ya no guarda el nombre completo: se arma al leer. */
       nombreCompleto: componerNombreCompleto(u.nombre, u.apellido),
       titulo: u.titulo || '',
+      cedula: u.cedula || '',
       email: esDocente ? '' : u.email || '',
       rol,
       estado: u.estado,
@@ -96,7 +97,7 @@ export const Usuarios = () => {
   }), [usuarios]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Table state
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -117,7 +118,7 @@ export const Usuarios = () => {
   const defaultFormValues = {
     nombre: '', email: '', rol: 'Estudiante', estado: 'activo', avatar_url: '', fotoFile: null as File | null,
     codigo: '', facultadId: '', carreraId: '', pao: '', paralelo: '',
-    titulo: '', apellido: '',
+    titulo: '', apellido: '', cedula: '',
   };
   const [formValues, setFormValues] = useState(defaultFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -136,10 +137,11 @@ export const Usuarios = () => {
     if (filterEstado) result = result.filter(u => u.estado === filterEstado);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(u => 
-        u.nombreCompleto.toLowerCase().includes(q) || 
+      result = result.filter(u =>
+        u.nombreCompleto.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        u.facultad.toLowerCase().includes(q)
+        u.facultad.toLowerCase().includes(q) ||
+        (u.cedula && u.cedula.toLowerCase().includes(q))
       );
     }
     if (sortCol) {
@@ -172,7 +174,7 @@ export const Usuarios = () => {
         usuario.rol === 'Docente' &&
         usuario.id !== idAExcluir &&
         normalizarTexto(componerNombreCompleto(usuario.nombre, usuario.apellido)) ===
-          normalizarTexto(nombreCompleto),
+        normalizarTexto(nombreCompleto),
     );
 
   /** Cierto cuando la base rechazó el guardado por el índice de nombre de docente repetido. */
@@ -212,6 +214,30 @@ export const Usuarios = () => {
 
         setIsSubmitting(true);
         try {
+          const cedulaLimpia = formValues.cedula.trim();
+          if (!/^[0-9]{10}$/.test(cedulaLimpia)) {
+            S.fire({
+              icon: 'warning',
+              title: 'Cédula requerida',
+              text: 'El número de cédula del docente debe tener exactamente 10 dígitos numéricos.',
+              confirmButtonColor: '#B00020',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+
+          const cedulaDuplicada = items.find((u: any) => u.cedula === cedulaLimpia);
+          if (cedulaDuplicada) {
+            S.fire({
+              icon: 'warning',
+              title: 'Cédula ya registrada',
+              text: `La cédula "${cedulaLimpia}" ya está registrada para ${componerNombreCompleto(cedulaDuplicada.nombre, cedulaDuplicada.apellido)}.`,
+              confirmButtonColor: '#B00020',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+
           if (!formValues.facultadId) {
             S.fire({
               icon: 'warning',
@@ -241,6 +267,7 @@ export const Usuarios = () => {
             nombre: formValues.nombre.trim(),
             apellido: formValues.apellido.trim(),
             titulo: formValues.titulo || null,
+            cedula: cedulaLimpia,
             email: null,
             id_rol: rolDocente.id,
             estado: formValues.estado,
@@ -258,15 +285,24 @@ export const Usuarios = () => {
           const faltaMigracionDocentes =
             error?.code === '23503' &&
             String(error?.message || '').includes('usuarios_id_fkey');
+          const esCedulaRepetida =
+            error?.code === '23505' &&
+            String(error?.message || '').toLowerCase().includes('cedula');
+          const esFormatoCedulaInvalido =
+            String(error?.message || '').includes('usuarios_cedula_formato_check');
 
           S.fire({
             icon: 'error',
             title: 'No se pudo registrar',
             text: faltaMigracionDocentes
               ? 'La base de datos todavía exige una cuenta de acceso. Aplica la migración 0013_docentes_sin_auth.sql e inténtalo nuevamente.'
-              : esNombreDocenteRepetido(error)
-                ? MENSAJE_DOCENTE_REPETIDO
-                : error?.message || 'Ocurrió un error al guardar el docente.',
+              : esCedulaRepetida
+                ? `La cédula "${formValues.cedula.trim()}" ya se encuentra registrada en la base de datos.`
+                : esFormatoCedulaInvalido
+                  ? 'La cédula debe contener exactamente 10 dígitos numéricos.'
+                  : esNombreDocenteRepetido(error)
+                    ? MENSAJE_DOCENTE_REPETIDO
+                    : error?.message || 'Ocurrió un error al guardar el docente.',
             confirmButtonColor: '#B00020',
           });
         } finally {
@@ -336,12 +372,37 @@ export const Usuarios = () => {
         const S = (await import('sweetalert2')).default;
         setIsSubmitting(true);
         try {
+          const cedulaLimpia = formValues.cedula.trim();
+          if (!/^[0-9]{10}$/.test(cedulaLimpia)) {
+            S.fire({
+              icon: 'warning',
+              title: 'Cédula requerida',
+              text: 'El número de cédula del docente debe tener exactamente 10 dígitos numéricos.',
+              confirmButtonColor: '#B00020',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+
+          const cedulaDuplicada = items.find((u: any) => u.cedula === cedulaLimpia && u.id !== selectedUser.id);
+          if (cedulaDuplicada) {
+            S.fire({
+              icon: 'warning',
+              title: 'Cédula ya registrada',
+              text: `La cédula "${cedulaLimpia}" ya está registrada para ${componerNombreCompleto(cedulaDuplicada.nombre, cedulaDuplicada.apellido)}.`,
+              confirmButtonColor: '#B00020',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+
           const facultad: any = facultades.find((item: any) => item.id === formValues.facultadId);
           const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
           await updateUsuario(selectedUser.id, {
             nombre: formValues.nombre.trim(),
             apellido: formValues.apellido.trim(),
             titulo: formValues.titulo || null,
+            cedula: cedulaLimpia,
             facultad_nombre: nombreFacultad,
             estado: formValues.estado,
           } as any);
@@ -350,16 +411,26 @@ export const Usuarios = () => {
           S.fire({
             icon: 'success',
             title: 'Docente actualizado',
-            text: 'El nuevo nombre se reflejará también en sus horarios.',
+            text: 'El nuevo nombre y cédula se reflejarán en el sistema.',
             confirmButtonColor: '#B00020',
           });
         } catch (error: any) {
+          const esCedulaRepetida =
+            error?.code === '23505' &&
+            String(error?.message || '').toLowerCase().includes('cedula');
+          const esFormatoCedulaInvalido =
+            String(error?.message || '').includes('usuarios_cedula_formato_check');
+
           S.fire({
             icon: 'error',
             title: 'No se pudo actualizar',
-            text: esNombreDocenteRepetido(error)
-              ? MENSAJE_DOCENTE_REPETIDO
-              : error?.message || 'Ocurrió un error al actualizar el docente.',
+            text: esCedulaRepetida
+              ? `La cédula "${formValues.cedula.trim()}" ya se encuentra registrada en la base de datos.`
+              : esFormatoCedulaInvalido
+                ? 'La cédula debe contener exactamente 10 dígitos numéricos.'
+                : esNombreDocenteRepetido(error)
+                  ? MENSAJE_DOCENTE_REPETIDO
+                  : error?.message || 'Ocurrió un error al actualizar el docente.',
             confirmButtonColor: '#B00020',
           });
         } finally {
@@ -494,8 +565,8 @@ export const Usuarios = () => {
 
   const exportCsv = () => {
     const rows = selectedIds.length > 0 ? usuarios.filter(u => selectedIds.includes(u.id)) : filteredData;
-    const head = ['ID', 'Nombre', 'Apellido', 'Nombre completo', 'Email', 'Rol', 'Estado', 'Código', 'Facultad', 'Carrera', 'PAO', 'Paralelo', 'Última conexión'];
-    const body = rows.map(u => [u.id, u.nombre, u.apellido, u.nombreCompleto, u.email, u.rol, u.estado, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.paralelo ?? '', u.ultimaConexion]);
+    const head = ['ID', 'Nombre', 'Apellido', 'Nombre completo', 'Cédula', 'Email', 'Rol', 'Estado', 'Código', 'Facultad', 'Carrera', 'PAO', 'Paralelo', 'Última conexión'];
+    const body = rows.map(u => [u.id, u.nombre, u.apellido, u.nombreCompleto, u.cedula || '', u.email, u.rol, u.estado, u.codigo, u.facultad, u.carrera, u.pao ?? '', u.paralelo ?? '', u.ultimaConexion]);
     const csv = [head, ...body].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -507,10 +578,10 @@ export const Usuarios = () => {
 
   const getRolBadge = (rol: string) => {
     switch (rol) {
-      case 'Administrador': return <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-indigo-200/50 flex items-center gap-1.5 w-max"><ShieldCheck className="w-3 h-3"/> {rol}</span>;
-      case 'Docente': return <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-purple-200/50 flex items-center gap-1.5 w-max"><BookOpen className="w-3 h-3"/> {rol}</span>;
-      case 'Estudiante': return <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-blue-200/50 flex items-center gap-1.5 w-max"><GraduationCap className="w-3 h-3"/> {rol}</span>;
-      default: return <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-gray-200/50 flex items-center gap-1.5 w-max"><UsersIcon className="w-3 h-3"/> {rol}</span>;
+      case 'Administrador': return <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-indigo-200/50 flex items-center gap-1.5 w-max"><ShieldCheck className="w-3 h-3" /> {rol}</span>;
+      case 'Docente': return <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-purple-200/50 flex items-center gap-1.5 w-max"><BookOpen className="w-3 h-3" /> {rol}</span>;
+      case 'Estudiante': return <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-blue-200/50 flex items-center gap-1.5 w-max"><GraduationCap className="w-3 h-3" /> {rol}</span>;
+      default: return <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-gray-200/50 flex items-center gap-1.5 w-max"><UsersIcon className="w-3 h-3" /> {rol}</span>;
     }
   };
 
@@ -528,7 +599,7 @@ export const Usuarios = () => {
       <div className="w-full min-h-[92px] bg-[#1a1f26] relative flex items-center px-6 lg:px-12 shrink-0 overflow-hidden shadow-sm py-4 border-b border-gray-800">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-[0.25]"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#1a1f26] via-[#1a1f26]/90 to-[#1a1f26]/80"></div>
-        
+
         <div className="relative z-10 w-full flex justify-between items-center flex-wrap gap-4">
           <div className="flex items-center gap-5">
             <div className="w-14 h-14 shrink-0 rounded-[14px] bg-[#b00000] flex items-center justify-center text-white shadow-lg">
@@ -583,106 +654,106 @@ export const Usuarios = () => {
       <div className="flex-1 flex flex-col p-6 md:p-8 min-h-0 relative bg-[#f4f7fb]/90 backdrop-blur-xl animate-fade-in">
 
 
-      {/* CONTENT */}
-      <div className="bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-6 flex flex-col relative overflow-hidden flex-1 min-h-0">
-        <AcentoTarjeta />
-        
-        {/* CONTROLS */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6 shrink-0 mt-2">
-          <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-            <SearchInput
-              value={searchQuery}
-              onChange={(v) => { setSearchQuery(v); setCurrentPage(1); }}
-              placeholder="Buscar usuario o docente..."
-              className="w-full sm:w-[260px] shrink-0"
-            />
-            {!soloDocentes && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {rolNombres.map(r => {
-                  const active = filterRol === r;
-                  return (
-                    <button
-                      key={r}
-                      onClick={() => { setFilterRol(active ? '' : r); setCurrentPage(1); }}
-                      className={`text-[12px] font-bold rounded-full py-2 px-4 border transition-all shadow-sm whitespace-nowrap ${active ? 'bg-[#0f172a] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'}`}
-                      title={active ? 'Quitar filtro' : `Ver solo ${r}`}
-                    >
-                      {r}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <FilterDropdown
-              label="Estado"
-              value={filterEstado || 'todos'}
-              options={[
-                { key: 'todos', label: 'Todos' },
-                { key: 'activo', label: 'Activo' },
-                { key: 'inactivo', label: 'Inactivo' },
-              ]}
-              onChange={(k) => { setFilterEstado(k === 'todos' ? '' : k); setCurrentPage(1); }}
-            />
-            {(filterRol || filterEstado || searchQuery) && (
-              <button
-                onClick={() => { setSearchQuery(''); setFilterRol(soloDocentes ? 'Docente' : ''); setFilterEstado(''); setCurrentPage(1); }}
-                className="flex items-center gap-1.5 text-[12px] text-gray-500 font-medium hover:text-gray-700 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Limpiar filtros
+        {/* CONTENT */}
+        <div className="bg-white/95 backdrop-blur-xl rounded-[20px] shadow-sm border border-gray-200/60 p-6 flex flex-col relative overflow-hidden flex-1 min-h-0">
+          <AcentoTarjeta />
+
+          {/* CONTROLS */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6 shrink-0 mt-2">
+            <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+              <SearchInput
+                value={searchQuery}
+                onChange={(v) => { setSearchQuery(v); setCurrentPage(1); }}
+                placeholder="Buscar usuario o docente..."
+                className="w-full sm:w-[260px] shrink-0"
+              />
+              {!soloDocentes && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {rolNombres.map(r => {
+                    const active = filterRol === r;
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => { setFilterRol(active ? '' : r); setCurrentPage(1); }}
+                        className={`text-[12px] font-bold rounded-full py-2 px-4 border transition-all shadow-sm whitespace-nowrap ${active ? 'bg-[#0f172a] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'}`}
+                        title={active ? 'Quitar filtro' : `Ver solo ${r}`}
+                      >
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <FilterDropdown
+                label="Estado"
+                value={filterEstado || 'todos'}
+                options={[
+                  { key: 'todos', label: 'Todos' },
+                  { key: 'activo', label: 'Activo' },
+                  { key: 'inactivo', label: 'Inactivo' },
+                ]}
+                onChange={(k) => { setFilterEstado(k === 'todos' ? '' : k); setCurrentPage(1); }}
+              />
+              {(filterRol || filterEstado || searchQuery) && (
+                <button
+                  onClick={() => { setSearchQuery(''); setFilterRol(soloDocentes ? 'Docente' : ''); setFilterEstado(''); setCurrentPage(1); }}
+                  className="flex items-center gap-1.5 text-[12px] text-gray-500 font-medium hover:text-gray-700 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Limpiar filtros
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              {selectedIds.length > 0 && (
+                <button onClick={() => setModalType('bulkDelete')} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-red-200 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" /> Eliminar ({selectedIds.length})
+                </button>
+              )}
+              <button onClick={exportCsv} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+                <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
               </button>
-            )}
+              <button onClick={() => { setFormValues({ ...defaultFormValues, rol: rolParaAlta }); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
+                <Plus className="w-3.5 h-3.5" /> {soloDocentes ? 'Nuevo docente' : 'Nuevo registro'}
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            {selectedIds.length > 0 && (
-              <button onClick={() => setModalType('bulkDelete')} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-red-200 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
-                <Trash2 className="w-3.5 h-3.5" /> Eliminar ({selectedIds.length})
-              </button>
-            )}
-            <button onClick={exportCsv} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-              <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
-            </button>
-            <button onClick={() => { setFormValues({ ...defaultFormValues, rol: rolParaAlta }); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
-              <Plus className="w-3.5 h-3.5" /> {soloDocentes ? 'Nuevo docente' : 'Nuevo registro'}
-            </button>
-          </div>
-        </div>
+          {/* TABLE */}
+          <div className="w-full overflow-auto flex-1 flex flex-col min-h-0 relative custom-scrollbar border border-gray-100 rounded-xl">
+            <div className="grid gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3" style={{ gridTemplateColumns: gridCols, minWidth: tableMinW }}>
+              <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
+              <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>NOMBRE <ArrowUpDown className="w-3 h-3" /></div>
+              <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('apellido')}>APELLIDO <ArrowUpDown className="w-3 h-3" /></div>
+              <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / FACULTAD <ArrowUpDown className="w-3 h-3" /></div>
+              {showCarrera && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>}
+              {showPao && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>}
+              {showParalelo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('paralelo')}>PARALELO <ArrowUpDown className="w-3 h-3" /></div>}
+              {showCodigo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('codigo')}>CÓDIGO <ArrowUpDown className="w-3 h-3" /></div>}
+              <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('estado')}>ESTADO <ArrowUpDown className="w-3 h-3" /></div>
+              <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('ultimaConexion')}>ÚLTIMA CONEXIÓN <ArrowUpDown className="w-3 h-3" /></div>
+              <div className="text-right">ACCIONES</div>
+            </div>
 
-        {/* TABLE */}
-        <div className="w-full overflow-auto flex-1 flex flex-col min-h-0 relative custom-scrollbar border border-gray-100 rounded-xl">
-          <div className="grid gap-4 px-4 pb-3 border-b border-gray-100 text-[9px] font-extrabold text-gray-500 uppercase tracking-widest sticky top-0 bg-white z-10 shrink-0 pt-3" style={{ gridTemplateColumns: gridCols, minWidth: tableMinW }}>
-            <div className="flex items-center justify-center"><input type="checkbox" checked={pageData.length > 0 && pageData.every(u => selectedIds.includes(u.id))} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('nombre')}>NOMBRE <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('apellido')}>APELLIDO <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('rol')}>ROL / FACULTAD <ArrowUpDown className="w-3 h-3" /></div>
-            {showCarrera && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('carrera')}>CARRERA <ArrowUpDown className="w-3 h-3" /></div>}
-            {showPao && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('pao')}>PAO <ArrowUpDown className="w-3 h-3" /></div>}
-            {showParalelo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('paralelo')}>PARALELO <ArrowUpDown className="w-3 h-3" /></div>}
-            {showCodigo && <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('codigo')}>CÓDIGO <ArrowUpDown className="w-3 h-3" /></div>}
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('estado')}>ESTADO <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700" onClick={() => handleSort('ultimaConexion')}>ÚLTIMA CONEXIÓN <ArrowUpDown className="w-3 h-3" /></div>
-            <div className="text-right">ACCIONES</div>
-          </div>
-          
-          <div className="flex flex-col" style={{ minWidth: tableMinW }}>
-            {pageData.map((u, i) => (
-              <div key={u.id} className={`grid gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ gridTemplateColumns: gridCols, animationDelay: `${i * 30}ms` }}>
+            <div className="flex flex-col" style={{ minWidth: tableMinW }}>
+              {pageData.map((u, i) => (
+                <div key={u.id} className={`grid gap-4 px-4 py-3 border-b border-gray-50 transition-colors items-center animate-fade-in ${selectedIds.includes(u.id) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`} style={{ gridTemplateColumns: gridCols, animationDelay: `${i * 30}ms` }}>
                   <div className="flex items-center justify-center"><input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleSelect(u.id)} className="w-3.5 h-3.5 rounded border-gray-300 accent-espoch-yellow cursor-pointer" /></div>
                   <div className="flex items-center gap-3 min-w-0">
-                      <img src={u.avatar} className="w-9 h-9 rounded-full bg-gray-100 object-cover shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-bold text-gray-900 truncate" title={u.nombre}>{u.nombre}</span>
-                          <span className="text-[10px] text-gray-500 truncate">
-                            {u.tipoRegistro === 'docente' ? 'Sin cuenta de acceso' : u.email}
-                          </span>
-                      </div>
+                    <img src={u.avatar} className="w-9 h-9 rounded-full bg-gray-100 object-cover shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-gray-900 truncate" title={u.nombre}>{u.nombre}</span>
+                      <span className="text-[10px] text-gray-500 truncate">
+                        {u.tipoRegistro === 'docente' ? (u.cedula ? `C.I. ${u.cedula}` : 'Sin cédula') : u.email}
+                      </span>
+                    </div>
                   </div>
                   <div className="min-w-0">
-                      <span className="text-xs font-bold text-gray-900 truncate block" title={u.apellido}>{u.apellido}</span>
+                    <span className="text-xs font-bold text-gray-900 truncate block" title={u.apellido}>{u.apellido}</span>
                   </div>
                   <div className="flex flex-col min-w-0 gap-1 w-max">
-                      {getRolBadge(u.rol)}
-                      <span className="text-[10px] font-semibold text-gray-500 truncate pl-1">{u.facultad}</span>
+                    {getRolBadge(u.rol)}
+                    <span className="text-[10px] font-semibold text-gray-500 truncate pl-1">{u.facultad}</span>
                   </div>
                   {showCarrera && <div className="min-w-0"><span className="text-[11px] font-semibold text-gray-700 truncate block" title={u.carrera}>{u.carrera || '—'}</span></div>}
                   {showPao && <div className="min-w-0">{u.pao ? <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md w-max">PAO {u.pao}</span> : <span className="text-gray-300 text-[11px]">—</span>}</div>}
@@ -691,42 +762,42 @@ export const Usuarios = () => {
                   <div className="flex flex-col gap-1 w-max">{getEstadoBadge(u.estado)}</div>
                   <div className="text-[11px] font-semibold text-gray-600">{u.ultimaConexion}</div>
                   <div className="flex justify-end gap-1">
-                      <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, apellido: u.apellido, titulo: u.titulo || '', email: u.email, rol: u.rol, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '', paralelo: u.paralelo != null ? String(u.paralelo) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => { setSelectedUser(u); setFormValues({ nombre: u.nombre, apellido: u.apellido, titulo: u.titulo || '', cedula: u.cedula || '', email: u.email, rol: u.rol, estado: u.estado, avatar_url: u.avatar, fotoFile: null, codigo: u.codigo || '', facultadId: u.facultadId || '', carreraId: u.carreraId || '', pao: u.pao ? String(u.pao) : '', paralelo: u.paralelo != null ? String(u.paralelo) : '' }); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => { setSelectedUser(u); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
-              </div>
-            ))}
-            {filteredData.length === 0 && (
-              <EmptyState
-                icon={UsersIcon}
-                title={usuarios.length === 0 ? 'Sin usuarios ni docentes registrados' : 'Sin resultados con estos filtros'}
-                secondaryLabel={usuarios.length > 0 ? 'Limpiar filtros' : undefined}
-                onSecondary={usuarios.length > 0 ? () => { setSearchQuery(''); setFilterRol(soloDocentes ? 'Docente' : ''); setFilterEstado(''); setCurrentPage(1); } : undefined}
-                className="py-12"
-              />
-            )}
+                </div>
+              ))}
+              {filteredData.length === 0 && (
+                <EmptyState
+                  icon={UsersIcon}
+                  title={usuarios.length === 0 ? 'Sin usuarios ni docentes registrados' : 'Sin resultados con estos filtros'}
+                  secondaryLabel={usuarios.length > 0 ? 'Limpiar filtros' : undefined}
+                  onSecondary={usuarios.length > 0 ? () => { setSearchQuery(''); setFilterRol(soloDocentes ? 'Docente' : ''); setFilterEstado(''); setCurrentPage(1); } : undefined}
+                  className="py-12"
+                />
+              )}
+            </div>
           </div>
-        </div>
-        
-        <Pagination
-          page={currentPage}
-          totalPages={Math.max(1, Math.ceil(filteredData.length / perPage))}
-          onChange={setCurrentPage}
-          total={filteredData.length}
-          perPage={perPage}
-          onPerPageChange={setPerPage}
-        />
-      </div>
 
-      {/* MODALS */}
-      {modalType && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
-          {(modalType === 'create' || modalType === 'edit') && (
-            <div className="bg-white rounded-3xl w-full max-w-[500px] max-h-[92vh] overflow-y-auto custom-scrollbar relative animate-scale-in flex flex-col p-8 shadow-2xl">
-              <button onClick={() => setModalType(null)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-gray-100"><X className="w-4 h-4"/></button>
-              <div className="flex items-center gap-4 mb-6">
+          <Pagination
+            page={currentPage}
+            totalPages={Math.max(1, Math.ceil(filteredData.length / perPage))}
+            onChange={setCurrentPage}
+            total={filteredData.length}
+            perPage={perPage}
+            onPerPageChange={setPerPage}
+          />
+        </div>
+
+        {/* MODALS */}
+        {modalType && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
+            {(modalType === 'create' || modalType === 'edit') && (
+              <div className="bg-white rounded-3xl w-full max-w-[500px] max-h-[92vh] overflow-y-auto custom-scrollbar relative animate-scale-in flex flex-col p-8 shadow-2xl">
+                <button onClick={() => setModalType(null)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-gray-100"><X className="w-4 h-4" /></button>
+                <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-                    {modalType === 'create' ? <Plus className="w-6 h-6"/> : <Edit2 className="w-5 h-5"/>}
+                    {modalType === 'create' ? <Plus className="w-6 h-6" /> : <Edit2 className="w-5 h-5" />}
                   </div>
                   <div>
                     <h3 className="text-[18px] font-extrabold text-gray-900 tracking-tight">
@@ -742,110 +813,133 @@ export const Usuarios = () => {
                           : 'Modifique la información del usuario.'}
                     </p>
                   </div>
-              </div>
-              
-              <form onSubmit={handleSave} className="flex flex-col gap-4">
+                </div>
+
+                <form onSubmit={handleSave} className="flex flex-col gap-4">
                   {modalType === 'edit' && !editandoDocente && (
                     <div className="flex flex-col gap-1.5 items-center mb-2">
-                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-full">Avatar</label>
-                        <div 
-                          className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden cursor-pointer relative group hover:border-blue-500 transition-colors"
-                          onClick={() => document.getElementById('usr-foto-input')?.click()}
-                        >
-                          {formValues.avatar_url ? (
-                            <img src={formValues.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
-                          ) : (
-                            <ImageIcon className="w-8 h-8 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                          )}
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-[9px] font-bold text-white text-center">Cambiar<br/>Foto</span>
-                          </div>
-                          <input type="file" id="usr-foto-input" accept="image/*" className="hidden" onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              const file = e.target.files[0];
-                              setFormValues({...formValues, avatar_url: URL.createObjectURL(file), fotoFile: file});
-                            }
-                          }} />
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-full">Avatar</label>
+                      <div
+                        className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden cursor-pointer relative group hover:border-blue-500 transition-colors"
+                        onClick={() => document.getElementById('usr-foto-input')?.click()}
+                      >
+                        {formValues.avatar_url ? (
+                          <img src={formValues.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
+                        ) : (
+                          <ImageIcon className="w-8 h-8 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-[9px] font-bold text-white text-center">Cambiar<br />Foto</span>
                         </div>
+                        <input type="file" id="usr-foto-input" accept="image/*" className="hidden" onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setFormValues({ ...formValues, avatar_url: URL.createObjectURL(file), fotoFile: file });
+                          }
+                        }} />
+                      </div>
                     </div>
                   )}
                   {/* Nombres y apellidos van en dos campos rotulados para TODOS los roles: es lo que
                       evita que cada persona escriba el nombre en un orden distinto. Se pasan a
                       mayúsculas al teclear, igual que ya están guardados los que existen. */}
                   {esDocenteForm && (
-                    <div className="flex flex-col gap-1.5 sm:max-w-[180px]">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Título</label>
-                        <select value={formValues.titulo} onChange={e => setFormValues({...formValues, titulo: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all cursor-pointer">
-                            <option value="">Sin título</option>
-                            {TITULOS_ACADEMICOS.map(titulo => <option key={titulo} value={titulo}>{titulo}</option>)}
+                        <select
+                          value={formValues.titulo}
+                          onChange={e => setFormValues({ ...formValues, titulo: e.target.value })}
+                          className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all cursor-pointer"
+                        >
+                          <option value="">Sin título</option>
+                          {TITULOS_ACADEMICOS.map(titulo => <option key={titulo} value={titulo}>{titulo}</option>)}
                         </select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+                          Número de Cédula <span className="text-red-500"></span>
+                        </label>
+                        <input
+                          required
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={10}
+                          value={formValues.cedula}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setFormValues({ ...formValues, cedula: val });
+                          }}
+                          placeholder="Ej. 0601234567"
+                          className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium font-mono tracking-wider w-full transition-all"
+                        />
+                      </div>
                     </div>
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre</label>
-                          <input required value={formValues.nombre} onChange={e => setFormValues({...formValues, nombre: enMayusculas(e.target.value)})} placeholder="Ej. JUAN CARLOS" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Apellido</label>
-                          <input required value={formValues.apellido} onChange={e => setFormValues({...formValues, apellido: enMayusculas(e.target.value)})} placeholder="Ej. PÉREZ MORENO" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
-                      </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Nombre</label>
+                      <input required value={formValues.nombre} onChange={e => setFormValues({ ...formValues, nombre: enMayusculas(e.target.value) })} placeholder="Ej. JUAN CARLOS" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Apellido</label>
+                      <input required value={formValues.apellido} onChange={e => setFormValues({ ...formValues, apellido: enMayusculas(e.target.value) })} placeholder="Ej. PÉREZ MORENO" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                    </div>
                   </div>
                   <p className="text-[10px] font-medium text-gray-400 -mt-2">
                     Se mostrará como <b>{componerNombreCompleto(formValues.nombre, formValues.apellido) || 'NOMBRE APELLIDO'}</b>.
                   </p>
                   {!esDocenteForm && (
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Correo Electrónico</label>
-                        <input
-                          required
-                          type="email"
-                          value={formValues.email}
-                          readOnly={modalType === 'edit'}
-                          onChange={e => setFormValues({...formValues, email: e.target.value})}
-                          placeholder="usuario@espoch.edu.ec"
-                          className={`text-[13px] rounded-xl py-3 px-4 outline-none border border-gray-200 font-medium w-full transition-all ${
-                            modalType === 'edit'
-                              ? 'cursor-not-allowed bg-gray-100 text-gray-500'
-                              : 'bg-gray-50/50 text-gray-900 focus:border-blue-500 focus:bg-white'
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Correo Electrónico</label>
+                      <input
+                        required
+                        type="email"
+                        value={formValues.email}
+                        readOnly={modalType === 'edit'}
+                        onChange={e => setFormValues({ ...formValues, email: e.target.value })}
+                        placeholder="usuario@espoch.edu.ec"
+                        className={`text-[13px] rounded-xl py-3 px-4 outline-none border border-gray-200 font-medium w-full transition-all ${modalType === 'edit'
+                            ? 'cursor-not-allowed bg-gray-100 text-gray-500'
+                            : 'bg-gray-50/50 text-gray-900 focus:border-blue-500 focus:bg-white'
                           }`}
-                        />
-                        {modalType === 'edit' && (
-                          <span className="text-[9px] font-medium text-gray-400">
-                            El correo pertenece a la cuenta de acceso y no se cambia desde este formulario.
-                          </span>
-                        )}
+                      />
+                      {modalType === 'edit' && (
+                        <span className="text-[9px] font-medium text-gray-400">
+                          El correo pertenece a la cuenta de acceso y no se cambia desde este formulario.
+                        </span>
+                      )}
                     </div>
                   )}
 
                   <div className="flex flex-col gap-1.5">
-                      <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo / Rol</label>
-                          <select
-                            value={formValues.rol}
-                            onChange={e => {
-                              const rol = e.target.value;
-                              const requiereCarrera = rol === 'Estudiante' || rol === 'Tecnico';
-                              setFormValues({
-                                ...formValues,
-                                rol,
-                                email: rol === 'Docente' ? '' : formValues.email,
-                                facultadId: requiereCarrera ? formValues.facultadId : '',
-                                carreraId: requiereCarrera ? formValues.carreraId : '',
-                                codigo: rol === 'Estudiante' ? formValues.codigo : '',
-                                pao: rol === 'Estudiante' ? formValues.pao : '',
-                                paralelo: rol === 'Estudiante' ? formValues.paralelo : '',
-                              });
-                            }}
-                            disabled={editandoDocente}
-                            className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:cursor-not-allowed disabled:opacity-70"
-                          >
-                              {(modalType === 'edit' && !editandoDocente
-                                ? rolNombres.filter(r => r !== 'Docente' || formValues.rol === 'Docente')
-                                : rolNombres
-                              ).map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                      </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo / Rol</label>
+                      <select
+                        value={formValues.rol}
+                        onChange={e => {
+                          const rol = e.target.value;
+                          const requiereCarrera = rol === 'Estudiante' || rol === 'Tecnico';
+                          setFormValues({
+                            ...formValues,
+                            rol,
+                            email: rol === 'Docente' ? '' : formValues.email,
+                            facultadId: requiereCarrera ? formValues.facultadId : '',
+                            carreraId: requiereCarrera ? formValues.carreraId : '',
+                            codigo: rol === 'Estudiante' ? formValues.codigo : '',
+                            pao: rol === 'Estudiante' ? formValues.pao : '',
+                            paralelo: rol === 'Estudiante' ? formValues.paralelo : '',
+                          });
+                        }}
+                        disabled={editandoDocente}
+                        className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {(modalType === 'edit' && !editandoDocente
+                          ? rolNombres.filter(r => r !== 'Docente' || formValues.rol === 'Docente')
+                          : rolNombres
+                        ).map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
                   </div>
 
                   {esDocenteForm && (
@@ -855,7 +949,7 @@ export const Usuarios = () => {
                         <select
                           required
                           value={formValues.facultadId}
-                          onChange={e => setFormValues({...formValues, facultadId: e.target.value})}
+                          onChange={e => setFormValues({ ...formValues, facultadId: e.target.value })}
                           className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all"
                         >
                           <option value="">Seleccione facultad</option>
@@ -876,116 +970,116 @@ export const Usuarios = () => {
                   {/* Facultad + Carrera — al crear o editar Estudiante/Técnico. */}
                   {(formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
-                            <select value={formValues.facultadId} onChange={e => setFormValues({...formValues, facultadId: e.target.value, carreraId: '', pao: '', paralelo: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
-                                <option value="">Seleccione</option>
-                                {facultades.map((f: any) => <option key={f.id} value={f.id}>{f.siglas || f.nombre}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Carrera</label>
-                            <select disabled={!formValues.facultadId} value={formValues.carreraId} onChange={e => setFormValues({...formValues, carreraId: e.target.value, pao: '', paralelo: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">{formValues.facultadId ? 'Seleccione' : 'Elija facultad'}</option>
-                                {carrerasDeFacultad.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                            </select>
-                        </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
+                        <select value={formValues.facultadId} onChange={e => setFormValues({ ...formValues, facultadId: e.target.value, carreraId: '', pao: '', paralelo: '' })} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all">
+                          <option value="">Seleccione</option>
+                          {facultades.map((f: any) => <option key={f.id} value={f.id}>{f.siglas || f.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Carrera</label>
+                        <select disabled={!formValues.facultadId} value={formValues.carreraId} onChange={e => setFormValues({ ...formValues, carreraId: e.target.value, pao: '', paralelo: '' })} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                          <option value="">{formValues.facultadId ? 'Seleccione' : 'Elija facultad'}</option>
+                          {carrerasDeFacultad.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                        </select>
+                      </div>
                     </div>
                   )}
 
                   {/* Código + PAO — al crear o editar un Estudiante. */}
                   {formValues.rol === 'Estudiante' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Código Institucional</label>
-                            <input value={formValues.codigo} onChange={e => setFormValues({...formValues, codigo: e.target.value})} placeholder="Ej. 123456" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">PAO</label>
-                            <select disabled={!formValues.carreraId || numPaosForm === 0} value={formValues.pao} onChange={e => setFormValues({...formValues, pao: e.target.value, paralelo: ''})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">{!formValues.carreraId ? 'Elija carrera' : numPaosForm === 0 ? 'Sin PAO' : 'Seleccione'}</option>
-                                {Array.from({ length: numPaosForm }, (_, i) => i + 1).map(n => <option key={n} value={String(n)}>PAO {n}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Paralelo</label>
-                            <select disabled={!formValues.pao} value={formValues.paralelo} onChange={e => setFormValues({...formValues, paralelo: e.target.value})} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">Sin asignar</option>
-                                {[1, 2, 3, 4].map(n => <option key={n} value={String(n)}>Paralelo {n}</option>)}
-                            </select>
-                        </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Código Institucional</label>
+                        <input value={formValues.codigo} onChange={e => setFormValues({ ...formValues, codigo: e.target.value })} placeholder="Ej. 123456" className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium w-full transition-all" />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">PAO</label>
+                        <select disabled={!formValues.carreraId || numPaosForm === 0} value={formValues.pao} onChange={e => setFormValues({ ...formValues, pao: e.target.value, paralelo: '' })} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                          <option value="">{!formValues.carreraId ? 'Elija carrera' : numPaosForm === 0 ? 'Sin PAO' : 'Seleccione'}</option>
+                          {Array.from({ length: numPaosForm }, (_, i) => i + 1).map(n => <option key={n} value={String(n)}>PAO {n}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Paralelo</label>
+                        <select disabled={!formValues.pao} value={formValues.paralelo} onChange={e => setFormValues({ ...formValues, paralelo: e.target.value })} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                          <option value="">Sin asignar</option>
+                          {[1, 2, 3, 4].map(n => <option key={n} value={String(n)}>Paralelo {n}</option>)}
+                        </select>
+                      </div>
                     </div>
                   )}
 
                   <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Estado</label>
-                      <div className="flex gap-4 mt-1">
-                          <label onClick={() => setFormValues({ ...formValues, estado: 'activo' })} className="flex items-center gap-2 cursor-pointer group">
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${formValues.estado === 'activo' ? 'border-blue-600 bg-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
-                                  {formValues.estado === 'activo' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
-                              </div>
-                              <span className="text-[13px] font-bold text-gray-700">Activo</span>
-                          </label>
-                          <label onClick={() => setFormValues({ ...formValues, estado: 'inactivo' })} className="flex items-center gap-2 cursor-pointer group">
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${formValues.estado === 'inactivo' ? 'border-red-600 bg-red-600' : 'border-gray-300 group-hover:border-red-400'}`}>
-                                  {formValues.estado === 'inactivo' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
-                              </div>
-                              <span className="text-[13px] font-bold text-gray-700">Inactivo</span>
-                          </label>
-                      </div>
+                    <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Estado</label>
+                    <div className="flex gap-4 mt-1">
+                      <label onClick={() => setFormValues({ ...formValues, estado: 'activo' })} className="flex items-center gap-2 cursor-pointer group">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${formValues.estado === 'activo' ? 'border-blue-600 bg-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
+                          {formValues.estado === 'activo' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                        </div>
+                        <span className="text-[13px] font-bold text-gray-700">Activo</span>
+                      </label>
+                      <label onClick={() => setFormValues({ ...formValues, estado: 'inactivo' })} className="flex items-center gap-2 cursor-pointer group">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${formValues.estado === 'inactivo' ? 'border-red-600 bg-red-600' : 'border-gray-300 group-hover:border-red-400'}`}>
+                          {formValues.estado === 'inactivo' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                        </div>
+                        <span className="text-[13px] font-bold text-gray-700">Inactivo</span>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="flex gap-3 mt-4 justify-end">
-                      <button type="button" onClick={() => setModalType(null)} disabled={isSubmitting} className="px-5 py-2.5 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50">Cancelar</button>
-                      <button type="submit" disabled={isSubmitting} className="bg-[#0f172a] hover:bg-black text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg transition-all border border-gray-800 disabled:opacity-50 flex items-center gap-2">
-                        {isSubmitting ? <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> : null}
-                        {modalType === 'create'
-                          ? esDocenteForm ? 'Registrar Docente' : 'Registrar Usuario'
-                          : 'Guardar Cambios'}
-                      </button>
+                    <button type="button" onClick={() => setModalType(null)} disabled={isSubmitting} className="px-5 py-2.5 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50">Cancelar</button>
+                    <button type="submit" disabled={isSubmitting} className="bg-[#0f172a] hover:bg-black text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg transition-all border border-gray-800 disabled:opacity-50 flex items-center gap-2">
+                      {isSubmitting ? <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> : null}
+                      {modalType === 'create'
+                        ? esDocenteForm ? 'Registrar Docente' : 'Registrar Usuario'
+                        : 'Guardar Cambios'}
+                    </button>
                   </div>
-              </form>
-            </div>
-          )}
+                </form>
+              </div>
+            )}
 
-          {modalType === 'delete' && selectedUser && (
-            <div className="bg-white rounded-3xl p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[420px] relative animate-scale-in text-center py-8">
-              <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
-                <AlertTriangle className="w-7 h-7 text-amber-500" />
+            {modalType === 'delete' && selectedUser && (
+              <div className="bg-white rounded-3xl p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[420px] relative animate-scale-in text-center py-8">
+                <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
+                  <AlertTriangle className="w-7 h-7 text-amber-500" />
+                </div>
+                <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">
+                  Eliminar {selectedUser.tipoRegistro === 'docente' ? 'Docente' : 'Usuario'}
+                </h3>
+                <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
+                  ¿Está seguro que desea eliminar a <b className="text-gray-800">{selectedUser.nombre}</b>?
+                  {selectedUser.tipoRegistro === 'docente'
+                    ? ' Si ya está asignado en un horario, el sistema no permitirá eliminarlo.'
+                    : ' Perderá acceso inmediato al sistema.'}
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                  <button onClick={handleDelete} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Eliminar</button>
+                </div>
               </div>
-              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">
-                Eliminar {selectedUser.tipoRegistro === 'docente' ? 'Docente' : 'Usuario'}
-              </h3>
-              <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
-                ¿Está seguro que desea eliminar a <b className="text-gray-800">{selectedUser.nombre}</b>?
-                {selectedUser.tipoRegistro === 'docente'
-                  ? ' Si ya está asignado en un horario, el sistema no permitirá eliminarlo.'
-                  : ' Perderá acceso inmediato al sistema.'}
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button onClick={handleDelete} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Eliminar</button>
-              </div>
-            </div>
-          )}
+            )}
 
-          {modalType === 'bulkDelete' && (
-            <div className="bg-white rounded-3xl p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[420px] relative animate-scale-in text-center py-8">
-              <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
-                <AlertTriangle className="w-7 h-7 text-amber-500" />
+            {modalType === 'bulkDelete' && (
+              <div className="bg-white rounded-3xl p-[32px] shadow-[0_25px_60px_rgba(0,0,0,0.3)] w-full max-w-[420px] relative animate-scale-in text-center py-8">
+                <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-5">
+                  <AlertTriangle className="w-7 h-7 text-amber-500" />
+                </div>
+                <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar {selectedIds.length} registros</h3>
+                <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
+                  ¿Está seguro que desea eliminar <b className="text-gray-800">{selectedIds.length}</b> registro{selectedIds.length > 1 ? 's' : ''} seleccionado{selectedIds.length > 1 ? 's' : ''}?
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                  <button onClick={handleBulkDelete} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Eliminar</button>
+                </div>
               </div>
-              <h3 className="text-[18px] font-extrabold text-gray-900 mb-2">Eliminar {selectedIds.length} registros</h3>
-              <p className="text-[13px] text-gray-500 mb-7 leading-relaxed">
-                ¿Está seguro que desea eliminar <b className="text-gray-800">{selectedIds.length}</b> registro{selectedIds.length > 1 ? 's' : ''} seleccionado{selectedIds.length > 1 ? 's' : ''}?
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button onClick={() => setModalType(null)} className="flex-1 py-3 rounded-xl border border-gray-200 bg-white font-bold text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button onClick={handleBulkDelete} className="flex-1 py-3 rounded-xl border border-transparent bg-espoch-red hover:bg-espoch-darkred text-white font-bold text-[13px] shadow-[0_0_12px_rgba(176,0,0,0.4)] transition-colors">Eliminar</button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
