@@ -98,33 +98,18 @@ begin
   else
     v_antes   := to_jsonb(old);
   end if;
-
-  -- La fila de referencia para sacar id y etiqueta: la nueva si existe, si no la vieja.
   v_fila := coalesce(v_despues, v_antes);
   v_id   := v_fila ->> 'id';
-
-  -- Nombre legible. Se prueban varias columnas porque no todas las tablas usan `nombre`.
-  -- CADA SENTENCIA EN UNA SOLA LÍNEA, aunque queden largas: partida en varias, el editor SQL
-  -- de Supabase la corta y aparece "syntax error" señalando el principio de la segunda línea.
   v_etiqueta := coalesce(v_fila ->> 'nombre', v_fila ->> 'titulo', v_fila ->> 'codigo', v_fila ->> 'serie', v_fila ->> 'numero');
-
   if tg_op = 'UPDATE' then
-    -- Qué columnas cambiaron de verdad. `updated_at` se excluye: lo mueve un trigger en cada
-    -- guardado y haría parecer modificada toda fila aunque no se tocara ningún dato real.
     select array_agg(clave order by clave) into v_campos from jsonb_object_keys(v_despues) as clave where v_despues -> clave is distinct from v_antes -> clave and clave <> 'updated_at';
-
-    -- Un UPDATE que no cambia nada no se registra: son la mayoría del ruido de una bitácora
-    -- (guardar un formulario sin editar nada) y enterrarían los cambios que sí importan.
     if v_campos is null or array_length(v_campos, 1) is null then
       return null;
     end if;
   end if;
-
   v_usuario := auth.uid();
-
   insert into public.auditoria (tabla, operacion, registro_id, registro_etiqueta, usuario_id, datos_antes, datos_despues, campos_cambiados) values (tg_table_name, tg_op, v_id, v_etiqueta, v_usuario, v_antes, v_despues, v_campos);
-
-  return null; -- AFTER trigger: el valor de retorno se ignora.
+  return null;
 end;
 $fn_auditar$;
 
@@ -138,25 +123,15 @@ comment on function public.registrar_auditoria() is
 do $enganchar$
 declare
   t text;
-  tablas text[] := array[
-    'espacios', 'edificios', 'clases', 'materias', 'carreras', 'facultades',
-    'inventario', 'usuarios', 'asignaciones', 'ordenes_mantenimiento',
-    'prestamos', 'solicitudes_equipo', 'solicitudes_admin', 'formatos', 'recursos'
-  ];
+  tablas text[] := array['espacios', 'edificios', 'clases', 'materias', 'carreras', 'facultades', 'inventario', 'usuarios', 'asignaciones', 'ordenes_mantenimiento', 'prestamos', 'solicitudes_equipo', 'solicitudes_admin', 'formatos', 'recursos'];
 begin
   foreach t in array tablas loop
-    -- Se saltean las que no existan en esta base en vez de abortar la migración entera.
     if to_regclass('public.' || t) is null then
       raise notice 'Tabla % inexistente: se omite.', t;
       continue;
     end if;
-
     execute format('drop trigger if exists %I on public.%I', 'auditar_' || t, t);
-    execute format(
-      'create trigger %I after insert or update or delete on public.%I
-         for each row execute function public.registrar_auditoria()',
-      'auditar_' || t, t
-    );
+    execute format('create trigger %I after insert or update or delete on public.%I for each row execute function public.registrar_auditoria()', 'auditar_' || t, t);
     raise notice 'Auditoría activada en %.', t;
   end loop;
 end $enganchar$;
