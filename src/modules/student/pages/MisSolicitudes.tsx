@@ -10,7 +10,7 @@ import { avisoError, avisoExito, confirmarAccion } from '../../../lib/aviso';
 
 export const MisSolicitudes = () => {
   const { user } = useAuthStore();
-  const { items: solicitudes, fetchItems, cancelarSolicitud: storeCancelar } = useSolicitudesEquipoStore();
+  const { items: solicitudes, fetchItems, cancelarSolicitud: storeCancelar, error: errorSolicitudes } = useSolicitudesEquipoStore();
   
   const [search, setSearch] = useState('');
   const [dateStart, setDateStart] = useState('');
@@ -99,6 +99,12 @@ export const MisSolicitudes = () => {
     currentPage * rowsPerPage
   );
 
+  // Las tres cifras del banner estaban escritas a mano (15 / 8 / 5) y no se movían nunca.
+  const contadores = useMemo(() => ({
+    aprobadas: solicitudes.filter(s => s.estado === 'Aprobada' || s.estado === 'Entregada').length,
+    pendientes: solicitudes.filter(s => s.estado === 'Pendiente').length,
+  }), [solicitudes]);
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     void avisoExito('Copiado');
@@ -107,7 +113,7 @@ export const MisSolicitudes = () => {
   const cancelarSolicitud = async (id: string) => {
     const confirmado = await confirmarAccion({
       title: '¿Cancelar la solicitud?',
-      text: 'La solicitud quedará anulada y tendrás que crearla de nuevo si la necesitas.',
+      text: 'Solo se puede cancelar mientras nadie la haya revisado. Tendrás que crearla de nuevo si la necesitas.',
       confirmar: 'Sí, cancelar',
       cancelar: 'Volver',
     });
@@ -146,16 +152,21 @@ export const MisSolicitudes = () => {
     URL.revokeObjectURL(url);
   };
 
+  // El comprobante llevaba un nombre, una cédula y una carrera escritos en el código: los mismos
+  // para todo el mundo. Ahora salen de la ficha de quien ha iniciado sesión, y el estado es el
+  // real, para que el papel no parezca una autorización cuando la solicitud sigue pendiente.
   const generarPDF = (sol: SolicitudEquipo) => {
     generarPDFComprobante({
-      numeroSolicitud: sol.numero.replace('SOL-', ''),
-      fecha: new Date(sol.fecha).toLocaleDateString('es-ES'),
-      nombre: 'Juan Carlos Pérez López',
-      cedula: '0604789123',
-      carrera: 'Ingeniería en Electricidad',
+      numeroSolicitud: sol.numero,
+      fecha: new Date(sol.fecha).toLocaleDateString('es-EC'),
+      nombre: user?.nombre || 'Estudiante',
+      codigo: user?.codigoInstitucional || 'No registrado',
+      carrera: user?.carreraNombre || 'No registrada',
       asignatura: sol.asignatura,
       tipoMovimiento: 'Sacar',
-      items: sol.items
+      items: sol.items,
+      observaciones: sol.observacion,
+      estado: sol.estado === 'Pendiente' ? 'Pendiente de aprobación' : sol.estado,
     });
   };
 
@@ -179,10 +190,22 @@ export const MisSolicitudes = () => {
             <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Rechazada
           </div>
         );
+      case 'Entregada':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-[11px] font-bold tracking-wide">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Entregada
+          </div>
+        );
+      case 'Cancelada':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 border border-gray-200 text-gray-500 text-[11px] font-bold tracking-wide">
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div> Cancelada
+          </div>
+        );
       case 'Devuelto':
         return (
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 border border-gray-200 text-gray-600 text-[11px] font-bold tracking-wide">
-            <div className="w-1.5 h-1.5 rounded-full bg-gray-500"></div> Devuelto
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-500"></div> Devuelta
           </div>
         );
     }
@@ -212,7 +235,7 @@ export const MisSolicitudes = () => {
             <div className="flex items-center gap-3">
               <ClipboardList className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
               <div className="flex flex-col">
-                <span className="text-[15px] font-black text-white leading-tight">15</span>
+                <span className="text-[15px] font-black text-white leading-tight">{solicitudes.length}</span>
                 <span className="text-[10px] font-medium text-gray-400 leading-none">Total solicitudes</span>
               </div>
             </div>
@@ -222,7 +245,7 @@ export const MisSolicitudes = () => {
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
               <div className="flex flex-col">
-                <span className="text-[15px] font-black text-white leading-tight">8</span>
+                <span className="text-[15px] font-black text-white leading-tight">{contadores.aprobadas}</span>
                 <span className="text-[10px] font-medium text-gray-400 leading-none">Aprobadas</span>
               </div>
             </div>
@@ -232,7 +255,7 @@ export const MisSolicitudes = () => {
             <div className="flex items-center gap-3">
               <Clock className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
               <div className="flex flex-col">
-                <span className="text-[15px] font-black text-white leading-tight">5</span>
+                <span className="text-[15px] font-black text-white leading-tight">{contadores.pendientes}</span>
                 <span className="text-[10px] font-medium text-gray-400 leading-none">Pendientes</span>
               </div>
             </div>
@@ -248,6 +271,12 @@ export const MisSolicitudes = () => {
 
       {/* WORKSPACE TABLA */}
       <div className="flex-1 flex flex-col min-h-0 p-4 sm:p-6 lg:p-8 w-full mx-auto">
+        {errorSolicitudes && (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shrink-0">
+            <p className="text-[12px] font-extrabold text-red-800">No se pudo cargar tu historial</p>
+            <p className="text-[11px] text-red-700 mt-0.5">{errorSolicitudes}</p>
+          </div>
+        )}
         <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[24px] shadow-sm border border-gray-200/60 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-espoch-yellow via-orange-500 to-espoch-red z-20"></div>
 
@@ -307,7 +336,7 @@ export const MisSolicitudes = () => {
                     
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 mb-2 mt-1 relative z-10">Estado de Solicitud</p>
                     <div className="relative z-10">
-                      {['Aprobada', 'Pendiente', 'Rechazada', 'Devuelto'].map((status) => (
+                      {['Pendiente', 'Aprobada', 'Entregada', 'Devuelto', 'Rechazada', 'Cancelada'].map((status) => (
                         <button
                           key={status}
                           onClick={() => { setStatusFilter(status); setShowFilters(false); setCurrentPage(1); }}
@@ -405,7 +434,12 @@ export const MisSolicitudes = () => {
                         <span className="text-[11px] font-medium text-gray-400">{sol.hora}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4">{getStatusBadge(sol.estado)}</td>
+                    <td className="py-4 px-4">
+                      {getStatusBadge(sol.estado)}
+                      {sol.motivoRechazo && (
+                        <p className="mt-1 text-[10.5px] text-gray-500 max-w-[220px]">{sol.motivoRechazo}</p>
+                      )}
+                    </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button className="w-8 h-8 rounded-lg border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-colors shadow-sm" title="Ver Detalles">

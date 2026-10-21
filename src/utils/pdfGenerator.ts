@@ -12,11 +12,15 @@ export interface PDFRequestData {
   numeroSolicitud: string;
   fecha: string;
   nombre: string;
-  cedula: string;
+  /** Código institucional del estudiante. Sale de su ficha; nunca de un valor fijo. */
+  codigo: string;
   carrera: string;
   asignatura: string;
   tipoMovimiento: string;
   items: PDFItem[];
+  observaciones?: string;
+  /** Estado real de la solicitud al imprimir. El comprobante NO es una autorización. */
+  estado: string;
 }
 
 export const generarPDFComprobante = (data: PDFRequestData) => {
@@ -71,9 +75,9 @@ export const generarPDFComprobante = (data: PDFRequestData) => {
   doc.text(data.nombre, col1X + 18, 98);
   
   doc.setFont(fontTitle, 'bold');
-  doc.text('Cédula:', col2X, 98);
+  doc.text('Código:', col2X, 98);
   doc.setFont(fontTitle, 'normal');
-  doc.text(data.cedula, col2X + 18, 98);
+  doc.text(data.codigo, col2X + 18, 98);
   
   doc.setFont(fontTitle, 'bold');
   doc.text('Carrera:', col1X, 108);
@@ -89,6 +93,11 @@ export const generarPDFComprobante = (data: PDFRequestData) => {
   doc.text('Tipo de Movimiento:', col1X, 118);
   doc.setFont(fontTitle, 'normal');
   doc.text(data.tipoMovimiento, col1X + 38, 118);
+
+  doc.setFont(fontTitle, 'bold');
+  doc.text('Estado:', col2X, 118);
+  doc.setFont(fontTitle, 'normal');
+  doc.text(data.estado, col2X + 18, 118);
   
   // Items Table
   const tableData = data.items.map((item, index) => [
@@ -127,10 +136,35 @@ export const generarPDFComprobante = (data: PDFRequestData) => {
     }
   });
   
-  // Observaciones
+  // Observaciones — antes se imprimía el rótulo y nunca el texto que escribió el estudiante.
   const finalY = (doc as any).lastAutoTable.finalY || 150;
   doc.setFont(fontTitle, 'bold');
+  doc.setFontSize(11);
   doc.text('OBSERVACIONES:', 15, finalY + 15);
+  doc.setFont(fontTitle, 'normal');
+  doc.setFontSize(10);
+  doc.text(
+    doc.splitTextToSize(data.observaciones?.trim() || 'Sin observaciones.', 180),
+    15,
+    finalY + 22,
+  );
+
+  // Un comprobante de solicitud no autoriza a llevarse nada: decirlo evita que se presente en
+  // el laboratorio como si lo hiciera.
+  doc.setFont(fontTitle, 'italic');
+  doc.setFontSize(9);
+  doc.text(
+    doc.splitTextToSize(
+      'Este documento deja constancia de la solicitud registrada en el sistema. No autoriza el '
+      + 'retiro de los equipos: el retiro se habilita cuando el laboratorio aprueba la solicitud '
+      + 'y registra la entrega.',
+      180,
+    ),
+    15,
+    finalY + 36,
+  );
+  doc.setFont(fontTitle, 'normal');
+  doc.setFontSize(11);
   
   // Signatures
   // We place them at the bottom of the page

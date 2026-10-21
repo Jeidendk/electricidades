@@ -1,40 +1,64 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   FileText, Layers, Clock, CheckCircle, XCircle,
-  Upload, Download, ArrowUpDown, Eye, Edit2, Trash2, FileX, UploadCloud, X, AlertTriangle,
+  Upload, Download, ArrowUpDown, Eye, Trash2, FileX, UploadCloud, X, AlertTriangle,
   Calendar, RotateCcw, Tag, FileDown
 } from 'lucide-react';
 import { exportarSolicitudes } from '../utils/solicitudesPdfHelper';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { Pagination } from '../../../components/ui/Pagination';
-import { useSolicitudesAdminStore } from '../../../store/solicitudesAdminStore';
+import { useTramitesStore, type EventoTramite, type VersionTramite } from '../../../store/tramitesStore';
+import { useAuthStore } from '../../../store/authStore';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
-import { componerNombreCompleto } from '../../../lib/texto';
-import { avisoInfo } from '../../../lib/aviso';
+import { avisoError, avisoExito, avisoInfo, confirmarAccion, pedirTexto } from '../../../lib/aviso';
+import { friendlyDbError } from '../../../lib/notifyError';
+import {
+  ETIQUETA_ACCION_TRAMITE, ETIQUETA_ESTADO_TRAMITE, esReenvio, puedeRevisarlo, puedeRevisarse,
+} from '../../../lib/tramitesAcademicos';
+import { generatePreviewPDF } from '../utils/documentGenerator';
 
 export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) => {
-  const { solicitudes, fetchSolicitudes, updateSolicitud, removeSolicitud } = useSolicitudesAdminStore();
+  const tramites = useTramitesStore(estado => estado.tramites);
+  const errorTramites = useTramitesStore(estado => estado.error);
+  const procesando = useTramitesStore(estado => estado.procesando);
+  const fetchSolicitudes = useTramitesStore(estado => estado.fetchTramites);
+  const revisarTramite = useTramitesStore(estado => estado.revisar);
+  const removeSolicitud = useTramitesStore(estado => estado.eliminar);
+  const cargarHistorial = useTramitesStore(estado => estado.cargarHistorial);
+  const usuarioActual = useAuthStore(estado => estado.user);
+  const esAdministrador = usuarioActual?.role === 'admin';
 
-  useEffect(() => { fetchSolicitudes(); }, []);
+  useEffect(() => { void fetchSolicitudes(); }, []);
 
-  // Mapear campos de Supabase al formato interno del componente
-  const data = useMemo(() => solicitudes.map((s: any) => ({
-    id: String(s.id),
-    numero: s.numero,
-    asunto: s.asunto,
-    tipo: s.tipo || 'Oficio',
-    solicitante: componerNombreCompleto(s.usuarios?.nombre, s.usuarios?.apellido) || 'Desconocido',
-    fecha: s.fecha,
-    estado: s.estado,
-    descripcion: s.descripcion || '',
-  })), [solicitudes]);
+  // Los borradores no han sido presentados: el coordinador no debe verlos en su bandeja.
+  const data = useMemo(() => tramites
+    .filter(tramite => tramite.estado !== 'borrador')
+    .map(tramite => ({
+      id: String(tramite.id),
+      idNumero: tramite.id,
+      numero: tramite.numero,
+      asunto: tramite.asunto,
+      tipo: tramite.tipo || 'Oficio',
+      solicitante: tramite.estudiante,
+      carrera: tramite.carrera || '—',
+      fecha: tramite.enviadaEn ? tramite.enviadaEn.slice(0, 10) : tramite.fecha,
+      estado: tramite.estado,
+      descripcion: tramite.descripcion || '',
+      version: tramite.version,
+      destinatario: tramite.destinatario,
+      idUsuario: tramite.idUsuario,
+      idDestinatario: tramite.idDestinatario,
+      observaciones: tramite.observaciones,
+      decididoPor: tramite.decididoPor,
+    })), [tramites]);
 
   // KPIs
   const kpi = useMemo(() => ({
     total: data.length,
     pendientes: data.filter(s => s.estado === 'pendiente').length,
+    conCambios: data.filter(s => s.estado === 'cambios_solicitados').length,
     aprobados: data.filter(s => s.estado === 'aprobado').length,
     rechazados: data.filter(s => s.estado === 'rechazado').length,
   }), [data]);
@@ -55,7 +79,7 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Modals state
-  const [modalType, setModalType] = useState<null | 'create' | 'view' | 'edit' | 'import' | 'delete' | 'bulkDelete'>(null);
+  const [modalType, setModalType] = useState<null | 'create' | 'view' | 'import' | 'delete' | 'bulkDelete'>(null);
   const [selectedSol, setSelectedSol] = useState<any>(null);
   const [selectedSolForDetail, setSelectedSolForDetail] = useState<any>(null);
 
@@ -109,11 +133,88 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
 
 
 
-  // Handlers
-  const handleUpdateEstado = async (id: string, nuevoEstado: string) => {
-    await updateSolicitud(Number(id), { estado: nuevoEstado as any });
-    setSelectedSolForDetail((prev: any) => prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev);
+  // Historial de la solicitud abierta: versiones presentadas y decisiones tomadas.
+  const [historial, setHistorial] = useState<{ versiones: VersionTramite[]; eventos: EventoTramite[] } | null>(null);
+
+  /**
+   * Revisar NO es escribir un estado: es llamar a `revisar_solicitud_academica`, que comprueba en
+   * el servidor que quien decide sea el destinatario (o un administrador), que no sea su propio
+   * trámite y que nadie lo haya decidido antes. El `<select>` de estados que había aquí permitía
+   * poner "aprobado" sin dejar rastro de quién ni por qué.
+   */
+  const revisar = async (
+    solicitud: any,
+    decision: 'aprobado' | 'rechazado' | 'cambios_solicitados',
+  ) => {
+    let observaciones: string | null = null;
+
+    if (decision === 'aprobado') {
+      const confirmado = await confirmarAccion({
+        title: `¿Aprobar ${solicitud.numero}?`,
+        text: 'Aprobar no inserta ninguna firma en el documento: deja constancia de tu decisión.',
+        confirmar: 'Sí, aprobar',
+      });
+      if (!confirmado) return;
+    } else {
+      observaciones = await pedirTexto({
+        title: decision === 'rechazado' ? `Rechazar ${solicitud.numero}` : `Pedir cambios en ${solicitud.numero}`,
+        text: decision === 'rechazado'
+          ? 'El estudiante verá este motivo en Mis trámites.'
+          : 'Escribe qué debe corregir; podrá editarlo y volver a presentarlo.',
+        confirmar: decision === 'rechazado' ? 'Rechazar' : 'Pedir cambios',
+        obligatorio: true,
+      });
+      if (observaciones === null) return;
+    }
+
+    try {
+      const hecho = await revisarTramite(solicitud.idNumero, decision, observaciones ?? undefined);
+      if (!hecho) return;
+      setSelectedSolForDetail(null);
+      void avisoExito(
+        decision === 'aprobado' ? 'Trámite aprobado'
+          : decision === 'rechazado' ? 'Trámite rechazado'
+            : 'Cambios solicitados',
+      );
+    } catch (err: any) {
+      const amigable = friendlyDbError(err);
+      void avisoError(amigable.title, err?.message || amigable.text);
+    }
   };
+
+  /** Abre el documento tal como lo presentó el estudiante, no como saldría hoy de la plantilla. */
+  const verVersion = (version: VersionTramite) => {
+    try {
+      const documento = version.documento;
+      const url = URL.createObjectURL(generatePreviewPDF({
+        headerImgBase64: documento.encabezadoImagen || undefined,
+        footerImgBase64: documento.pieImagen || undefined,
+        tituloAutoridad: documento.destinatario?.titulo || '',
+        nombreAutoridad: documento.destinatario?.nombre || '',
+        cargo: documento.destinatario?.cargo || '',
+        lugarFecha: `${documento.valores?.ciudadOficio || ''} ${documento.valores?.fechaOficio || ''}`.trim(),
+        asunto: documento.contenido?.asunto,
+        cuerpo: documento.contenido?.parrafos ?? [],
+        adjuntos: documento.contenido?.adjuntos ?? [],
+        studentName: documento.valores?.nombreFirma || '',
+        studentCI: documento.valores?.ciFirma || '',
+        firmaImagen: documento.firmaImagen,
+      }));
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      void avisoError('No se pudo abrir el documento', 'La versión sigue guardada; vuelve a intentarlo.');
+    }
+  };
+  useEffect(() => {
+    if (!selectedSolForDetail) { setHistorial(null); return; }
+    let vigente = true;
+    void cargarHistorial(Number(selectedSolForDetail.idNumero))
+      .then(datos => { if (vigente) setHistorial(datos); })
+      .catch(() => { if (vigente) setHistorial(null); });
+    return () => { vigente = false; };
+  }, [selectedSolForDetail?.idNumero, cargarHistorial]);
+
   const handleSort = (col: string) => {
     if (sortCol === col) setSortAsc(!sortAsc);
     else { setSortCol(col); setSortAsc(true); }
@@ -155,9 +256,11 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
 
   // Badges
   const getEstadoBadge = (estado: string) => {
-    if (estado === 'pendiente') return <span className="bg-yellow-50 text-yellow-600 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-yellow-200/50 flex items-center gap-1 w-max"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>Pendiente</span>;
-    if (estado === 'aprobado') return <span className="bg-green-50 text-green-600 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-green-200/50 flex items-center gap-1 w-max"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>Aprobado</span>;
-    return <span className="bg-red-50 text-red-500 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-red-200/50 flex items-center gap-1 w-max"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>Rechazado</span>;
+    const etiqueta = ETIQUETA_ESTADO_TRAMITE[estado as keyof typeof ETIQUETA_ESTADO_TRAMITE] ?? estado;
+    if (estado === 'pendiente') return <span className="bg-yellow-50 text-yellow-600 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-yellow-200/50 flex items-center gap-1 w-max"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>{etiqueta}</span>;
+    if (estado === 'cambios_solicitados') return <span className="bg-amber-50 text-amber-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-amber-200/50 flex items-center gap-1 w-max"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>{etiqueta}</span>;
+    if (estado === 'aprobado') return <span className="bg-green-50 text-green-600 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-green-200/50 flex items-center gap-1 w-max"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>{etiqueta}</span>;
+    return <span className="bg-red-50 text-red-500 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-red-200/50 flex items-center gap-1 w-max"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>{etiqueta}</span>;
   };
 
   const getTipoBadge = (tipo: string) => {
@@ -233,6 +336,17 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
         )}
 
       <div className="flex-1 flex flex-col p-6 md:p-8 min-h-0 relative bg-[#f4f7fb]/90 backdrop-blur-xl h-full animate-fade-in">
+        {/* Una consulta fallida no puede parecerse a una bandeja vacía. */}
+        {errorTramites && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shrink-0">
+            <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-[12px] font-extrabold text-red-800">No se pudo leer la bandeja completa</p>
+              <p className="text-[11px] text-red-700 mt-0.5">{errorTramites}</p>
+            </div>
+          </div>
+        )}
+
         {/* PANEL SPLIT */}
         <div className="flex-1 flex flex-row min-h-0 gap-6 relative">
 
@@ -256,7 +370,8 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
               value={estadoFilter}
               options={[
                 { key: 'Todos', label: `Todos (${kpi.total})` },
-                { key: 'pendiente', label: `Pendientes (${kpi.pendientes})` },
+                { key: 'pendiente', label: `Por revisar (${kpi.pendientes})` },
+                { key: 'cambios_solicitados', label: `Con cambios pedidos (${kpi.conCambios})` },
                 { key: 'aprobado', label: `Aprobados (${kpi.aprobados})` },
                 { key: 'rechazado', label: `Rechazados (${kpi.rechazados})` },
               ]}
@@ -374,12 +489,21 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs font-bold text-gray-900 truncate">{s.asunto}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">{s.id}</span>
+                    <span className="flex items-center gap-1.5 text-[10px] text-gray-400 font-mono">
+                      {s.numero}
+                      {/* El reenvío se deduce de la versión: no hace falta un estado aparte. */}
+                      {esReenvio(s.version) && (
+                        <span className="rounded-full bg-indigo-50 px-1.5 font-sans font-extrabold text-indigo-600">v{s.version}</span>
+                      )}
+                    </span>
                   </div>
                   <div>{getTipoBadge(s.tipo)}</div>
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-6 h-6 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-gray-500 font-bold text-[10px]">{s.solicitante.charAt(0)}</div>
-                    <span className="text-[11px] font-semibold text-gray-700 truncate">{s.solicitante}</span>
+                    <div className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-gray-700 truncate">{s.solicitante}</span>
+                      <span className="block text-[10px] text-gray-400 truncate">{s.carrera}</span>
+                    </div>
                   </div>
                   <div className="text-[11px] text-gray-500 font-medium">
                     {new Date(s.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -387,7 +511,6 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
                   <div>{getEstadoBadge(s.estado)}</div>
                   <div className="flex justify-end gap-1">
                     <button onClick={() => setSelectedSolForDetail(s)} className="w-7 h-7 flex items-center justify-center rounded-md bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors" title="Ver detalle"><Eye className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => { setSelectedSol(s); setModalType('edit'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-colors" title="Cambiar estado"><Edit2 className="w-3.5 h-3.5" /></button>
                     <button onClick={() => { setSelectedSol(s); setModalType('delete'); }} className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
@@ -441,40 +564,102 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
                     <div><strong>Tipo:</strong> {selectedSolForDetail.tipo}</div>
                   </div>
 
-                  <div className="text-justify mb-8 opacity-90">
+                  <div className="text-justify mb-6 opacity-90">
                     <strong>Descripción / Detalle:</strong><br/><br/>
-                    {selectedSolForDetail.descripcion}
+                    {selectedSolForDetail.descripcion || 'Sin descripción.'}
+                  </div>
+
+                  {selectedSolForDetail.observaciones && (
+                    <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <strong className="text-amber-800">Observaciones registradas:</strong>
+                      <p className="mt-1 whitespace-pre-line text-amber-900">{selectedSolForDetail.observaciones}</p>
+                    </div>
+                  )}
+
+                  <div className="mb-6">
+                    <strong>Documento presentado</strong>
+                    {!historial ? (
+                      <p className="mt-1 text-gray-400">Cargando…</p>
+                    ) : historial.versiones.length === 0 ? (
+                      <p className="mt-1 text-gray-400">Este trámite no tiene versiones guardadas (se registró antes de la 0045).</p>
+                    ) : (
+                      <div className="mt-2 flex flex-col gap-1.5">
+                        {historial.versiones.map(version => (
+                          <button
+                            key={version.id}
+                            onClick={() => verVersion(version)}
+                            className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-left hover:bg-gray-50"
+                          >
+                            <span>Versión {version.version} · {new Date(version.creadaEn).toLocaleDateString('es-ES')}</span>
+                            <span className="font-bold text-espoch-red">Ver PDF</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <strong>Historial</strong>
+                    {!historial ? (
+                      <p className="mt-1 text-gray-400">Cargando…</p>
+                    ) : (
+                      <ol className="mt-2 flex flex-col gap-1.5 border-l border-gray-200 pl-3">
+                        {historial.eventos.map(evento => (
+                          <li key={evento.id}>
+                            <span className="font-semibold">
+                              {ETIQUETA_ACCION_TRAMITE[evento.accion] ?? evento.accion}
+                            </span>
+                            {evento.actor ? ` · ${evento.actor}` : ''}
+                            <span className="text-gray-400"> · {new Date(evento.creadoEn).toLocaleDateString('es-ES')}</span>
+                            {evento.observaciones && <p className="text-gray-600">{evento.observaciones}</p>}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
                   </div>
                </div>
             </div>
 
             <div className="flex flex-col gap-2 mt-auto shrink-0">
-               <div className="flex gap-2">
-                 {selectedSolForDetail.estado !== 'aprobado' && (
+               {/* Las acciones solo aparecen para quien puede ejecutarlas. Ocultarlas no es el
+                   control: el control es la función del servidor, que vuelve a comprobarlo. */}
+               {puedeRevisarse(selectedSolForDetail.estado) && puedeRevisarlo(
+                 { id_usuario: selectedSolForDetail.idUsuario, id_destinatario: selectedSolForDetail.idDestinatario },
+                 usuarioActual?.id ?? null,
+                 esAdministrador,
+               ) ? (
+                 <div className="flex flex-col gap-2">
                    <button
-                      onClick={() => handleUpdateEstado(selectedSolForDetail.id, 'aprobado')}
-                      className="flex-1 bg-[#0f172a] hover:bg-black text-white text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-gray-800"
+                      onClick={() => void revisar(selectedSolForDetail, 'aprobado')}
+                      disabled={procesando !== null}
+                      className="w-full bg-[#0f172a] hover:bg-black disabled:opacity-50 text-white text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-gray-800"
                    >
                       <CheckCircle className="w-3.5 h-3.5" /> Aprobar
                    </button>
-                 )}
-                 {selectedSolForDetail.estado !== 'rechazado' && (
-                   <button
-                      onClick={() => handleUpdateEstado(selectedSolForDetail.id, 'rechazado')}
-                      className="flex-1 bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200 text-red-600 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                   >
-                      <XCircle className="w-3.5 h-3.5" /> Rechazar
-                   </button>
-                 )}
-                 {selectedSolForDetail.estado !== 'pendiente' && (
-                   <button
-                      onClick={() => handleUpdateEstado(selectedSolForDetail.id, 'pendiente')}
-                      className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                   >
-                      <Clock className="w-3.5 h-3.5" /> Pendiente
-                   </button>
-                 )}
-               </div>
+                   <div className="flex gap-2">
+                     <button
+                        onClick={() => void revisar(selectedSolForDetail, 'cambios_solicitados')}
+                        disabled={procesando !== null}
+                        className="flex-1 bg-white border border-gray-200 hover:bg-amber-50 hover:border-amber-200 disabled:opacity-50 text-amber-700 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                     >
+                        <RotateCcw className="w-3.5 h-3.5" /> Pedir cambios
+                     </button>
+                     <button
+                        onClick={() => void revisar(selectedSolForDetail, 'rechazado')}
+                        disabled={procesando !== null}
+                        className="flex-1 bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200 disabled:opacity-50 text-red-600 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                     >
+                        <XCircle className="w-3.5 h-3.5" /> Rechazar
+                     </button>
+                   </div>
+                 </div>
+               ) : (
+                 <p className="rounded-lg bg-gray-50 px-3 py-2 text-[10.5px] text-gray-500">
+                   {puedeRevisarse(selectedSolForDetail.estado)
+                     ? `Lo revisa ${selectedSolForDetail.destinatario || 'su destinatario'}.`
+                     : `${ETIQUETA_ESTADO_TRAMITE[selectedSolForDetail.estado as keyof typeof ETIQUETA_ESTADO_TRAMITE] ?? selectedSolForDetail.estado}${selectedSolForDetail.decididoPor ? ` por ${selectedSolForDetail.decididoPor}` : ''}.`}
+                 </p>
+               )}
                <button onClick={() => exportarSolicitudes([selectedSolForDetail])} className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-[11px] font-bold py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm mt-1">
                  <Download className="w-3.5 h-3.5" /> Descargar PDF
                </button>
@@ -521,32 +706,6 @@ export const Solicitudes = ({ embedded = false }: { embedded?: boolean } = {}) =
             )}
 
 
-
-            {modalType === 'edit' && selectedSol && (
-              <>
-                <h3 className="text-lg font-extrabold text-gray-900 mb-1">Cambiar Estado</h3>
-                <p className="text-xs text-gray-500 mb-6">Actualice el estado de: <b>{selectedSol.asunto}</b></p>
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  const fd = new FormData(e.currentTarget);
-                  await handleUpdateEstado(selectedSol.id, fd.get('estado') as string);
-                  await fetchSolicitudes();
-                  setModalType(null);
-                }} className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nuevo Estado</label>
-                    <select name="estado" defaultValue={selectedSol.estado} className="bg-gray-50 text-sm text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow/50 font-medium appearance-none cursor-pointer">
-                      <option value="pendiente">Pendiente</option>
-                      <option value="aprobado">Aprobado</option>
-                      <option value="rechazado">Rechazado</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-3 mt-4 justify-end">
-                    <button type="button" onClick={() => setModalType(null)} className="px-5 py-2.5 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
-                    <button type="submit" className="bg-[#0f172a] hover:bg-black text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg transition-all border border-gray-800">Actualizar Estado</button>
-                  </div>
-                </form>
-              </>
-            )}
 
             {modalType === 'import' && (
               <>

@@ -1,5 +1,12 @@
+/**
+ * Las solicitudes de equipos del propio estudiante.
+ *
+ * La política RLS de la migración 0043 ya limita la consulta a sus filas; el `.eq('id_usuario')`
+ * se conserva porque el admin también entra a esta pantalla con "Ver como" y ahí sí vería todas.
+ */
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import type { EstadoSolicitudEquipo } from '../modules/admin/data/flujoPrestamos';
 
 export interface SolicitudItem {
   nombre: string;
@@ -16,8 +23,10 @@ export interface SolicitudEquipo {
   items: SolicitudItem[];
   fecha: string;
   hora: string;
-  estado: 'Aprobada' | 'Pendiente' | 'Devuelto' | 'Rechazada';
+  estado: EstadoSolicitudEquipo;
   observacion?: string;
+  /** Por qué se rechazó o canceló. Es lo primero que el estudiante busca. */
+  motivoRechazo?: string;
 }
 
 interface SolicitudesEquipoState {
@@ -38,10 +47,7 @@ export const useSolicitudesEquipoStore = create<SolicitudesEquipoState>()((set) 
     try {
       const { data, error } = await supabase
         .from('solicitudes_equipo')
-        .select(`
-          *,
-          materias ( nombre )
-        `)
+        .select('*, materias ( nombre )')
         .eq('id_usuario', userId)
         .order('fecha', { ascending: false });
 
@@ -52,38 +58,38 @@ export const useSolicitudesEquipoStore = create<SolicitudesEquipoState>()((set) 
         return {
           id: d.id.toString(),
           numero: d.numero,
-          asignatura: d.materias?.nombre || 'Desconocida',
+          // La materia de la malla manda sobre el texto libre, que es solo el respaldo.
+          asignatura: d.materias?.nombre || d.asignatura_libre || 'Sin registrar',
           fecha: d.fecha,
           hora: d.hora,
-          estado: d.estado as any,
+          estado: d.estado,
           items: itemsList,
           itemsStr: itemsList.map(i => i.nombre).join(', '),
-          observacion: d.observacion
+          observacion: d.observacion,
+          motivoRechazo: d.motivo_rechazo ?? undefined,
         };
       });
 
       set({ items: formatted, loading: false });
     } catch (err: any) {
-      console.error('Error fetching solicitudes_equipo:', err);
-      set({ error: err.message, loading: false });
+      // La lista no se vacía: mostrar "sin solicitudes" cuando la consulta falló haría creer
+      // que nunca se envió nada.
+      set({ error: err?.message || 'No se pudieron cargar tus solicitudes.', loading: false });
     }
   },
 
   cancelarSolicitud: async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('solicitudes_equipo')
-        .update({ estado: 'Rechazada' })
-        .eq('id', id);
+    // Cancelar no es rechazar: antes se escribía `estado = 'Rechazada'` directamente en la
+    // tabla, así que el historial no distinguía "me arrepentí" de "el laboratorio lo negó" —y,
+    // al ser un update directo, un estudiante podía cambiar el estado de cualquier solicitud.
+    const { error } = await supabase.rpc('cancelar_solicitud_equipo' as never, {
+      p_id: Number(id),
+      p_motivo: null,
+    } as never);
+    if (error) throw error;
 
-      if (error) throw error;
-      
-      set(state => ({
-        items: state.items.map(item => item.id === id ? { ...item, estado: 'Rechazada' } : item)
-      }));
-    } catch (err: any) {
-      console.error('Error canceling solicitud:', err);
-      throw err;
-    }
-  }
+    set(estado => ({
+      items: estado.items.map(item => (item.id === id ? { ...item, estado: 'Cancelada' } : item)),
+    }));
+  },
 }));
