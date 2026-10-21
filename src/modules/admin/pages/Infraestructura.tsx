@@ -22,7 +22,6 @@ import { MapControls, getTileUrl, atribucionTiles, type MapLayer } from '../../.
 import { UserLocationMarker } from '../../../components/ui/UserLocationMarker';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
-import { useInventarioStore } from '../../../store/inventarioStore';
 import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
 import { TIPOS_ESPACIO, esAula, esLaboratorio, esOficina, formatoPiso, formatoPisoCorto, generarOpcionesPisos } from '../data/espaciosData';
@@ -116,11 +115,8 @@ export const Infraestructura = () => {
   const addEspacio = useEspaciosStore(s => s.addEspacio);
   const updateEspacio = useEspaciosStore(s => s.updateEspacio);
   const removeEspacio = useEspaciosStore(s => s.removeEspacio);
-  const invItems = useInventarioStore(s => s.items);
-  const fetchInv = useInventarioStore(s => s.fetchItems);
-  const updateInvItem = useInventarioStore(s => s.updateItem);
 
-  useEffect(() => { fetchEdificios(); fetchEspacios(); fetchInv(); }, []);
+  useEffect(() => { fetchEdificios(); fetchEspacios(); }, []);
 
   // MAPPED DATA
   const edificios = useMemo(() => edificiosRaw.map((e: any) => ({
@@ -155,11 +151,6 @@ export const Infraestructura = () => {
     espaciosMapped.forEach(e => { map[e.idEdificio] = (map[e.idEdificio] || 0) + 1; });
     return map;
   }, [espaciosMapped]);
-
-  const ubicacionInv = (i: any): string => {
-    const esp = espaciosMapped.find(e => e.id === i.id_espacio);
-    return esp ? `${esp.edificio} - ${esp.nombre}` : 'Sin ubicación';
-  };
 
   // GLOBAL KPIs
   const kpis = useMemo(() => ({
@@ -373,39 +364,35 @@ export const Infraestructura = () => {
   };
 
   // ============ MODALS: ESPACIO ============
-  const espDefaults = { nombre: '', idEdificio: '', piso: 0, tipo: 'Académica', capacidad: 20, m2: 60, equipamiento: '', estado: 'disponible', fotos: [] as string[], fotoFiles: [] as (File | null)[], lat: null as number | null, lng: null as number | null, equipoIds: [] as string[] };
+  // `equipamiento` sigue en el formulario aunque ya no se muestre: así se conserva el valor
+  // que tenga el espacio en vez de borrarlo al guardar. Vincular equipos se hace desde
+  // Activos, en el campo "Aula / Ubicación" de cada equipo.
+  const espDefaults = { nombre: '', idEdificio: '', piso: 0, tipo: 'Académica', capacidad: 20, m2: 60, equipamiento: '', estado: 'disponible', fotos: [] as string[], fotoFiles: [] as (File | null)[], lat: null as number | null, lng: null as number | null };
   const [espModal, setEspModal] = useState<null | 'create' | 'edit' | 'delete' | 'fotos'>(null);
   const [espForm, setEspForm] = useState(espDefaults);
   const [selectedEsp, setSelectedEsp] = useState<any>(null);
-  const [originalEquipoIds, setOriginalEquipoIds] = useState<string[]>([]);
-  const [showEquipoPicker, setShowEquipoPicker] = useState(false);
-  const [equipoSearch, setEquipoSearch] = useState('');
   const [gpsEsp, setGpsEsp] = useState(false);
 
   const opcionesPisos = useMemo(() => generarOpcionesPisos(), []);
 
   const openCreateEspacio = (opts: { lat?: number | null; lng?: number | null; tipo?: string } = {}) => {
     setSelectedEsp(null);
-    setOriginalEquipoIds([]);
     setEspForm({
       ...espDefaults,
       idEdificio: selectedEdificioId || '',
       lat: opts.lat ?? null, lng: opts.lng ?? null,
       tipo: opts.tipo ?? (espTab === 'lab' ? 'Laboratorio Técnico' : espTab === 'oficina' ? 'Oficina de Docentes' : 'Académica'),
     });
-    setShowEquipoPicker(false); setEquipoSearch('');
     setEspModal('create');
   };
 
   const openEditEspacio = (esp: any) => {
     setSelectedEsp(esp);
-    const linked = invItems.filter(i => i.id_espacio === esp.id).map(i => i.id);
     setEspForm({
       nombre: esp.nombre, idEdificio: esp.idEdificio, piso: esp.piso ?? 0, tipo: esp.tipo,
       capacidad: esp.capacidad, m2: esp.m2, equipamiento: esp.equipamiento, estado: esp.estado,
-      fotos: esp.fotos || [], fotoFiles: [], lat: esp.lat, lng: esp.lng, equipoIds: linked,
+      fotos: esp.fotos || [], fotoFiles: [], lat: esp.lat, lng: esp.lng,
     });
-    setOriginalEquipoIds(linked); setShowEquipoPicker(false); setEquipoSearch('');
     setEspModal('edit');
   };
 
@@ -462,11 +449,9 @@ export const Infraestructura = () => {
       if (espForm.fotoFiles[i]) { const u = await uploadImage(espForm.fotoFiles[i]!, 'espacios'); if (u) finalFotos[i] = u; }
     }
     finalFotos = finalFotos.filter(f => f && !f.startsWith('blob:'));
-    const equipNames = invItems.filter(i => espForm.equipoIds.includes(i.id)).map(i => i.nombre);
-    let equipamiento = espForm.equipamiento?.trim() || '';
-    if (equipNames.length > 0) equipamiento = equipamiento ? `${equipamiento}, ${equipNames.join(', ')}` : equipNames.join(', ');
-    if (!equipamiento) equipamiento = 'N/A';
-    const { equipoIds } = espForm;
+    // Se reenvía tal cual el valor que ya tenía el espacio: el campo dejó de mostrarse, pero
+    // guardar no debe borrar lo que haya cargado. El 'N/A' es el valor por defecto de siempre.
+    const equipamiento = espForm.equipamiento?.trim() || 'N/A';
     const espId = espModal === 'create' ? 'ESP' + Date.now() : selectedEsp?.id;
     const payload = {
       nombre: espForm.nombre, id_edificio: espForm.idEdificio, piso: espForm.piso, tipo: espForm.tipo,
@@ -479,10 +464,6 @@ export const Infraestructura = () => {
     } catch (err: any) {
       void avisoError('No se pudo guardar', err?.message || 'Vuelve a intentarlo.');
       setSubmitting(false); return;
-    }
-    if (espId) {
-      equipoIds.forEach(id => updateInvItem(id, { id_espacio: espId }));
-      originalEquipoIds.filter(id => !equipoIds.includes(id)).forEach(id => updateInvItem(id, { id_espacio: null }));
     }
     setSubmitting(false); setEspModal(null);
   };
@@ -522,7 +503,7 @@ export const Infraestructura = () => {
       </PageHero>
 
       {view === 'gestion' ? (
-        <div className="relative flex-1 flex p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
+        <div className="relative flex-1 flex p-3 sm:p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
           {/* LEFT: TREE OF EDIFICIOS */}
           <PanelLateral
             abierto={panelAbierto}
@@ -626,7 +607,7 @@ export const Infraestructura = () => {
                 <p className="text-sm text-gray-500 max-w-sm">Elige un edificio del panel izquierdo para gestionar sus aulas y laboratorios, o crea uno nuevo.</p>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-50/30 p-6 md:p-8">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-50/30 p-3 sm:p-6 md:p-8">
                 {/* IDENTITY CARD */}
                 <div className="shrink-0 bg-white border border-gray-100 rounded-[24px] shadow-sm mb-6 flex flex-col md:flex-row md:items-center p-3 gap-4 md:gap-5">
                   <img src={selectedEdificio.imagen} alt={selectedEdificio.nombre} className="w-full md:w-[150px] h-[120px] md:h-[90px] object-cover rounded-2xl shrink-0" />
@@ -634,7 +615,7 @@ export const Infraestructura = () => {
                     {/* Nombre + ubicación */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <h3 className="text-[26px] font-extrabold text-[#0f172a] truncate leading-none tracking-tight">{selectedEdificio.nombre}</h3>
+                        <h3 className="text-[19px] sm:text-[26px] font-extrabold text-[#0f172a] truncate leading-none tracking-tight">{selectedEdificio.nombre}</h3>
                         <EstadoBadge estado={selectedEdificio.estado} />
                       </div>
                       <p className="text-[12px] font-medium text-gray-500 flex items-center gap-1.5 mt-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" /> {selectedEdificio.direccion}</p>
@@ -680,11 +661,12 @@ export const Infraestructura = () => {
                     </div>
 
                     {/* Acciones */}
+                    {/* En celular ocupan la fila a medias; desde sm vuelven a su ancho natural. */}
                     <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => openEditEdificio(selectedEdificio)} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
+                      <button onClick={() => openEditEdificio(selectedEdificio)} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
                         <Edit2 className="w-3.5 h-3.5" /> Editar
                       </button>
-                      <button onClick={() => { setSelectedEdForm(selectedEdificio); setEdModal('delete'); }} className="bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
+                      <button onClick={() => { setSelectedEdForm(selectedEdificio); setEdModal('delete'); }} className="flex-1 sm:flex-none bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
                         <Trash2 className="w-3.5 h-3.5" /> Eliminar
                       </button>
                     </div>
@@ -692,16 +674,17 @@ export const Infraestructura = () => {
                 </div>
 
                 {/* TOOLBAR */}
-                <div className="shrink-0 bg-white border border-gray-200 rounded-xl shadow-sm px-5 py-3 mb-4 flex items-center justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-3 flex-wrap">
+                <div className="shrink-0 bg-white border border-gray-200 rounded-xl shadow-sm px-3 sm:px-5 py-3 mb-4 flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full lg:w-auto">
                     <BotonPanelLateral
                       abierto={panelAbierto}
                       onClick={() => setPanelAbierto(a => !a)}
                       titulo="Edificios y espacios"
                     />
-                    <div className="relative">
+                    {/* El buscador toma el resto de la fila en celular; desde sm vuelve a 200px. */}
+                    <div className="relative flex-1 min-w-[140px] sm:flex-none">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input type="text" value={espSearch} onChange={e => setEspSearch(e.target.value)} placeholder="Buscar espacio..." className="w-[200px] pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-[12px] font-medium text-gray-700 outline-none focus:border-indigo-400 transition-colors" />
+                      <input type="text" value={espSearch} onChange={e => setEspSearch(e.target.value)} placeholder="Buscar espacio..." className="w-full sm:w-[200px] pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-[12px] font-medium text-gray-700 outline-none focus:border-indigo-400 transition-colors" />
                     </div>
                     {espTabItems.map(tab => {
                       const active = espTab === tab.key;
@@ -752,7 +735,6 @@ export const Infraestructura = () => {
                         render: sp => (
                           <div className="flex flex-col min-w-0">
                             <span className="text-[12px] font-bold text-gray-900 truncate">{sp.nombre}</span>
-                            <span className="text-[10px] text-gray-400 truncate">{sp.equipamiento || 'N/A'}</span>
                           </div>
                         ),
                       },
@@ -795,7 +777,6 @@ export const Infraestructura = () => {
                             <h4 className="text-[14px] font-bold text-gray-900 leading-tight line-clamp-1 group-hover:text-indigo-600 transition-colors">{sp.nombre}</h4>
                             {tipoBadge(sp.tipo)}
                           </div>
-                          <p className="text-[10.5px] text-gray-400 truncate mb-3">{sp.equipamiento || 'Sin equipamiento'}</p>
                           <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
                             <div className="flex items-center gap-4 text-[11px] font-bold text-[#0f172a]">
                               <span className="flex items-center gap-1.5"><FileText className="w-4 h-4 text-slate-500" strokeWidth={1.5} /> {formatoPiso(sp.piso)}</span>
@@ -1108,46 +1089,6 @@ export const Infraestructura = () => {
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Área (m²)</label>
                       <input required type="number" min="1" value={espForm.m2} onChange={e => setEspForm({ ...espForm, m2: parseInt(e.target.value) || 40 })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all" />
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Equipamiento <span className="text-gray-400 normal-case font-medium">(opcional)</span></label>
-                      <button type="button" onClick={() => setShowEquipoPicker(v => !v)} className="text-[10px] font-bold text-espoch-ink hover:text-black flex items-center gap-1"><Plus className="w-3 h-3" /> Vincular del inventario</button>
-                    </div>
-                    <input type="text" value={espForm.equipamiento} onChange={e => setEspForm({ ...espForm, equipamiento: e.target.value })} placeholder="Ej. Proyector, Pizarra digital (opcional)" className="bg-[#fafafa] text-[13px] text-gray-700 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-medium transition-all placeholder:text-gray-400" />
-                    {espForm.equipoIds.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 bg-[#fafafa] border border-gray-200 rounded-xl p-2.5">
-                        {espForm.equipoIds.map(id => {
-                          const it = invItems.find(i => i.id === id);
-                          if (!it) return null;
-                          return (
-                            <span key={id} className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full pl-2.5 pr-1.5 py-1 text-[11px] font-bold text-gray-700 shadow-sm">
-                              {it.nombre}
-                              <button type="button" onClick={() => setEspForm({ ...espForm, equipoIds: espForm.equipoIds.filter(x => x !== id) })} className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {showEquipoPicker && (
-                      <div className="border border-gray-200 rounded-xl bg-white p-2.5 flex flex-col gap-2 mt-1 shadow-sm">
-                        <input value={equipoSearch} onChange={e => setEquipoSearch(e.target.value)} placeholder="Buscar equipo del inventario..." className="w-full bg-[#fafafa] text-[12px] text-gray-700 rounded-lg py-2 px-3 outline-none border border-gray-200 focus:border-espoch-yellow font-medium placeholder:text-gray-400" />
-                        <div className="max-h-[160px] overflow-y-auto custom-scrollbar flex flex-col gap-1">
-                          {invItems
-                            .filter(i => !espForm.equipoIds.includes(i.id))
-                            .filter(i => !equipoSearch.trim() || i.nombre.toLowerCase().includes(equipoSearch.toLowerCase()) || i.serie.toLowerCase().includes(equipoSearch.toLowerCase()))
-                            .map(i => (
-                              <button key={i.id} type="button" onClick={() => setEspForm({ ...espForm, equipoIds: [...espForm.equipoIds, i.id] })} className="flex items-center gap-2 text-left px-2.5 py-2 rounded-lg hover:bg-gray-50 transition-colors group">
-                                <Plus className="w-3.5 h-3.5 text-gray-300 group-hover:text-espoch-ink shrink-0" />
-                                <span className="flex-1 min-w-0"><span className="block text-[12px] font-bold text-gray-800 truncate">{i.nombre}</span><span className="block text-[10px] text-gray-400 truncate">{i.serie} · {ubicacionInv(i)}</span></span>
-                              </button>
-                            ))}
-                          {invItems.filter(i => !espForm.equipoIds.includes(i.id)).filter(i => !equipoSearch.trim() || i.nombre.toLowerCase().includes(equipoSearch.toLowerCase()) || i.serie.toLowerCase().includes(equipoSearch.toLowerCase())).length === 0 && (
-                            <p className="text-[11px] text-gray-400 italic py-3 text-center">No hay equipos disponibles.</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                   {espModal === 'edit' && (
                     <div className="flex flex-col gap-1.5">
