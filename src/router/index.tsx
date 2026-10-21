@@ -54,6 +54,7 @@ const Activos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Act
 const Tramites = lazy(() => cargarPagina(() => import('../modules/admin/pages/Tramites').then(m => ({ default: m.Tramites }))));
 const Usuarios = lazy(() => cargarPagina(() => import('../modules/admin/pages/Usuarios').then(m => ({ default: m.Usuarios }))));
 const Reportes = lazy(() => cargarPagina(() => import('../modules/admin/pages/Reportes').then(m => ({ default: m.Reportes }))));
+const Monitoreo = lazy(() => cargarPagina(() => import('../modules/admin/pages/Monitoreo').then(m => ({ default: m.Monitoreo }))));
 const Horarios = lazy(() => cargarPagina(() => import('../modules/admin/pages/Horarios').then(m => ({ default: m.Horarios }))));
 const Recursos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Recursos').then(m => ({ default: m.Recursos }))));
 const Asignaciones = lazy(() => cargarPagina(() => import('../modules/admin/pages/Asignaciones').then(m => ({ default: m.Asignaciones }))));
@@ -189,6 +190,10 @@ export const AppRouter = () => {
             <Route path="laboratorios" element={<Navigate to="/admin/infraestructura" replace />} />
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="reportes" element={<Reportes />} />
+            {/* Solo admin: la RLS de `auditoria` ya lo exige, esto evita además mostrar la
+                pantalla vacía a un técnico que llegue por la URL. */}
+            <Route path="monitoreo" element={<Monitoreo />} />
+            <Route path="auditoria" element={<Navigate to="/admin/monitoreo" replace />} />
             <Route path="horarios" element={<Horarios />} />
             <Route path="recursos" element={<Recursos />} />
             <Route path="asignaciones" element={<Navigate to="/admin/activos?tab=asignaciones" replace />} />

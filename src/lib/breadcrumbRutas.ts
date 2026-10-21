@@ -22,6 +22,7 @@ const RUTAS: Record<string, RutaNombrada> = {
   '/admin/recursos': { seccion: 'Académico', titulo: 'Recursos' },
   '/admin/usuarios': { seccion: 'Administración', titulo: 'Usuarios' },
   '/admin/reportes': { seccion: 'Sistema', titulo: 'Reportes' },
+  '/admin/monitoreo': { seccion: 'Sistema', titulo: 'Monitoreo' },
   '/admin/asignacion-mapa': { seccion: 'Gestión', titulo: 'Mapa de Asignaciones' },
 };
 

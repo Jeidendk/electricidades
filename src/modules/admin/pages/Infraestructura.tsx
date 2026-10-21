@@ -178,6 +178,14 @@ export const Infraestructura = () => {
   const alternarPiso = (clave: string) =>
     setPisoAbierto(actual => (actual === clave ? null : clave));
 
+  /**
+   * Qué tarjeta del panel se ve EN CELULAR. Apiladas, elegir un edificio dejaba sus pisos fuera
+   * de pantalla y había que desplazarse a ciegas. Se navega de a un paso —edificios, luego sus
+   * pisos, con un botón para volver—, que es lo que hace cualquier app móvil con maestro-detalle.
+   * De `sm` en adelante no se usa: ahí las dos tarjetas caben lado a lado.
+   */
+  const [pasoPanelMovil, setPasoPanelMovil] = useState<'edificios' | 'pisos'>('edificios');
+
   useEffect(() => {
     if (!selectedEdificioId && edificios.length > 0) {
       setSelectedEdificioId(edificios[0].id);
@@ -482,13 +490,15 @@ export const Infraestructura = () => {
         ]}
       >
         {/* Conmutador integrado al hero (patrón de Horarios): sin fila extra vacía */}
-        <div className="flex items-center bg-espoch-herocard/80 rounded-xl p-1 border border-white/5 shadow-inner">
+        {/* `max-w-full` + `shrink-0` en los botones: en celular "Mapa Campus" se salía del hero
+            y quedaba inalcanzable. Si no entra, el grupo se desplaza en horizontal. */}
+        <div className="flex max-w-full items-center overflow-x-auto bg-espoch-herocard/80 rounded-xl p-1 border border-white/5 shadow-inner">
           {([
             { key: 'gestion' as const, label: 'Gestión', Icon: LayoutGrid },
             { key: 'mapa' as const, label: 'Mapa Campus', Icon: MapIcon },
           ]).map(t => (
-            <button key={t.key} onClick={() => setView(t.key)} className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${view === t.key ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-              <t.Icon className="w-4 h-4" /> {t.label}
+            <button key={t.key} onClick={() => setView(t.key)} className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 sm:px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${view === t.key ? 'bg-[#df0000] text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+              <t.Icon className="w-4 h-4 shrink-0" /> {t.label}
             </button>
           ))}
         </div>
@@ -515,7 +525,7 @@ export const Infraestructura = () => {
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto custom-scrollbar px-3 pb-3 pointer-events-none sm:flex-row sm:items-start sm:overflow-visible">
               {/* IZQUIERDA: edificios. Seleccionar uno muestra sus pisos al lado, así que nunca
                   hay dos edificios desplegados a la vez como pasaba con el árbol. */}
-              <div className="pointer-events-auto flex w-full shrink-0 flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:max-h-full sm:w-[280px] sm:overflow-y-auto">
+              <div className={`pointer-events-auto w-full shrink-0 flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:w-[280px] sm:overflow-y-auto ${pasoPanelMovil === 'edificios' ? 'flex' : 'hidden'}`}>
                 <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
                   <Building2 className="h-3 w-3" /> Edificios
                 </div>
@@ -529,7 +539,7 @@ export const Infraestructura = () => {
                   return (
                     <button
                       key={ed.id}
-                      onClick={() => selectEdificio(ed.id)}
+                      onClick={() => { selectEdificio(ed.id); setPasoPanelMovil('pisos'); }}
                       className={`flex items-start gap-2 rounded-xl px-2 py-2 text-left transition-colors ${isSel ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
                       <span className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${ed.estado === 'operativo' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
@@ -551,9 +561,19 @@ export const Infraestructura = () => {
               </div>
 
               {/* DERECHA: pisos y aulas del edificio elegido. Un solo piso abierto a la vez. */}
-              <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:max-h-full sm:overflow-y-auto">
+              <div className={`pointer-events-auto min-w-0 flex-1 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:overflow-y-auto ${pasoPanelMovil === 'pisos' ? 'flex' : 'hidden'}`}>
                 <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
-                  <Layers className="h-3 w-3" /> Pisos y aulas
+                  {/* Volver a la lista de edificios. Solo en celular: de sm en adelante la lista
+                      está a la vista, al lado, y el botón no tendría sentido. */}
+                  <button
+                    onClick={() => setPasoPanelMovil('edificios')}
+                    className="-ml-1 mr-0.5 flex h-5 w-5 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 sm:hidden"
+                    title="Volver a edificios"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                  </button>
+                  <Layers className="h-3 w-3" />
+                  <span className="truncate">{selectedEdificio ? selectedEdificio.nombre : 'Pisos y aulas'}</span>
                 </div>
                 {!selectedEdificio ? (
                   <p className="px-2 py-3 text-[11px] italic text-gray-400">Elige un edificio.</p>
@@ -691,7 +711,12 @@ export const Infraestructura = () => {
                   <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full lg:w-auto">
                     <BotonPanelLateral
                       abierto={panelAbierto}
-                      onClick={() => setPanelAbierto(a => !a)}
+                      // Al abrirlo se vuelve siempre a la lista de edificios: reaparecer en los
+                      // pisos del que se miró la vez anterior desorienta más de lo que ahorra.
+                      onClick={() => {
+                        if (!panelAbierto) setPasoPanelMovil('edificios');
+                        setPanelAbierto(!panelAbierto);
+                      }}
                       titulo="Edificios y espacios"
                     />
                     {/* El buscador toma el resto de la fila en celular; desde sm vuelve a 200px. */}

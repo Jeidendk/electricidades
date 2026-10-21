@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
     LayoutGrid, FileText, MonitorSpeaker, ChevronLeft,
     GraduationCap, ChevronDown, Building2,
-    Users, BarChart2, Clock, Library, Landmark, Inbox, MessageSquare, ArrowLeftRight
+    Users, BarChart2, Clock, Library, Landmark, Inbox, MessageSquare, ArrowLeftRight, ShieldCheck
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
@@ -195,6 +195,12 @@ export const AdminSidebar = () => {
           <NavLink to="/admin/reportes" className={navLinkClass} title={collapsed ? "REPORTES" : ""}>
             <BarChart2 className="w-5 h-5 shrink-0" />
             {!collapsed && <span className="whitespace-nowrap overflow-hidden">REPORTES</span>}
+          </NavLink>
+
+          {/* 13 · MONITOREO — va junto a Reportes: las dos son de consulta, no de gestión. */}
+          <NavLink to="/admin/monitoreo" className={navLinkClass} title={collapsed ? "MONITOREO" : ""}>
+            <ShieldCheck className="w-5 h-5 shrink-0" />
+            {!collapsed && <span className="whitespace-nowrap overflow-hidden">MONITOREO</span>}
           </NavLink>
 
           {ASISTENTE_VISIBLE && (

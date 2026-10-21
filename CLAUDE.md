@@ -71,6 +71,28 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Monitoreo: quién crea, edita y borra (migración 0048, EJECUTARLA).** No había forma de saber
+  quién hizo un cambio: si un aula desaparecía, la única pista era preguntar. Se agrega la tabla
+  `auditoria` y el trigger `registrar_auditoria()` sobre 15 tablas (espacios, clases, inventario,
+  usuarios, préstamos…), más la pantalla `/admin/monitoreo`.
+  **Es un trigger y no registro desde el cliente** a propósito: lo que escribe el navegador solo
+  cubre lo que pasa por los botones de la app, y cualquiera con la clave anónima puede llamar a
+  la API REST y saltárselo. El trigger vive en la base y se dispara venga el cambio de donde
+  venga. **No cubre** a quien use `service_role` (queda con `usuario_id` nulo, se muestra como
+  "Sistema") ni las LECTURAS, que necesitarían otro mecanismo.
+  **Un UPDATE que no cambia nada no se registra**, y `updated_at` se excluye de la comparación:
+  si no, guardar un formulario sin editar nada llenaría la bitácora y enterraría lo que importa.
+  Se guarda `registro_etiqueta` (el nombre del aula, de la materia) además del id, porque tras un
+  DELETE ya no hay adónde ir a buscar qué era `ESP1738…`.
+  **Append-only**: RLS deja leer solo a `is_admin()` y no hay políticas de insert/update/delete,
+  así que nadie la edita desde la API; el trigger escribe porque es `security definer`. Una
+  bitácora que su propio sujeto puede editar no sirve de nada.
+  **`is_admin()` no se redefine**: la usan las migraciones 0028 y 0029 pero no está declarada en
+  ninguna (viene de antes). La 0048 comprueba que exista y aborta con un mensaje claro si falta.
+  **Pendiente**: la bitácora crece sin tope (cada UPDATE guarda la fila entera dos veces) y el
+  plan gratuito da 500 MB de base. La migración trae la consulta de purga, **sin programarla**:
+  un borrado automático silencioso eliminaría evidencia justo cuando se la necesita.
+  **Sin verificar contra la base**: no se ejecutó desde aquí.
 - **Infraestructura: el panel de edificios pasa a maestro-detalle, como Ubicaciones en
   Horarios.** Era un árbol anidado donde **cada edificio se expandía por su cuenta y varios
   quedaban abiertos a la vez**: con 9 edificios y sus pisos, la lista se volvía interminable y
@@ -86,8 +108,15 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
   **flotantes** sobre el contenido, sin el contenedor blanco con cabecera, buscador y pie. El
   recuento ("9 edificios · 89 espacios") baja al pie de la tarjeta de edificios.
   **Los nombres de edificio van completos**, partidos en dos líneas en vez de `truncate`:
-  abreviado, "MODULAR DE TELEC…" no se distingue de los otros tres modulares. En celular las
-  dos tarjetas se **apilan**: a 375px no entran 280px más el detalle.
+  abreviado, "MODULAR DE TELEC…" no se distingue de los otros tres modulares.
+  **En celular se navega de a un paso** (`pasoPanelMovil`): primero los edificios, al elegir uno
+  sus pisos, y un botón para volver. Apiladas, elegir un edificio dejaba sus pisos fuera de
+  pantalla y había que desplazarse a ciegas. La cabecera de la segunda tarjeta muestra el nombre
+  del edificio, que si no se perdería al tapar la lista. De `sm` en adelante no se usa: ahí las
+  dos caben lado a lado. Al reabrir el panel se vuelve siempre a la lista.
+  **El conmutador Gestión / Mapa Campus se salía del hero en celular** y "Mapa Campus" quedaba
+  inalcanzable: ahora los botones son `shrink-0` con menos padding y el grupo se desplaza en
+  horizontal si no entra.
 - **Infraestructura: fuera el campo Equipamiento.** Deja de verse y de editarse: el input, el
   botón "Vincular del inventario" con su selector y chips, y el "N/A" bajo el nombre de cada
   espacio en la tabla y en las tarjetas. **El valor se sigue reenviando al guardar**, así que lo
