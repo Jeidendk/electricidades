@@ -67,7 +67,11 @@ export const useAuditoriaStore = create<AuditoriaState>()((set) => ({
         .select(
           'id, tabla, operacion, registro_id, registro_etiqueta, usuario_id, ' +
           'datos_antes, datos_despues, campos_cambiados, created_at, restaurado_en, ' +
-          'usuarios(nombre, apellido, roles(nombre))',
+          // Hay DOS claves foráneas de `auditoria` a `usuarios` —`usuario_id` (quién hizo el
+          // cambio) y `restaurado_por` (quién lo deshizo, migración 0049)—, así que hay que
+          // nombrar la que se quiere: sin eso PostgREST responde "more than one relationship
+          // was found" y no devuelve nada.
+          'usuarios!auditoria_usuario_id_fkey(nombre, apellido, roles(nombre))',
         )
         .order('created_at', { ascending: false })
         .limit(LIMITE_AUDITORIA);
