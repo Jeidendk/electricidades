@@ -7,6 +7,7 @@ export interface Docente {
   /** Nombre completo ya compuesto: la base guarda `nombre` y `apellido` por separado. */
   nombre: string;
   titulo: string | null;
+  cedula: string | null;
   estado: string;
   facultad_nombre: string | null;
 }
@@ -28,7 +29,7 @@ export const useDocentesStore = create<DocentesState>()((set) => ({
     try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nombre, apellido, titulo, estado, facultad_nombre, roles!inner(nombre)')
+        .select('id, nombre, apellido, titulo, cedula, estado, facultad_nombre, roles!inner(nombre)')
         .eq('roles.nombre', 'Docente')
         // Por apellido, que es como se busca a alguien en un listado de personas.
         .order('apellido')
@@ -39,6 +40,7 @@ export const useDocentesStore = create<DocentesState>()((set) => ({
           id: usuario.id,
           nombre: componerNombreCompleto(usuario.nombre, usuario.apellido),
           titulo: usuario.titulo || null,
+          cedula: usuario.cedula || null,
           estado: usuario.estado,
           facultad_nombre: usuario.facultad_nombre || null,
         })),
