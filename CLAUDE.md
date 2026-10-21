@@ -71,6 +71,11 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **El técnico ya no tiene ASISTENTE.** Fuera el enlace del `TecnicoSidebar`;
+  `/tecnico/asistente` **redirige** a `/tecnico/dashboard` en vez de borrarse, porque sin ruta
+  un marcador viejo cae en el catch-all y termina en el login. Mismo criterio que se usó con
+  `/tecnico/infraestructura`. El asistente sigue existiendo para admin y docente, y sigue
+  detrás de `ASISTENTE_VISIBLE` (hoy solo en DEV).
 - **Exportar horario por carrera.** Un aula la ocupan varias carreras, así que el PDF/Word del
   aula mezclaba todas y no servía para entregar "el horario de Electricidad". El panel Generar
   Formato gana un select **Carrera**, debajo de Aula, que filtra el documento; "Todas las

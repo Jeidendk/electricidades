@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   FileText, ChevronLeft, GraduationCap, ChevronDown, LayoutGrid,
-  Clock, Library, UserCog, Inbox, Wrench, ArrowLeftRight, GraduationCap as GradCap, BarChart2, MessageSquare
+  Clock, Library, UserCog, Inbox, Wrench, ArrowLeftRight, GraduationCap as GradCap, BarChart2
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
-import { ASISTENTE_VISIBLE } from '../../../lib/asistente/disponibilidad';
 
 // Cambiar a true cuando se habiliten progresivamente los demás módulos técnicos.
 const MOSTRAR_MODULOS_FUTUROS = false;
@@ -131,12 +130,6 @@ export const TecnicoSidebar = () => {
           <NavLink to="/tecnico/horarios" className={navLinkClass} title={collapsed ? 'HORARIOS' : ''}>
             <Clock className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">HORARIOS</span>}
           </NavLink>
-
-          {ASISTENTE_VISIBLE && (
-            <NavLink to="/tecnico/asistente" className={navLinkClass} title={collapsed ? 'ASISTENTE' : ''}>
-              <MessageSquare className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">ASISTENTE</span>}
-            </NavLink>
-          )}
 
           {/* ESTRUCTURA ACADÉMICA */}
           <NavLink to="/tecnico/estructura-academica" className={navLinkClass} title={collapsed ? 'ESTRUCTURA ACADÉMICA' : ''}>

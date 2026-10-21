@@ -218,7 +218,9 @@ export const AppRouter = () => {
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="recursos" element={<Recursos />} />
             <Route path="formatos" element={<Formatos />} />
-            {ASISTENTE_VISIBLE && <Route path="asistente" element={<Asistente />} />}
+            {/* El técnico no tiene asistente. Se redirige en vez de borrar la ruta: un marcador
+                viejo caería en el catch-all y terminaría en el login. */}
+            <Route path="asistente" element={<Navigate to="/tecnico/dashboard" replace />} />
             <Route path="reportes" element={<Reportes />} />
           </Route>
         </Route>
