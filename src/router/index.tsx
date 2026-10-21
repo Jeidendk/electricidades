@@ -9,13 +9,6 @@ import { ASISTENTE_VISIBLE } from '../lib/asistente/disponibilidad';
 
 /**
  * `lazy()` que sobrevive a un despliegue nuevo.
- *
- * Al desplegar, los trozos con hash del build anterior dejan de existir. Una pestaña abierta
- * desde antes los sigue pidiendo y el import falla. Se reintenta una vez —por si fue un corte
- * de red momentáneo— y, si vuelve a fallar por versión vieja, se recarga la página.
- *
- * Mientras la recarga ocurre se devuelve una promesa que nunca resuelve: así React sigue
- * mostrando el Suspense en lugar de parpadear una pantalla de error que va a desaparecer.
  */
 const cargarPagina = <T,>(importar: () => Promise<T>): Promise<T> =>
   importar()
@@ -34,8 +27,7 @@ const cargarPagina = <T,>(importar: () => Promise<T>): Promise<T> =>
       }
     });
 
-// Code-splitting por ruta: cada página/layout carga en su propio chunk bajo demanda.
-// Las páginas se exportan con nombre, por eso se mapea { default: m.Nombre }.
+// Code-splitting por ruta
 const Login = lazy(() => cargarPagina(() => import('../modules/auth/pages/Login').then(m => ({ default: m.Login }))));
 const SetPassword = lazy(() => cargarPagina(() => import('../modules/auth/pages/SetPassword').then(m => ({ default: m.SetPassword }))));
 const StudentLayout = lazy(() => cargarPagina(() => import('../modules/student/layout/StudentLayout').then(m => ({ default: m.StudentLayout }))));
@@ -67,15 +59,11 @@ const Recursos = lazy(() => cargarPagina(() => import('../modules/admin/pages/Re
 const Asignaciones = lazy(() => cargarPagina(() => import('../modules/admin/pages/Asignaciones').then(m => ({ default: m.Asignaciones }))));
 const EstructuraAcademica = lazy(() => cargarPagina(() => import('../modules/admin/pages/EstructuraAcademica').then(m => ({ default: m.EstructuraAcademica }))));
 
-// ---------------------------------------------------------------------------
-// Guardia de ruta: requiere sesión activa. Si aún está cargando, muestra nada.
-// ---------------------------------------------------------------------------
 const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
   const user = useAuthStore((s) => s.user);
   const loading = useAuthStore((s) => s.loading);
 
   if (loading) {
-    // Pantalla de carga mínima mientras Supabase restaura la sesión
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f4f7fb]">
         <div className="flex flex-col items-center gap-4">
@@ -90,8 +78,6 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // El admin es superusuario: puede entrar a cualquier vista (admin/técnico/estudiante)
-  // para inspeccionar todas las interfaces. El resto se limita a su rol.
   if (allowedRoles && user.role !== 'admin' && !allowedRoles.includes(user.role)) {
     if (user.role === 'tecnico') return <Navigate to="/tecnico" replace />;
     if (user.role === 'docente') return <Navigate to="/docente" replace />;
@@ -101,13 +87,9 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
   return <Outlet />;
 };
 
-// Ruta inicial por rol.
 const homeFor = (role: Rol) =>
   role === 'admin' ? '/admin' : role === 'tecnico' ? '/tecnico/dashboard' : role === 'docente' ? '/docente/dashboard' : '/student';
 
-// ---------------------------------------------------------------------------
-// Ruta pública: si el usuario ya tiene sesión, redirige a su dashboard
-// ---------------------------------------------------------------------------
 const PublicRoute = () => {
   const user = useAuthStore((s) => s.user);
   const loading = useAuthStore((s) => s.loading);
@@ -121,7 +103,6 @@ const PublicRoute = () => {
   }
 
   if (user) {
-    // Restaura la última ruta visitada si existe y es coherente; si no, el home del rol.
     const lastPath = useUiPrefsStore.getState().lastPath;
     const target = user.role === 'tecnico'
       ? '/tecnico/dashboard'
@@ -136,7 +117,6 @@ const PublicRoute = () => {
   return <Outlet />;
 };
 
-// Recuerda la ruta actual (autenticada) para restaurarla al recargar/reabrir la app.
 const RouteMemory = () => {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
@@ -148,7 +128,6 @@ const RouteMemory = () => {
   return null;
 };
 
-// ---------------------------------------------------------------------------
 export const AppRouter = () => {
   const dark = useThemeStore((s) => s.dark);
   useEffect(() => { applyTheme(dark); }, [dark]);
@@ -164,14 +143,11 @@ export const AppRouter = () => {
       <RouteMemory />
       <Suspense fallback={Fallback}>
       <Routes>
-        {/* Rutas Públicas / Auth — redirigen automáticamente si hay sesión */}
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<Login />} />
         </Route>
         <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {/* Establecer contraseña — destino del enlace de invitación de un solo uso.
-            Sin guardia: la sesión la aporta el propio enlace mágico de Supabase. */}
         <Route path="/set-password" element={<SetPassword />} />
 
         {/* ── Rutas del Estudiante ── */}

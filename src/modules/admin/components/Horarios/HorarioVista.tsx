@@ -450,3 +450,4 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
     </div>
   );
 };
+

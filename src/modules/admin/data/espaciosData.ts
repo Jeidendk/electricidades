@@ -135,3 +135,4 @@ export const espaciosData: Espacio[] = seed.map((e) => ({
   lat: baseLat + (Math.random() - 0.5) * 0.008,
   lng: baseLng + (Math.random() - 0.5) * 0.008,
 }));
+
