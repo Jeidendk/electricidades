@@ -256,7 +256,7 @@ export const Infraestructura = () => {
   ];
 
   const tipoBadge = (tipo: string) => {
-    if (tipo === 'Laboratorio Técnico') return <Badge color="amber" icon={Wrench}>Técnico</Badge>;
+    if (tipo === 'Laboratorio Técnico') return <Badge color="amber" icon={Wrench}>Especialización</Badge>;
     if (tipo === 'Laboratorio de Informática') return <Badge color="purple" icon={Monitor}>Info.</Badge>;
     if (esOficina(tipo)) return <Badge color="green" icon={Briefcase}>Oficina</Badge>;
     return <Badge color="blue" icon={BookOpen}>Académica</Badge>;

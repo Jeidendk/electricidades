@@ -9,7 +9,7 @@ import { useEdificiosStore } from '../../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../../store/espaciosStore';
 import { SearchableSelect } from '../../../../components/ui/SearchableSelect';
 import { useExclusiveModal } from '../../../../hooks/useExclusiveModal';
-import { formatoPiso, OPCIONES_PISO } from '../../data/espaciosData';
+import { formatoPiso, OPCIONES_PISO, TIPOS_ESPACIO, esOficina } from '../../data/espaciosData';
 
 const clavePiso = (espacio: any): string =>
   espacio.piso == null || espacio.piso === '' ? '0' : String(espacio.piso);
@@ -248,9 +248,12 @@ export const AsignacionModal: React.FC<AsignacionModalProps> = ({
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo de Espacio</label>
                       <select required value={formValues.tipoEspacio} onChange={e => setFormValues({...formValues, tipoEspacio: e.target.value})} disabled={isReadOnly} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-2.5 px-4 outline-none border border-gray-200 focus:border-red-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-60">
                           <option value="">Seleccione Tipo</option>
-                          <option value="Académica">Aula</option>
-                          <option value="Laboratorio Técnico">Laboratorio Técnico</option>
-                          <option value="Laboratorio de Informática">Laboratorio Informático</option>
+                          {/* Salen de TIPOS_ESPACIO: estaban escritas a mano aquí y ya habían
+                              quedado con otros rótulos que los de Infraestructura. Las oficinas
+                              se excluyen: no reciben clases. */}
+                          {TIPOS_ESPACIO.filter(({ valor }) => !esOficina(valor)).map(({ valor, etiqueta }) => (
+                            <option key={valor} value={valor}>{etiqueta}</option>
+                          ))}
                       </select>
                   </div>
                   <div className="flex flex-col gap-1.5">

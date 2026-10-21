@@ -13,7 +13,8 @@ export type TipoEspacio =
  */
 export const TIPOS_ESPACIO: { valor: TipoEspacio; etiqueta: string }[] = [
   { valor: 'Académica', etiqueta: 'Aula (Académica)' },
-  { valor: 'Laboratorio Técnico', etiqueta: 'Lab. Técnico' },
+  // El valor sigue siendo la etiqueta del enum; en pantalla se lee "Especialización".
+  { valor: 'Laboratorio Técnico', etiqueta: 'Lab. de Especialización' },
   { valor: 'Laboratorio de Informática', etiqueta: 'Lab. Info' },
   { valor: 'Oficina de Docentes', etiqueta: 'Oficina de Docentes' },
 ];

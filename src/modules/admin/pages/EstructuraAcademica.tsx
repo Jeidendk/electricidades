@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import {
   Search, Plus, Edit2, Trash2, GraduationCap, Building,
   X, BookOpen, Layers, Upload, Image as ImageIcon,
-  Check, FileCheck2, Library,
+  FileCheck2, Library,
   ChevronRight,
   AlertCircle,
   // Iconos Seleccionables
@@ -71,9 +71,10 @@ export const EstructuraAcademica = () => {
   // STORES
   const { facultades, carreras, fetchAll: fetchFacultades, addFacultad, updateFacultad, removeFacultad, addCarrera, updateCarrera, removeCarrera } = useFacultadesStore();
   const { materias: dbMaterias, fetchMaterias, updateMateria, addMateria, removeMateria } = useMateriasStore();
-  const recursosData = useRecursosStore(state => state.recursos);
   const fetchRecursos = useRecursosStore(state => state.fetchRecursos);
-  const { recursosMap, fetchByMaterias, toggleRecurso } = useMateriaRecursosStore();
+  // `recursosMap` sigue alimentando el contador de recursos de cada materia; vincularlos se
+  // hacía en el modal de detalle, que se quitó.
+  const { recursosMap, fetchByMaterias } = useMateriaRecursosStore();
   const { currentUser } = useOutletContext<any>();
   const esTecnico = currentUser?.role === 'tecnico';
   // Se compara normalizado (sin tildes ni mayúsculas): "Electrónica" y "Electronica" son la misma
@@ -207,9 +208,6 @@ export const EstructuraAcademica = () => {
   const [materiaError, setMateriaError] = useState<string | null>(null);
   const [savingMateria, setSavingMateria] = useState(false);
 
-  // Detalle Materia Modal
-  const [selectedMateriaId, setSelectedMateriaId] = useState<string | null>(null);
-  const [showRecursoPicker, setShowRecursoPicker] = useState(false);
 
   // --- HANDLERS FACULTAD ---
   const handleSaveFacultad = async (e: React.FormEvent) => {
@@ -419,8 +417,6 @@ export const EstructuraAcademica = () => {
     reader.readAsDataURL(file);
   };
 
-  const currentMateria = materias.find(m => m.id === selectedMateriaId) || null;
-  const currentMateriaEditable = !!currentMateria && puedeGestionarMateria(currentMateria);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#f4f7fb]">
@@ -785,7 +781,6 @@ export const EstructuraAcademica = () => {
                         fill
                         rows={filteredMaterias}
                         rowKey={m => m.id}
-                        onRowClick={m => setSelectedMateriaId(m.id)}
                         minWidthClass="min-w-[800px]"
                         emptyState={
                           <EmptyState
@@ -906,8 +901,7 @@ export const EstructuraAcademica = () => {
                                   {mats.map((m) => (
                                     <div
                                       key={m.id}
-                                      onClick={() => setSelectedMateriaId(m.id)}
-                                      className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer group transition-all hover:shadow-md hover:border-indigo-200 flex flex-col gap-2"
+                                      className="bg-white rounded-xl border border-gray-200 p-4 group transition-all flex flex-col gap-2"
                                     >
                                       {/* Fila superior: código + acciones */}
                                       <div className="flex items-center justify-between gap-2">
@@ -1253,57 +1247,6 @@ export const EstructuraAcademica = () => {
           {materiaError && <p className="text-[11px] text-red-500 font-semibold bg-red-50 border border-red-100 px-3 py-2 rounded-lg">{materiaError}</p>}
         </div>
       </CrudModal>
-
-      {/* --- MODAL DETALLE MATERIA --- */}
-      {currentMateria && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl w-full max-w-[560px] relative animate-scale-in flex flex-col p-7 shadow-2xl max-h-[92vh] overflow-y-auto custom-scrollbar">
-            <button onClick={() => { setSelectedMateriaId(null); setShowRecursoPicker(false); }} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 bg-gray-50 p-2 rounded-full hover:bg-gray-100 transition-colors z-10"><X className="w-4 h-4" /></button>
-            <div className="flex items-start gap-3 mb-5 pr-8">
-              <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0"><BookOpen className="w-5 h-5" /></div>
-              <div>
-                <h3 className="text-[17px] font-bold text-gray-900 tracking-tight leading-tight">{currentMateria.nombre}</h3>
-                <p className="text-[11px] font-medium text-gray-400 mt-0.5">{currentMateria.codigo} · {etiquetaPao(currentMateria.semestre)} · {currentMateria.creditos} créditos</p>
-              </div>
-            </div>
-            {/* Sección "Documentos" (Sílabo / Programa analítico) oculta temporalmente
-                hasta definir el almacenamiento real de archivos. */}
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Recursos vinculados</p>
-              {currentMateriaEditable && <button onClick={() => setShowRecursoPicker(v => !v)} className="text-[10px] font-bold text-[#0f172a] hover:text-black flex items-center gap-1"><Plus className="w-3 h-3" /> Vincular</button>}
-            </div>
-            <div className="flex flex-col gap-2">
-              {currentMateria.recursosIds.length === 0 && !showRecursoPicker && <p className="text-[11px] text-gray-400 italic py-2">Sin recursos vinculados.</p>}
-              {currentMateria.recursosIds.map(rid => {
-                const r = recursosData.find(x => x.id === rid);
-                if (!r) return null;
-                return (
-                  <div key={rid} className="flex items-center gap-3 p-2.5 bg-gray-50/50 border border-gray-100 rounded-xl group">
-                    <img src={r.portada_url ?? ''} className="w-8 h-10 object-cover rounded-md shrink-0 border border-gray-200" alt={r.titulo} />
-                    <div className="flex-1 min-w-0"><p className="text-[12px] font-bold text-gray-800 truncate">{r.titulo}</p><p className="text-[10px] text-gray-400 truncate">{r.autor ?? r.tipo} · {r.formato}</p></div>
-                    {currentMateriaEditable && <button onClick={() => toggleRecurso(currentMateria.id, rid)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>}
-                  </div>
-                );
-              })}
-            </div>
-            {currentMateriaEditable && showRecursoPicker && (
-              <div className="mt-3 border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar">
-                <p className="text-[10px] font-bold text-gray-500 mb-1">Catálogo de recursos</p>
-                {recursosData.map(r => {
-                  const linked = currentMateria.recursosIds.includes(r.id);
-                  return (
-                    <button key={r.id} onClick={() => toggleRecurso(currentMateria.id, r.id)} className={`flex items-center gap-3 p-2 rounded-lg text-left transition-colors border ${linked ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
-                      <img src={r.portada_url ?? ''} className="w-7 h-9 object-cover rounded shrink-0" alt={r.titulo} />
-                      <div className="flex-1 min-w-0"><p className="text-[11.5px] font-bold text-gray-800 truncate">{r.titulo}</p><p className="text-[9.5px] text-gray-400 truncate">{r.autor ?? r.tipo}</p></div>
-                      <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${linked ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-300'}`}><Check className="w-3 h-3" /></span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
     </div>
   );

@@ -71,6 +71,32 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Pisos contados desde la planta baja (migración 0047, EJECUTARLA).** El nivel de calle se
+  guardaba como `piso = 1`, así que "Piso 1" en pantalla era la planta baja. La app YA sabía
+  representarla (`OPCIONES_PISO` la define como `0` y `formatoPiso` la imprime) pero **ningún
+  espacio la usaba**: el mínimo cargado era 1 en los 19 grupos edificio/piso. Se resta 1 a cada
+  espacio; no se tocan etiquetas, el dato era el que estaba corrido.
+  **Arregla de paso** los 8 espacios de CIENCIAS BÁSICAS que estaban en `piso = 4`, un valor que
+  no existe en el selector (llega hasta 3) y dejaba el campo en blanco al editarlos.
+  **No es idempotente**: corre una guarda que aborta si ya hay espacios en planta baja, para que
+  una segunda ejecución falle en vez de restar dos veces. Se agrega `check (piso >= 0)`, sin
+  tope superior: un edificio nuevo puede tener más niveles que los del selector.
+  **Lo que NO resuelve**: EDIFICIO DE AULAS y CIENCIAS BÁSICAS numeran distinto —las Aulas 1xx
+  quedan en Planta Baja en el primero y en Piso 1 en el segundo—. Restar 1 conserva esa
+  diferencia; cuál refleja el edificio real hay que verlo en el sitio. Hay además nombres
+  repetidos dentro de un mismo edificio ('Aula 102', 'Laboratorio de Informática CTI1'); la
+  migración trae la consulta para listarlos.
+- **Estructura Académica: fuera el modal de detalle de materia.** Abría al hacer clic en una
+  materia y solo servía para vincular recursos del catálogo, que no se usa. Con él se van el
+  `onRowClick` de la tabla, el clic de la tarjeta (y su `cursor-pointer`, que prometía algo que
+  ya no pasa) y el estado huérfano. **El contador de recursos se queda**: `recursosMap` sigue
+  alimentando la columna y la insignia; lo que desaparece es vincular y desvincular.
+- **"Lab. Técnico" pasa a llamarse "Lab. de Especialización".** Es cambio de pantalla, **sin
+  migración**: el `valor` del enum sigue siendo `Laboratorio Técnico` y solo cambia la etiqueta
+  de `TIPOS_ESPACIO`; la insignia de la tarjeta dice ahora "Especialización".
+  De paso, el select de tipo del modal de Horarios tenía las tres opciones **escritas a mano** y
+  ya había derivado ("Laboratorio Informático" donde Infraestructura decía "Lab. Info"): ahora
+  salen de `TIPOS_ESPACIO`, excluyendo las oficinas, que no reciben clases.
 - **El técnico ya no tiene ASISTENTE.** Fuera el enlace del `TecnicoSidebar`;
   `/tecnico/asistente` **redirige** a `/tecnico/dashboard` en vez de borrarse, porque sin ruta
   un marcador viejo cae en el catch-all y termina en el login. Mismo criterio que se usó con
