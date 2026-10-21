@@ -11,10 +11,15 @@ import { PanelLeft, X } from 'lucide-react';
  *
  * El contenedor que lo recibe necesita `relative`: el panel se ancla contra él.
  */
-export const PanelLateral = ({ abierto, onCerrar, titulo, accion, buscador, children, pie }: {
+export const PanelLateral = ({ abierto, onCerrar, titulo, accion, buscador, children, pie, ancho = 'w-[280px]' }: {
   abierto: boolean;
   onCerrar: () => void;
   titulo: string;
+  /**
+   * Ancho del panel. Los 280px alcanzan para un listado simple; una vista maestro-detalle
+   * (dos columnas) necesita más, y en celular conviene `w-full`.
+   */
+  ancho?: string;
   /** Botón propio de cada pantalla, normalmente el "+" de crear. */
   accion?: ReactNode;
   /** Campo de búsqueda, que va fijo en la cabecera y no se desplaza con la lista. */
@@ -35,7 +40,7 @@ export const PanelLateral = ({ abierto, onCerrar, titulo, accion, buscador, chil
     )}
 
     <div
-      className={`absolute inset-y-0 left-0 z-30 w-[280px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl transition-all duration-200 ${
+      className={`absolute inset-y-0 left-0 z-30 ${ancho} max-w-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl transition-all duration-200 ${
         abierto ? 'flex translate-x-0 opacity-100' : 'hidden -translate-x-3 opacity-0'
       }`}
     >

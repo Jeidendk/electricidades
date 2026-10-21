@@ -164,7 +164,6 @@ export const Infraestructura = () => {
   // NAV / SELECTION
   const [view, setView] = useState<'gestion' | 'mapa'>('gestion');
   const [selectedEdificioId, setSelectedEdificioId] = useState<string | null>(null);
-  const [expandedEdificios, setExpandedEdificios] = useState<string[]>([]);
   const [searchNav, setSearchNav] = useState('');
   /** El árbol se superpone en vez de quedarse fijo: se consulta a ratos, no todo el rato. */
   const [panelAbierto, setPanelAbierto] = useState(false);
@@ -182,21 +181,14 @@ export const Infraestructura = () => {
   useEffect(() => {
     if (!selectedEdificioId && edificios.length > 0) {
       setSelectedEdificioId(edificios[0].id);
-      setExpandedEdificios([edificios[0].id]);
     }
   }, [edificios, selectedEdificioId]);
 
   const selectedEdificio = edificios.find(e => e.id === selectedEdificioId) || null;
 
-  const toggleExpand = (id: string) =>
-    setExpandedEdificios(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-
-  const selectEdificio = (id: string) => {
-    setSelectedEdificioId(id);
-    if (!expandedEdificios.includes(id)) setExpandedEdificios(p => [...p, id]);
-    // Elegido el edificio, el panel ya cumplió y solo tapa el detalle que se acaba de abrir.
-    setPanelAbierto(false);
-  };
+  // Elegir un edificio NO cierra el panel: es el maestro de un maestro-detalle, y sus pisos
+  // aparecen en la columna de al lado. El panel se cierra al elegir un espacio.
+  const selectEdificio = (id: string) => setSelectedEdificioId(id);
 
   const filteredNavEdificios = useMemo(() => {
     const q = searchNav.toLowerCase();
@@ -503,11 +495,15 @@ export const Infraestructura = () => {
       </PageHero>
 
       {view === 'gestion' ? (
-        <div className="relative flex-1 flex p-3 sm:p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-hidden">
-          {/* LEFT: TREE OF EDIFICIOS */}
+        // Debajo de lg scrollea la PÁGINA; de lg en adelante cada panel lleva su propio scroll.
+        // Con `overflow-hidden` fijo, en celular la ficha y la barra ocupaban casi todo y la
+        // lista quedaba recortada sin forma de desplazarse.
+        <div className="relative flex-1 flex items-start lg:items-stretch p-3 sm:p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-y-auto lg:overflow-hidden">
+          {/* LEFT: MAESTRO-DETALLE DE EDIFICIOS (mismo patrón que Ubicaciones en Horarios) */}
           <PanelLateral
             abierto={panelAbierto}
             onCerrar={() => setPanelAbierto(false)}
+            ancho="w-full sm:w-[560px]"
             titulo="Edificios y espacios"
             accion={<button onClick={() => openCreateEdificio()} className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm" title="Nuevo edificio">
                   <Plus className="w-4 h-4" />
@@ -518,87 +514,103 @@ export const Infraestructura = () => {
               </div>}
             pie={<span className="text-[10.5px] font-bold text-gray-500">{edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios</span>}
           >
-            <div className="flex flex-col gap-2 p-4">
-              {filteredNavEdificios.length === 0 && (
-                <EmptyState icon={Search} title="Sin resultados" description={`No hay coincidencias para "${searchNav}"`} secondaryLabel="Limpiar búsqueda" onSecondary={() => setSearchNav('')} className="py-10" />
-              )}
-              {filteredNavEdificios.map(ed => {
-                const isSel = selectedEdificioId === ed.id;
-                const isExpanded = expandedEdificios.includes(ed.id) || !!searchNav;
-                const edSpaces = espaciosMapped.filter(s => s.idEdificio === ed.id);
-                const IconCmp = buildingIcons[ed.icono] || Building2;
-                return (
-                  <div key={ed.id} className="flex flex-col">
-                    <div className={`relative flex items-center justify-between group p-2 rounded-xl transition-all cursor-pointer overflow-hidden ${isSel ? 'bg-indigo-50/60 border border-indigo-200 shadow-sm' : 'hover:bg-gray-50 border border-transparent'}`}>
-                      {isSel && <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-indigo-500" />}
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0" onClick={() => selectEdificio(ed.id)}>
-                        <button onClick={e => { e.stopPropagation(); toggleExpand(ed.id); }} className="w-6 h-6 flex items-center justify-center hover:bg-gray-200 rounded-full shrink-0 transition-colors">
-                          <ChevronRight className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                        </button>
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${ed.estado === 'operativo' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
-                          <IconCmp className="w-4 h-4" />
-                        </div>
-                        <span className="text-[13px] font-bold text-[#0f172a] truncate" title={ed.nombre}>{ed.nombre}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] font-bold text-gray-600 bg-white border border-gray-100 px-2 py-0.5 rounded-full shadow-sm" title={`${edSpaces.length} espacios`}>{edSpaces.length}</span>
-                        <button onClick={e => { e.stopPropagation(); selectEdificio(ed.id); openCreateEspacio({}); }} className="w-6 h-6 border border-gray-200 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-colors shadow-sm" title="Agregar espacio">
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    {isExpanded && (
-                      <div className="flex flex-col ml-[13px] mt-1 gap-1 border-l-[2px] border-indigo-200/50 pl-4">
-                        {/* Agrupado por piso, como el panel Ubicaciones de Horarios: catorce
-                            aulas seguidas con una etiqueta "P2" diminuta no se recorren, y el
-                            piso es justamente como la gente busca un aula. */}
-                        {[...new Set(edSpaces.map(sp => sp.piso ?? 0))]
-                          .sort((a, b) => a - b)
-                          .map(piso => {
-                            const clave = `${ed.id}::${piso}`;
-                            const delPiso = edSpaces
-                              .filter(sp => (sp.piso ?? 0) === piso)
-                              .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
-                            // Buscando se abren todos: obligar a desplegar para encontrar algo
-                            // es lo contrario de buscar.
-                            const abierto = pisoAbierto === clave || !!searchNav;
-                            return (
-                              <div key={clave} className="flex flex-col">
-                                <button
-                                  onClick={e => { e.stopPropagation(); alternarPiso(clave); }}
-                                  className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors ${abierto ? 'bg-indigo-50/60 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-                                >
-                                  <ChevronRight className={`h-3 w-3 shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} />
-                                  <Layers className="h-3 w-3 shrink-0 text-gray-400" />
-                                  <span className="flex-1 text-left">{formatoPiso(piso)}</span>
-                                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500 shadow-sm">{delPiso.length}</span>
-                                </button>
+            <div className="flex min-h-0 flex-1 items-stretch gap-2 p-3">
+              {/* IZQUIERDA: edificios. Seleccionar uno muestra sus pisos a la derecha, así que
+                  nunca hay dos edificios desplegados a la vez como pasaba con el árbol. */}
+              <div className="flex w-[42%] shrink-0 flex-col gap-0.5 overflow-y-auto custom-scrollbar rounded-2xl border border-gray-200 bg-white p-1.5 sm:w-[230px]">
+                <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
+                  <Building2 className="h-3 w-3" /> Edificios
+                </div>
+                {filteredNavEdificios.length === 0 && (
+                  <p className="px-2 py-3 text-[11px] italic text-gray-400">Sin coincidencias.</p>
+                )}
+                {filteredNavEdificios.map(ed => {
+                  const isSel = selectedEdificioId === ed.id;
+                  const edSpaces = espaciosMapped.filter(s => s.idEdificio === ed.id);
+                  const IconCmp = buildingIcons[ed.icono] || Building2;
+                  return (
+                    <button
+                      key={ed.id}
+                      onClick={() => selectEdificio(ed.id)}
+                      title={ed.nombre}
+                      className={`flex items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors ${isSel ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${ed.estado === 'operativo' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
+                        <IconCmp className="h-3.5 w-3.5" />
+                      </span>
+                      <span className={`flex-1 truncate text-[12px] ${isSel ? 'font-extrabold' : 'font-bold'}`}>{ed.nombre}</span>
+                      <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500">{edSpaces.length}</span>
+                    </button>
+                  );
+                })}
+                <button onClick={() => openCreateEdificio()} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
+                  <Plus className="h-3 w-3" /> Nuevo edificio
+                </button>
+              </div>
 
-                                {abierto && delPiso.map(sp => (
-                                  <div key={sp.id} onClick={() => selectEdificio(ed.id)} className="group/sp ml-4 flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-gray-50">
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sp.estado === 'disponible' ? 'bg-emerald-500' : sp.estado === 'ocupada' ? 'bg-blue-500' : 'bg-orange-500'}`} />
-                                    <span className="text-[11.5px] font-semibold text-gray-700 truncate" title={sp.nombre}>{sp.nombre}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })}
-                        {edSpaces.length === 0 && <p className="text-[10.5px] text-gray-400 italic py-1">Sin espacios</p>}
-                        <button onClick={() => { selectEdificio(ed.id); openCreateEspacio({}); }} className="mt-1 flex items-center justify-center gap-1.5 py-2 border border-dashed border-gray-200 rounded-lg text-[10.5px] font-bold text-gray-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
-                          <Plus className="w-3 h-3" /> Agregar espacio
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {/* DERECHA: pisos y aulas del edificio seleccionado. Un solo piso abierto a la vez. */}
+              <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-y-auto custom-scrollbar rounded-2xl border border-gray-200 bg-white p-1.5">
+                <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
+                  <Layers className="h-3 w-3" /> Pisos y aulas
+                </div>
+                {!selectedEdificio ? (
+                  <p className="px-2 py-3 text-[11px] italic text-gray-400">Elige un edificio.</p>
+                ) : (() => {
+                  const edSpaces = espaciosMapped.filter(s => s.idEdificio === selectedEdificio.id);
+                  if (edSpaces.length === 0) {
+                    return <p className="px-2 py-3 text-[11px] italic text-gray-400">Sin espacios.</p>;
+                  }
+                  return [...new Set(edSpaces.map(sp => sp.piso ?? 0))]
+                    .sort((a, b) => a - b)
+                    .map(piso => {
+                      const clave = `${selectedEdificio.id}::${piso}`;
+                      const delPiso = edSpaces
+                        .filter(sp => (sp.piso ?? 0) === piso)
+                        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
+                      // Buscando se abren todos: obligar a desplegar para encontrar algo
+                      // es lo contrario de buscar.
+                      const abierto = pisoAbierto === clave || !!searchNav;
+                      return (
+                        <div key={clave} className="overflow-hidden rounded-xl border border-gray-100">
+                          <button
+                            onClick={() => alternarPiso(clave)}
+                            className={`flex w-full items-center gap-1.5 px-2.5 py-2 text-[12px] font-bold transition-colors ${abierto ? 'bg-indigo-50/60 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                          >
+                            <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} />
+                            <Layers className="h-3 w-3 shrink-0 text-gray-400" />
+                            <span className="flex-1 text-left truncate">{formatoPiso(piso)}</span>
+                            <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500">{delPiso.length}</span>
+                          </button>
+                          {abierto && (
+                            <div className="flex flex-col gap-0.5 border-t border-gray-100 p-1.5">
+                              {delPiso.map(sp => (
+                                <div key={sp.id} onClick={() => { openEditEspacio(sp); setPanelAbierto(false); }} title={`Editar ${sp.nombre}`} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50">
+                                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sp.estado === 'disponible' ? 'bg-emerald-500' : sp.estado === 'ocupada' ? 'bg-blue-500' : 'bg-orange-500'}`} />
+                                  <span className="truncate text-[11.5px] font-semibold text-gray-700">{sp.nombre}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                })()}
+                {selectedEdificio && (
+                  <button onClick={() => openCreateEspacio({})} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
+                    <Plus className="h-3 w-3" /> Agregar espacio
+                  </button>
+                )}
+              </div>
             </div>
 
           </PanelLateral>
 
 
           {/* RIGHT: BUILDING DETAIL */}
-          <div className="relative flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in">
+          {/* `overflow-hidden` se conserva: AcentoTarjeta lo necesita para que su franja respete
+              las esquinas. Lo que clipaba en celular era la altura fija, no el recorte: con
+              `items-start` arriba la caja crece con el contenido y no sobra nada que cortar. */}
+          <div className="relative w-full flex-1 flex flex-col lg:min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in">
             <AcentoTarjeta />
             {!selectedEdificio ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50">
@@ -607,7 +619,7 @@ export const Infraestructura = () => {
                 <p className="text-sm text-gray-500 max-w-sm">Elige un edificio del panel izquierdo para gestionar sus aulas y laboratorios, o crea uno nuevo.</p>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-50/30 p-3 sm:p-6 md:p-8">
+              <div className="flex-1 flex flex-col lg:min-h-0 lg:overflow-hidden bg-gray-50/30 p-3 sm:p-6 md:p-8">
                 {/* IDENTITY CARD */}
                 <div className="shrink-0 bg-white border border-gray-100 rounded-[24px] shadow-sm mb-6 flex flex-col md:flex-row md:items-center p-3 gap-4 md:gap-5">
                   <img src={selectedEdificio.imagen} alt={selectedEdificio.nombre} className="w-full md:w-[150px] h-[120px] md:h-[90px] object-cover rounded-2xl shrink-0" />
@@ -711,7 +723,7 @@ export const Infraestructura = () => {
                 </div>
 
                 {/* SPACES */}
-                <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 lg:min-h-0 flex flex-col">
                 {filteredEspacios.length === 0 ? (
                   <EmptyState
                     icon={Microscope}
@@ -764,7 +776,7 @@ export const Infraestructura = () => {
                     ]}
                   />
                 ) : (
-                  <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                  <div className="flex-1 lg:min-h-0 lg:overflow-y-auto custom-scrollbar pr-1">
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {filteredEspacios.map(sp => (
                       <div key={sp.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-indigo-300 hover:shadow-lg transition-all group flex flex-col">
@@ -1080,7 +1092,9 @@ export const Infraestructura = () => {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Dos campos numéricos cortos: caben lado a lado hasta en celular, y así el
+                      formulario no obliga a desplazar dos pantallas más. */}
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Capacidad</label>
                       <input required type="number" min="1" value={espForm.capacidad} onChange={e => setEspForm({ ...espForm, capacidad: parseInt(e.target.value) || 30 })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all" />
@@ -1102,9 +1116,10 @@ export const Infraestructura = () => {
                   )}
                 </div>
               </div>
-              <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
-                <button type="button" disabled={submitting} onClick={() => setEspModal(null)} className="px-6 py-3 rounded-full border border-gray-200 bg-white text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50">Cancelar</button>
-                <button type="submit" disabled={submitting} className="px-8 py-3 rounded-full bg-espoch-ink hover:bg-black text-white text-[13px] font-bold shadow-lg transition-all border border-gray-800 disabled:opacity-50 flex items-center gap-2">
+              {/* En celular los dos botones se reparten la fila; desde sm vuelven a la derecha. */}
+              <div className="flex justify-stretch sm:justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+                <button type="button" disabled={submitting} onClick={() => setEspModal(null)} className="flex-1 sm:flex-none px-6 py-3 rounded-full border border-gray-200 bg-white text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50">Cancelar</button>
+                <button type="submit" disabled={submitting} className="flex-1 sm:flex-none px-8 py-3 rounded-full bg-espoch-ink hover:bg-black text-white text-[13px] font-bold shadow-lg transition-all border border-gray-800 disabled:opacity-50 flex items-center justify-center gap-2">
                   {submitting && <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span>}
                   {espModal === 'create' ? 'Registrar' : 'Guardar'}
                 </button>

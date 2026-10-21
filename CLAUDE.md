@@ -71,6 +71,40 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Infraestructura: el panel de edificios pasa a maestro-detalle, como Ubicaciones en
+  Horarios.** Era un árbol anidado donde **cada edificio se expandía por su cuenta y varios
+  quedaban abiertos a la vez**: con 9 edificios y sus pisos, la lista se volvía interminable y
+  había que desplazarse mucho para comparar dos. Ahora son dos columnas —Edificios a la
+  izquierda, Pisos y aulas del seleccionado a la derecha—, así que **solo se ve un edificio a la
+  vez por construcción**, no por una regla que haya que mantener. Dentro, un solo piso abierto a
+  la vez (`pisoAbierto`, que ya era de valor único). Desaparecen `expandedEdificios` y
+  `toggleExpand`.
+  **Elegir un edificio ya no cierra el panel** —es el maestro, y sus pisos salen al lado—; lo
+  cierra elegir un espacio, que además **abre directamente su modal de edición**, que es el
+  camino para ubicarlo en el mapa desde el celular.
+  `PanelLateral` acepta `ancho` (por defecto `w-[280px]`, intacto para Repositorio y Estructura
+  Académica); Infraestructura usa `w-full sm:w-[560px]`.
+- **Infraestructura: fuera el campo Equipamiento.** Deja de verse y de editarse: el input, el
+  botón "Vincular del inventario" con su selector y chips, y el "N/A" bajo el nombre de cada
+  espacio en la tabla y en las tarjetas. **El valor se sigue reenviando al guardar**, así que lo
+  ya cargado no se borra y la columna queda en la base. **Vincular equipos no se pierde**: la
+  relación real es `inventario.id_espacio` y se sigue editando desde Activos, en el campo
+  "Aula / Ubicación" de cada equipo. Con el selector se va también la consulta al inventario,
+  que esta pantalla ya no usa. **La búsqueda sigue mirando `equipamiento`**, aunque no se vea:
+  se dejó así a propósito, pero conviene revisarlo si confunde.
+- **Infraestructura en celular NO se podía desplazar.** La pantalla encadenaba
+  `min-h-0` + `overflow-hidden` para que scrollara solo la lista interna, lo que funciona en
+  escritorio; en celular la ficha del edificio y la barra de filtros ocupaban casi todo el alto
+  y lo de abajo quedaba **recortado sin forma de llegar**. Ahora, debajo de `lg`, scrollea la
+  página entera (`overflow-y-auto` + `items-start`, que deja a la tarjeta crecer con su
+  contenido) y de `lg` en adelante se conserva el comportamiento de paneles con scroll propio.
+  **`overflow-hidden` se mantiene** en la tarjeta: lo necesita `AcentoTarjeta` para que su
+  franja respete las esquinas. Lo que recortaba era la altura fija, no el recorte.
+- **Infraestructura en celular.** Padding de 24px a 12px, nombre del edificio de 26px a 19px,
+  buscador a ancho completo, Editar/Eliminar repartidos en la fila, Capacidad y Área lado a lado
+  (son dos números cortos: apilarlos sumaba dos pantallas de scroll) y los botones del modal a
+  ancho completo. **Sin verificar en un dispositivo**: las pantallas de admin no se pueden
+  previsualizar desde aquí.
 - **Pisos contados desde la planta baja (migración 0047, EJECUTARLA).** El nivel de calle se
   guardaba como `piso = 1`, así que "Piso 1" en pantalla era la planta baja. La app YA sabía
   representarla (`OPCIONES_PISO` la define como `0` y `formatoPiso` la imprime) pero **ningún
