@@ -25,7 +25,7 @@ import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useInventarioStore } from '../../../store/inventarioStore';
 import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
-import { TIPOS_ESPACIO, esAula, esLaboratorio, esOficina } from '../data/espaciosData';
+import { TIPOS_ESPACIO, esAula, esLaboratorio, esOficina, formatoPiso, formatoPisoCorto, generarOpcionesPisos } from '../data/espaciosData';
 import { PanelLateral, BotonPanelLateral } from '../../../components/ui/PanelLateral';
 import { avisoError, avisoInfo } from '../../../lib/aviso';
 
@@ -373,7 +373,7 @@ export const Infraestructura = () => {
   };
 
   // ============ MODALS: ESPACIO ============
-  const espDefaults = { nombre: '', idEdificio: '', piso: 1, tipo: 'Académica', capacidad: 20, m2: 60, equipamiento: '', estado: 'disponible', fotos: [] as string[], fotoFiles: [] as (File | null)[], lat: null as number | null, lng: null as number | null, equipoIds: [] as string[] };
+  const espDefaults = { nombre: '', idEdificio: '', piso: 0, tipo: 'Académica', capacidad: 20, m2: 60, equipamiento: '', estado: 'disponible', fotos: [] as string[], fotoFiles: [] as (File | null)[], lat: null as number | null, lng: null as number | null, equipoIds: [] as string[] };
   const [espModal, setEspModal] = useState<null | 'create' | 'edit' | 'delete' | 'fotos'>(null);
   const [espForm, setEspForm] = useState(espDefaults);
   const [selectedEsp, setSelectedEsp] = useState<any>(null);
@@ -381,6 +381,8 @@ export const Infraestructura = () => {
   const [showEquipoPicker, setShowEquipoPicker] = useState(false);
   const [equipoSearch, setEquipoSearch] = useState('');
   const [gpsEsp, setGpsEsp] = useState(false);
+
+  const opcionesPisos = useMemo(() => generarOpcionesPisos(), []);
 
   const openCreateEspacio = (opts: { lat?: number | null; lng?: number | null; tipo?: string } = {}) => {
     setSelectedEsp(null);
@@ -399,7 +401,7 @@ export const Infraestructura = () => {
     setSelectedEsp(esp);
     const linked = invItems.filter(i => i.id_espacio === esp.id).map(i => i.id);
     setEspForm({
-      nombre: esp.nombre, idEdificio: esp.idEdificio, piso: esp.piso, tipo: esp.tipo,
+      nombre: esp.nombre, idEdificio: esp.idEdificio, piso: esp.piso ?? 0, tipo: esp.tipo,
       capacidad: esp.capacidad, m2: esp.m2, equipamiento: esp.equipamiento, estado: esp.estado,
       fotos: esp.fotos || [], fotoFiles: [], lat: esp.lat, lng: esp.lng, equipoIds: linked,
     });
@@ -569,12 +571,12 @@ export const Infraestructura = () => {
                         {/* Agrupado por piso, como el panel Ubicaciones de Horarios: catorce
                             aulas seguidas con una etiqueta "P2" diminuta no se recorren, y el
                             piso es justamente como la gente busca un aula. */}
-                        {[...new Set(edSpaces.map(sp => sp.piso ?? 1))]
+                        {[...new Set(edSpaces.map(sp => sp.piso ?? 0))]
                           .sort((a, b) => a - b)
                           .map(piso => {
                             const clave = `${ed.id}::${piso}`;
                             const delPiso = edSpaces
-                              .filter(sp => (sp.piso ?? 1) === piso)
+                              .filter(sp => (sp.piso ?? 0) === piso)
                               .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
                             // Buscando se abren todos: obligar a desplegar para encontrar algo
                             // es lo contrario de buscar.
@@ -587,7 +589,7 @@ export const Infraestructura = () => {
                                 >
                                   <ChevronRight className={`h-3 w-3 shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} />
                                   <Layers className="h-3 w-3 shrink-0 text-gray-400" />
-                                  <span className="flex-1 text-left">Piso {piso}</span>
+                                  <span className="flex-1 text-left">{formatoPiso(piso)}</span>
                                   <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500 shadow-sm">{delPiso.length}</span>
                                 </button>
 
@@ -755,7 +757,7 @@ export const Infraestructura = () => {
                         ),
                       },
                       { key: 'tipo', header: 'Tipo', width: '0.8fr', sortValue: sp => sp.tipo, render: sp => tipoBadge(sp.tipo) },
-                      { key: 'piso', header: 'Piso', width: '0.6fr', align: 'center', sortValue: sp => sp.piso, render: sp => <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">P{sp.piso}</span> },
+                      { key: 'piso', header: 'Piso', width: '0.6fr', align: 'center', sortValue: sp => sp.piso, render: sp => <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">{formatoPisoCorto(sp.piso)}</span> },
                       { key: 'capacidad', header: 'Capac.', width: '0.6fr', align: 'center', sortValue: sp => sp.capacidad, render: sp => <span className="text-[11px] font-bold text-gray-700">{sp.capacidad} <span className="text-[9px] text-gray-400 font-normal">est.</span></span> },
                       { key: 'estado', header: 'Estado', width: '0.8fr', sortValue: sp => sp.estado, render: sp => <EstadoBadge estado={sp.estado} /> },
                       {
@@ -787,7 +789,7 @@ export const Infraestructura = () => {
                           <p className="text-[10.5px] text-gray-400 truncate mb-3">{sp.equipamiento || 'Sin equipamiento'}</p>
                           <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
                             <div className="flex items-center gap-4 text-[11px] font-bold text-[#0f172a]">
-                              <span className="flex items-center gap-1.5"><FileText className="w-4 h-4 text-slate-500" strokeWidth={1.5} /> Piso {sp.piso}</span>
+                              <span className="flex items-center gap-1.5"><FileText className="w-4 h-4 text-slate-500" strokeWidth={1.5} /> {formatoPiso(sp.piso)}</span>
                               <span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-slate-500" strokeWidth={1.5} /> {sp.capacidad} est.</span>
                               <span className="flex items-center gap-1.5"><Ruler className="w-4 h-4 text-slate-500" strokeWidth={1.5} /> {sp.m2} m²</span>
                             </div>
@@ -873,7 +875,7 @@ export const Infraestructura = () => {
                           <img src={sp.fotos.length > 0 ? sp.fotos[0] : FALLBACK_ESP} className="w-full h-[70px] object-cover rounded-lg" alt={sp.nombre} />
                           <div className="px-1">
                             <h4 className="font-bold text-gray-900 text-[11px] leading-tight">{sp.nombre}</h4>
-                            <p className="text-[9px] text-gray-500 truncate">{sp.edificio} · Piso {sp.piso}</p>
+                            <p className="text-[9px] text-gray-500 truncate">{sp.edificio} · {formatoPiso(sp.piso)}</p>
                             <div className="flex gap-1.5 mt-2 pt-2 border-t border-gray-100">
                               <button onClick={() => openEditEspacio(sp)} className="flex-1 flex items-center justify-center gap-1 bg-blue-50 text-blue-600 hover:bg-blue-100 py-1.5 rounded-lg text-[9px] font-extrabold transition-colors"><Edit2 className="w-3 h-3" /> Editar</button>
                               <button onClick={() => { setSelectedEsp(sp); setEspModal('delete'); }} className="flex-1 flex items-center justify-center gap-1 bg-red-50 text-red-600 hover:bg-red-100 py-1.5 rounded-lg text-[9px] font-extrabold transition-colors"><Trash2 className="w-3 h-3" /> Borrar</button>
@@ -1068,7 +1070,16 @@ export const Infraestructura = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Piso</label>
-                      <input required type="number" min="1" value={espForm.piso} onChange={e => setEspForm({ ...espForm, piso: parseInt(e.target.value) || 1 })} className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all" />
+                      <select
+                        required
+                        value={espForm.piso}
+                        onChange={e => setEspForm({ ...espForm, piso: parseInt(e.target.value, 10) })}
+                        className="bg-[#fafafa] text-[14px] text-gray-800 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-espoch-yellow focus:bg-white font-bold transition-all cursor-pointer"
+                      >
+                        {opcionesPisos.map(op => (
+                          <option key={op.valor} value={op.valor}>{op.etiqueta}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Tipo</label>
@@ -1159,7 +1170,7 @@ export const Infraestructura = () => {
           <div className="bg-white rounded-2xl w-full max-w-[480px] relative animate-scale-in flex flex-col p-6">
             <button onClick={() => setEspModal(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
             <h3 className="text-lg font-extrabold text-gray-900 mb-1">{selectedEsp.nombre}</h3>
-            <p className="text-xs text-gray-500 mb-4">{selectedEsp.edificio} - Piso {selectedEsp.piso}</p>
+            <p className="text-xs text-gray-500 mb-4">{selectedEsp.edificio} - {formatoPiso(selectedEsp.piso)}</p>
             {selectedEsp.fotos && selectedEsp.fotos.length > 0 ? (
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {selectedEsp.fotos.map((f: string, i: number) => (
@@ -1197,3 +1208,4 @@ export const Infraestructura = () => {
 };
 
 export default Infraestructura;
+
