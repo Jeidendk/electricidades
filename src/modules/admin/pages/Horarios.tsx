@@ -519,6 +519,23 @@ export const Horarios = () => {
             img { max-width: 100%; height: auto; }
             /* El escudo ocupaba 115px de alto en pantalla; impreso, ese alto es una fila más. */
             .printable-area img { max-height: 78px; width: auto; }
+            ${isLandscape ? '' : `
+            /* VERTICAL: la letra se reduce A PROPÓSITO.
+               Antes se veía chica por accidente: con el relleno de 15px la tabla quedaba más
+               ancha que la hoja y Chrome aplicaba "ajustar a la página", encogiendo TODO el
+               documento. Al compactar el relleno la tabla ya entra por ancho, el navegador dejó
+               de encoger y la letra apareció a tamaño real: demasiado grande para retrato.
+               Se baja aquí, que es determinista y no depende de lo que decida el navegador.
+               La plantilla trae los tamaños en línea, así que hace falta !important.
+               El horizontal NO se toca: ahí sobra ancho y se ve bien. */
+            .schedule-table td div { font-size: ${Math.max(5, Math.round(documentFontSize * 0.58))}px !important; line-height: 1.12 !important; }
+            .schedule-table td > div > div:first-child { font-size: ${Math.max(6, Math.round(documentFontSize * 0.72))}px !important; }
+            .schedule-table th { font-size: ${Math.max(6, Math.round(documentFontSize * 0.8))}px !important; }
+            /* El título institucional se partía en cuatro líneas y se comía un tercio del alto. */
+            .printable-area h1 { font-size: ${Math.max(9, documentFontSize + 1)}px !important; letter-spacing: 0 !important; margin-bottom: 4px !important; }
+            .printable-area h2 { font-size: ${Math.max(7, documentFontSize - 1)}px !important; }
+            .printable-area img { max-height: 60px !important; }
+            `}
             .printable-area { margin: 0 !important; padding: 0 40px 12px 40px !important; box-shadow: none !important; min-height: auto !important; width: 100% !important; }
             /* Antes se aplicaba page-break avoid a TODOS los elementos. Pedirle al navegador
                que no corte nada no evita el corte —el contenido tiene que caber igual—, solo lo
