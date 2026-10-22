@@ -14,6 +14,8 @@ import {
   type MovimientoAuditoria, type OperacionAuditoria,
 } from '../../../store/auditoriaStore';
 import { normalizarTexto, componerNombreCompleto } from '../../../lib/texto';
+import { useMateriasStore } from '../../../store/materiasStore';
+import { useEspaciosStore } from '../../../store/espaciosStore';
 
 /** Nombre técnico de la tabla → cómo se lo nombra en pantalla. */
 const TABLA_ETIQUETA: Record<string, string> = {
@@ -101,11 +103,11 @@ const infoMovimiento = (m: MovimientoAuditoria) =>
  * El dato ya estaba repartido entre cuatro columnas —acción, módulo, registro, cambios— y
  * había que recomponerlo mentalmente; dicho en una línea se lee de corrido.
  */
-const resumenMovimiento = (m: MovimientoAuditoria): string => {
+const resumenMovimiento = (m: MovimientoAuditoria, cat?: CatalogosAuditoria): string => {
   if (esIngreso(m)) return 'Ingresó al sistema';
 
   const verbo = infoOperacion(m.operacion).etiqueta;
-  const nombre = etiquetaRegistro(m);
+  const nombre = etiquetaRegistro(m, cat);
   const objeto = `${entidadDe(m.tabla)}${nombre ? ` ${nombre}` : ''}`.trim();
 
   if (m.operacion !== 'UPDATE') return `${verbo} ${objeto}`;
@@ -138,18 +140,44 @@ const ENTIDAD_SINGULAR: Record<string, string> = {
 
 const entidadDe = (t: string) => ENTIDAD_SINGULAR[t] ?? 'el registro en';
 
+/** Nombres por id para las tablas que el trigger no puede etiquetar solo. */
+export interface CatalogosAuditoria {
+  materias: Record<string, string>;
+  espacios: Record<string, string>;
+}
+
+const CATALOGOS_VACIOS: CatalogosAuditoria = { materias: {}, espacios: {} };
+
+const hhmm = (v: unknown) => (typeof v === 'string' ? v.slice(0, 5) : '');
+
 /**
- * Nombre del registro afectado. El trigger guarda `registro_etiqueta` tomando la columna
- * `nombre`, pero desde la migración 0030 `usuarios.nombre` es SOLO el nombre de pila: así
- * salía "ENRIQUE" en vez de "ENRIQUE GUAMBO". Se recompone leyendo la instantánea guardada,
- * lo que además arregla los movimientos ya registrados sin tocar la base.
+ * Nombre del registro afectado. Dos tablas necesitan recomponerlo al mostrar, y hacerlo aquí
+ * y no en el trigger **arregla también los movimientos ya registrados**, sin tocar la base:
+ *
+ *  · `usuarios`: el trigger toma la columna `nombre`, que desde la migración 0030 es SOLO el
+ *    nombre de pila, así que salía "ENRIQUE" en vez de "ENRIQUE GUAMBO".
+ *  · `clases`: no tiene ninguna columna de nombre —solo ids, día y horas—, así que el trigger
+ *    no encontraba qué guardar y la fila aparecía como "Sin nombre". Se arma con la materia,
+ *    el día, el rango horario y el aula.
  */
-const etiquetaRegistro = (m: MovimientoAuditoria): string => {
+const etiquetaRegistro = (m: MovimientoAuditoria, cat: CatalogosAuditoria = CATALOGOS_VACIOS): string => {
   const datos = (m.datosDespues ?? m.datosAntes ?? {}) as Record<string, unknown>;
+
   if (m.tabla === 'usuarios') {
     const completo = componerNombreCompleto(datos.nombre as string, datos.apellido as string);
     if (completo) return completo;
   }
+
+  if (m.tabla === 'clases') {
+    const materia = cat.materias[datos.id_materia as string];
+    const aula = cat.espacios[datos.id_espacio as string];
+    const horario = [datos.dia, [hhmm(datos.hora_inicio), hhmm(datos.hora_fin)].filter(Boolean).join('-')]
+      .filter(Boolean).join(' ');
+    // Si el catálogo todavía no cargó, el horario solo ya identifica la clase.
+    const partes = [materia, horario, aula].filter(Boolean);
+    if (partes.length > 0) return partes.join(' · ');
+  }
+
   return m.registroEtiqueta || '';
 };
 
@@ -200,6 +228,19 @@ const TEXTO_RESTAURAR: Record<OperacionAuditoria, { boton: string; confirma: str
 export const Monitoreo = () => {
   const { movimientos, loading, disponible, fetchMovimientos, restaurar } = useAuditoriaStore();
   const [restaurando, setRestaurando] = useState(false);
+
+  // Catálogos para nombrar lo que la bitácora guarda solo por id (las clases de Horarios).
+  const materias = useMateriasStore(s => s.materias);
+  const fetchMaterias = useMateriasStore(s => s.fetchMaterias);
+  const espacios = useEspaciosStore(s => s.items);
+  const fetchEspacios = useEspaciosStore(s => s.fetchEspacios);
+
+  useEffect(() => { fetchMaterias(); fetchEspacios(); }, []);
+
+  const catalogos = useMemo<CatalogosAuditoria>(() => ({
+    materias: Object.fromEntries(materias.map(x => [x.id, x.nombre])),
+    espacios: Object.fromEntries(espacios.map(x => [x.id, x.nombre])),
+  }), [materias, espacios]);
 
   const [fTabla, setFTabla] = useState('');
   // 'INGRESO' no existe en la base: es un UPDATE sobre `usuarios` que solo tocó la última
@@ -269,7 +310,7 @@ export const Monitoreo = () => {
     if (!q) return lista;
     return lista.filter(m =>
       normalizarTexto(m.usuarioNombre ?? '').includes(q) ||
-      normalizarTexto(etiquetaRegistro(m)).includes(q) ||
+      normalizarTexto(etiquetaRegistro(m, catalogos)).includes(q) ||
       normalizarTexto(m.registroId ?? '').includes(q) ||
       normalizarTexto(nombreTabla(m.tabla)).includes(q),
     );
@@ -338,12 +379,12 @@ export const Monitoreo = () => {
     },
     {
       key: 'registro', header: 'Registro', width: '1.3fr',
-      sortValue: m => etiquetaRegistro(m),
+      sortValue: m => etiquetaRegistro(m, catalogos),
       // El id no se muestra: un uuid no identifica nada para quien revisa. Si el registro no
       // tenía nombre, se dice eso en vez de caer al identificador.
       render: m => (
         <span className="truncate text-[12px] font-bold text-gray-800">
-          {etiquetaRegistro(m) || <span className="font-semibold italic text-gray-400">Sin nombre</span>}
+          {etiquetaRegistro(m, catalogos) || <span className="font-semibold italic text-gray-400">Sin nombre</span>}
         </span>
       ),
     },
@@ -509,7 +550,7 @@ export const Monitoreo = () => {
                   );
                 })()}
                 <h3 className="text-[16px] font-bold leading-snug tracking-tight text-gray-900">
-                  {resumenMovimiento(detalle)}
+                  {resumenMovimiento(detalle, catalogos)}
                 </h3>
               </div>
               <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-medium text-gray-500">

@@ -71,6 +71,14 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Monitoreo: las clases de Horarios ya no salen como "Sin nombre".** `clases` no tiene ninguna
+  columna de nombre —solo ids, día y horas—, así que el trigger de la 0048 no encontraba qué
+  poner en `registro_etiqueta` y cada alta de horario aparecía vacía. Se compone al mostrar:
+  **materia · día y rango horario · aula**, resolviendo los ids contra `materiasStore` y
+  `espaciosStore`, que la pantalla ahora carga.
+  **Se hace al mostrar y no en el trigger** por lo mismo que el nombre de los usuarios: así
+  **arregla también los movimientos ya registrados**, sin migración. Si el catálogo aún no
+  cargó, el día y la hora solos ya identifican la clase.
 - **Monitoreo: el detalle dice en una frase qué pasó.** La cabecera mostraba la insignia de la
   acción y el nombre del registro por separado, y el módulo más abajo: había que recomponer
   mentalmente entre cuatro datos qué había ocurrido. Ahora encabeza una sola línea —"Editó el
