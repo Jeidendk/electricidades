@@ -499,11 +499,19 @@ export const Horarios = () => {
           <style>
             @page {
               size: ${paperSize === 'Carta' ? 'letter' : 'A4'} ${isLandscape ? 'landscape' : 'portrait'};
-              margin: 15mm 25mm 15mm 25mm;
+              /* En vertical el ancho es el recurso escaso: seis columnas no entran con 25mm
+                 de margen a cada lado. */
+              margin: ${isLandscape ? '15mm 25mm' : '10mm 8mm'};
             }
             * { box-sizing: border-box; transform: none !important; transform-origin: unset !important; }
             html, body { width: 100%; height: 100%; font-size: 11px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
             .schedule-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+            /* Sin esto, "ADMINISTRACIÓN" no cabe en una columna de retrato y se DIBUJA FUERA de
+               la celda, pisando los bordes y la columna vecina. Partir la palabra es feo; que el
+               texto se salga de su casilla es ilegible. */
+            .schedule-table th, .schedule-table td { overflow-wrap: anywhere; word-break: break-word; }
+            /* La columna HORA tenía 120px fijos: en vertical se comía el espacio de los días. */
+            .schedule-table th:first-child, .schedule-table td:first-child { width: ${isLandscape ? '11%' : '13%'}; }
             /* El relleno era de 15px: por 2 lados y 13 filas sumaba ~390px de puro aire y
                empujaba el final del horario a una segunda hoja. Compacto entra en una. */
             .schedule-table th, .schedule-table td { border: 1.5px solid black !important; padding: 3px 4px; text-align: center; vertical-align: middle; }
@@ -512,6 +520,20 @@ export const Horarios = () => {
             img { max-width: 100%; height: auto; }
             /* El escudo ocupaba 115px de alto en pantalla; impreso, ese alto es una fila más. */
             .printable-area img { max-height: 78px; width: auto; }
+            ${isLandscape ? '' : `
+            /* VERTICAL. La plantilla trae los tamaños en línea, pensados para horizontal; en
+               retrato hay ~40% menos de ancho y el mismo contenido, así que hay que bajarlos
+               con !important o el horario no entra en una hoja.
+               El escudo y el título institucional también encogen: en vertical ocupaban casi un
+               tercio del alto útil. */
+            .printable-area img { max-height: 58px !important; }
+            .printable-area h1 { font-size: ${Math.max(10, documentFontSize + 2)}px !important; letter-spacing: 0 !important; margin-bottom: 4px !important; }
+            .printable-area h2 { font-size: ${Math.max(8, documentFontSize)}px !important; }
+            .schedule-table th, .schedule-table td { padding: 2px !important; }
+            .schedule-table th { font-size: ${Math.max(6, documentFontSize - 2)}px !important; }
+            .schedule-table td div { font-size: ${Math.max(5, Math.round(documentFontSize * 0.62))}px !important; line-height: 1.1 !important; }
+            .schedule-table td > div > div:first-child { font-size: ${Math.max(6, Math.round(documentFontSize * 0.78))}px !important; }
+            `}
             .printable-area { margin: 0 !important; padding: 0 40px 12px 40px !important; box-shadow: none !important; min-height: auto !important; width: 100% !important; }
             /* Antes se aplicaba page-break avoid a TODOS los elementos. Pedirle al navegador
                que no corte nada no evita el corte —el contenido tiene que caber igual—, solo lo
@@ -559,11 +581,20 @@ export const Horarios = () => {
   const getExportStyles = () => {
     // Compacto a propósito: con el relleno anterior (8px) las 12 franjas horarias más la
     // cabecera y el pie no entraban en una hoja y Word partía el horario en dos.
+    const vertical = orientation === 'vertical';
     return `<style>
       body { margin: 0; }
       .schedule-table { border-collapse: collapse; width: 100%; table-layout: fixed; mso-table-layout-alt: fixed; }
-      .schedule-table th, .schedule-table td { border: 1.5px solid black; padding: 2px 3px; text-align: center; vertical-align: middle; }
+      /* Una palabra larga que no cabe se dibuja FUERA de la celda y pisa la columna vecina.
+         Mejor partirla. */
+      .schedule-table th, .schedule-table td { border: 1.5px solid black; padding: ${vertical ? '2px' : '2px 3px'}; text-align: center; vertical-align: middle; overflow-wrap: anywhere; word-break: break-word; }
       .schedule-table th { font-weight: bold; }
+      .schedule-table th:first-child, .schedule-table td:first-child { width: ${vertical ? '13%' : '11%'}; }
+      ${vertical ? `
+      /* En retrato hay ~40% menos de ancho para el mismo contenido. */
+      .schedule-table td div { font-size: ${Math.max(5, Math.round(documentFontSize * 0.62))}px; line-height: 1.1; }
+      img { max-height: 58px; }
+      ` : ''}
       /* Word corta por filas, no por dentro de una. */
       tr, td, th, img { page-break-inside: avoid; mso-break-type: avoid; }
     </style>`;
