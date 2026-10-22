@@ -71,15 +71,18 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
-- **Exportar horario en VERTICAL: el texto se salía de las celdas.** En retrato hay ~40% menos
-  de ancho para las mismas 6 columnas, así que "ADMINISTRACIÓN" no cabía y **se dibujaba fuera
-  de la casilla**, pisando los bordes y la columna vecina. Faltaba `overflow-wrap`: partir la
-  palabra es feo, pero el texto saliéndose de su celda es ilegible. Se aplica en PDF y Word.
-  **Lo demás que no entraba en vertical**: la columna HORA tenía 120px FIJOS (en retrato se
-  comía el ancho de los días) → pasa a 13%; los márgenes de 25mm por lado → 8mm, porque ahí el
-  ancho es el recurso escaso; y el escudo, el título institucional y el texto de las casillas
-  se reducen **solo en vertical** con `!important`, porque la plantilla trae los tamaños en
-  línea pensados para horizontal. El horizontal **no se toca**: ya se veía bien.
+- **`table-layout: fixed` rompía el horario exportado en VERTICAL.** Se había agregado junto con
+  el relleno compacto, y es lo que hacía que en retrato las palabras largas se dibujaran FUERA
+  de la celda y que el rango horario (que lleva `nowrap`) se metiera dentro de LUNES. Con
+  columnas de ancho idéntico, lo que no entra se desborda; en `auto` el navegador reparte según
+  el contenido y eso no pasa. **Se quitó de PDF y de Word.**
+  Se revirtieron también dos intentos de arreglo que empeoraron las cosas: estrechar la columna
+  HORA a un porcentaje y reducir las fuentes solo en vertical con `!important`. La plantilla ya
+  traía los tamaños bien; el problema era el reparto de columnas, no el texto.
+  **Queda** `overflow-wrap: break-word` como red de seguridad, que no cambia el reparto pero
+  evita que una palabra se salga de su casilla.
+  **Lección**: el CSS de impresión no se puede verificar desde aquí (las pantallas de admin no
+  se previsualizan), así que conviene cambiar UNA cosa por vez y mirar la captura.
 - **Exportar horario: el Word sale con escudo y en una sola hoja, igual que el PDF.**
   Tres defectos distintos:
   **(1) El escudo salía roto en Word.** El `.doc` se abre desde el disco, así que la ruta
