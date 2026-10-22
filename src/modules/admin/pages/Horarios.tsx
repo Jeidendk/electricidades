@@ -503,11 +503,16 @@ export const Horarios = () => {
             }
             * { box-sizing: border-box; transform: none !important; transform-origin: unset !important; }
             html, body { width: 100%; height: 100%; font-size: 11px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-            .schedule-table { border-collapse: collapse; width: 100%; }
-            .schedule-table th, .schedule-table td { border: 1.5px solid black !important; padding: 15px 15px; text-align: center; }
+            .schedule-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+            /* El relleno era de 15px: por 2 lados y 13 filas sumaba ~390px de puro aire y
+               empujaba el final del horario a una segunda hoja. Compacto entra en una. */
+            .schedule-table th, .schedule-table td { border: 1.5px solid black !important; padding: 3px 4px; text-align: center; vertical-align: middle; }
             .schedule-table th { font-weight: 900; text-transform: uppercase; }
+            .schedule-table tr { height: auto !important; }
             img { max-width: 100%; height: auto; }
-            .printable-area { margin: 0 !important; padding: 0 40px 20px 40px !important; box-shadow: none !important; min-height: auto !important; width: 100% !important; }
+            /* El escudo ocupaba 115px de alto en pantalla; impreso, ese alto es una fila más. */
+            .printable-area img { max-height: 78px; width: auto; }
+            .printable-area { margin: 0 !important; padding: 0 40px 12px 40px !important; box-shadow: none !important; min-height: auto !important; width: 100% !important; }
             /* Antes se aplicaba page-break avoid a TODOS los elementos. Pedirle al navegador
                que no corte nada no evita el corte —el contenido tiene que caber igual—, solo lo
                vuelve impredecible. Ahora se dice donde SI puede cortar: entre filas, nunca dentro
@@ -552,20 +557,71 @@ export const Horarios = () => {
   };
 
   const getExportStyles = () => {
-    return `<style> .schedule-table { border-collapse: collapse; width: 100%; } .schedule-table th, .schedule-table td { border: 1.5px solid black; padding: 8px; text-align: center; } .schedule-table th { font-weight: bold; } </style>`;
+    // Compacto a propósito: con el relleno anterior (8px) las 12 franjas horarias más la
+    // cabecera y el pie no entraban en una hoja y Word partía el horario en dos.
+    return `<style>
+      body { margin: 0; }
+      .schedule-table { border-collapse: collapse; width: 100%; table-layout: fixed; mso-table-layout-alt: fixed; }
+      .schedule-table th, .schedule-table td { border: 1.5px solid black; padding: 2px 3px; text-align: center; vertical-align: middle; }
+      .schedule-table th { font-weight: bold; }
+      /* Word corta por filas, no por dentro de una. */
+      tr, td, th, img { page-break-inside: avoid; mso-break-type: avoid; }
+    </style>`;
   };
 
+  /** Medidas del papel en puntos, que es lo que entiende el `@page` de Word. */
   const getWordPageSetup = () => {
-    return `<style> @page Section1 { size:841.9pt 595.3pt; mso-page-orientation:landscape; margin:1.0cm 1.5cm 1.0cm 1.5cm; mso-header-margin:35.4pt; mso-footer-margin:35.4pt; mso-paper-source:0; } div.Section1 { page:Section1; } </style>`;
+    const horizontal = orientation === 'horizontal';
+    const [corto, largo] = paperSize === 'Carta' ? [612, 792] : [595.3, 841.9];
+    const [ancho, alto] = horizontal ? [largo, corto] : [corto, largo];
+    // Antes estaba fijo en A4 horizontal, así que el documento ignoraba lo elegido en el panel.
+    return `<style> @page Section1 { size:${ancho}pt ${alto}pt; mso-page-orientation:${horizontal ? 'landscape' : 'portrait'}; margin:1.0cm 1.2cm 1.0cm 1.2cm; mso-header-margin:0pt; mso-footer-margin:0pt; mso-paper-source:0; } div.Section1 { page:Section1; } </style>`;
   };
 
-  const handleDownloadWord = () => {
+  /**
+   * Convierte una imagen a PNG en base64.
+   *
+   * Word abre el .doc desde el disco, así que una ruta como `/assets/Bandera-…webp` no resuelve
+   * y el escudo sale como un recuadro roto. Encima Word no muestra WebP. Incrustarla como PNG
+   * resuelve las dos cosas y deja el archivo autocontenido: se puede enviar por correo.
+   */
+  const aPngDataUri = (url: string): Promise<string> => {
+    if (url.startsWith('data:')) return Promise.resolve(url);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Sin contexto 2d')); return; }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => reject(new Error(`No se pudo cargar ${url}`));
+      img.src = url;
+    });
+  };
+
+  const handleDownloadWord = async () => {
     const element = document.getElementById('documento-word-oficial');
     if (!element) return;
-    const fullHTML = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word</title>${getExportStyles()}${getWordPageSetup()}</head><body><div class='Section1'>${element.innerHTML}</div></body></html>`;
+
+    const copia = element.cloneNode(true) as HTMLElement;
+    await Promise.all(Array.from(copia.querySelectorAll('img')).map(async img => {
+      try {
+        img.setAttribute('src', await aPngDataUri(img.src));
+      } catch {
+        // Mejor sin escudo que con un recuadro roto en medio del encabezado.
+        img.remove();
+      }
+    }));
+
+    const fullHTML = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${exportAula || 'Horario'}</title>${getExportStyles()}${getWordPageSetup()}</head><body><div class='Section1'>${copia.innerHTML}</div></body></html>`;
     const blob = new Blob([fullHTML], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url; a.download = `${exportEdificio}_${exportAula || 'Blanco'}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}.doc`; a.click();
     URL.revokeObjectURL(url);
   };

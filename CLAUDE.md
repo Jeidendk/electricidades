@@ -71,6 +71,24 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Exportar horario: el Word sale con escudo y en una sola hoja, igual que el PDF.**
+  Tres defectos distintos:
+  **(1) El escudo salía roto en Word.** El `.doc` se abre desde el disco, así que la ruta
+  `/assets/Bandera-…webp` no resuelve; encima Word no muestra WebP. Ahora cada `<img>` se
+  convierte a **PNG en base64** antes de armar el archivo, que además queda autocontenido para
+  enviarlo por correo. Si una imagen no se puede convertir **se quita**: mejor sin escudo que
+  con un recuadro roto.
+  **(2) El Word ignoraba la configuración**: `@page` estaba fijo en A4 horizontal, eligieras lo
+  que eligieras. Ahora sale de `orientation` y `paperSize`.
+  **(3) Ni el PDF ni el Word entraban en una hoja.** El relleno de celda era de 15px en el PDF
+  y 8px en el Word: por dos lados y 13 filas son cientos de píxeles de puro aire que empujaban
+  el final del horario a una segunda hoja. Se compacta a 3-4px, el escudo se limita a 78px de
+  alto al imprimir y se declara `page-break-inside: avoid` por fila.
+  **Efecto secundario bueno**: el estilo de impresión ya no difiere tanto del de pantalla, así
+  que el contador de páginas de la vista previa (que mide el documento en pantalla) se acerca
+  mucho más a lo que realmente se imprime.
+  **No se garantiza una hoja con cualquier ajuste**: el tamaño de fuente va de 5 a 30pt y con
+  valores altos el horario no cabe. Con los valores por defecto sí.
 - **Monitoreo: las clases de Horarios ya no salen como "Sin nombre".** `clases` no tiene ninguna
   columna de nombre —solo ids, día y horas—, así que el trigger de la 0048 no encontraba qué
   poner en `registro_etiqueta` y cada alta de horario aparecía vacía. Se compone al mostrar:
