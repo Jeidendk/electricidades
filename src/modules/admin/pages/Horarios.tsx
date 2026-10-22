@@ -528,9 +528,9 @@ export const Horarios = () => {
                Se baja aquí, que es determinista y no depende de lo que decida el navegador.
                La plantilla trae los tamaños en línea, así que hace falta !important.
                El horizontal NO se toca: ahí sobra ancho y se ve bien. */
-            .schedule-table td div { font-size: ${Math.max(5, Math.round(documentFontSize * 0.58))}px !important; line-height: 1.12 !important; }
-            .schedule-table td > div > div:first-child { font-size: ${Math.max(6, Math.round(documentFontSize * 0.72))}px !important; }
-            .schedule-table th { font-size: ${Math.max(6, Math.round(documentFontSize * 0.8))}px !important; }
+            .schedule-table td div { font-size: ${Math.max(4, Math.round(documentFontSize * 0.46))}px !important; line-height: 1.08 !important; }
+            .schedule-table td > div > div:first-child { font-size: ${Math.max(5, Math.round(documentFontSize * 0.58))}px !important; }
+            .schedule-table th { font-size: ${Math.max(5, Math.round(documentFontSize * 0.68))}px !important; }
             /* El título institucional se partía en cuatro líneas y se comía un tercio del alto. */
             .printable-area h1 { font-size: ${Math.max(9, documentFontSize + 1)}px !important; letter-spacing: 0 !important; margin-bottom: 4px !important; }
             .printable-area h2 { font-size: ${Math.max(7, documentFontSize - 1)}px !important; }
