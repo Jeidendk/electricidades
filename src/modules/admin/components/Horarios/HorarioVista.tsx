@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Download, Trash2, Plus, BookOpen, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash, Lock, LockOpen, CalendarSearch } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Download, Trash2, Plus, FileText, User, Info, Search, Building2, ChevronRight, DoorOpen, Layers, Hash, Lock, LockOpen, CalendarSearch } from 'lucide-react';
 import { dias, horas, availableIcons, rangoIncluyeBloque, etiquetaPaoParalelo, PARALELO_POR_DEFECTO } from './horariosData';
-import { mismoDia } from '../../../../lib/texto';
+import { mismoDia, normalizarTexto } from '../../../../lib/texto';
 import { SearchInput } from '../../../../components/ui/SearchInput';
-import { formatoPiso } from '../../data/espaciosData';
+import { formatoPiso, esAula, esLaboratorio } from '../../data/espaciosData';
 
 interface HorarioVistaProps {
   searchQuery: string;
@@ -15,6 +15,8 @@ interface HorarioVistaProps {
   setIsExportModalOpen: (val: boolean) => void;
   setExportEdificio: (val: string) => void;
   setExportAula: (val: string) => void;
+  /** Setea el ID del espacio para filtrado preciso en la exportación. */
+  setExportAulaId?: (val: string) => void;
   setModalMode: (val: 'create' | 'edit') => void;
   setFormValues: (val: any) => void;
   setIsModalOpen: (val: boolean) => void;
@@ -49,6 +51,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   setIsExportModalOpen,
   setExportEdificio,
   setExportAula,
+  setExportAulaId,
   setModalMode,
   setFormValues,
   setIsModalOpen,
@@ -64,16 +67,57 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   clasesEnAulaSeleccionada,
   onVerDisponibilidad,
 }) => {
-  const getClaseEnCasilla = (dia: string, hora: string) => {
-    const q = searchQuery.trim().toLowerCase();
-    return clases.find(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && (
-      // Al buscar por clase/docente se IGNORA el filtro de edificio/aula: así se ve
-      // dónde dicta ese docente (o materia) en todas sus aulas. Sin búsqueda, filtra por ubicación.
-      q
-        ? (c.materia.toLowerCase().includes(q) || c.docente.toLowerCase().includes(q))
+  const searchActive = searchQuery.trim() !== '';
+
+  const coincideBusqueda = (c: any, qNorm: string) => {
+    if (!qNorm) return true;
+    const palabras = qNorm.split(' ').filter(Boolean);
+    if (palabras.length === 0) return true;
+
+    const ed = edificios.find(e => e.id === c.edificio);
+    const esp = espacios.find(e => e.id === c.idEspacio);
+    const nombreEdificio = ed?.nombre || '';
+    const nombreEspacio = esp?.nombre || c.aula || '';
+    const tipo = esp?.tipo || c.tipoEspacio || '';
+    const esLab = esLaboratorio(tipo) || normalizarTexto(nombreEspacio).includes('lab');
+    const esAulaEsp = esAula(tipo) || normalizarTexto(nombreEspacio).includes('aula');
+    const pisoNum = esp?.piso ?? c.piso;
+    const textoPiso = pisoNum != null ? formatoPiso(pisoNum) : '';
+
+    const corpus = normalizarTexto([
+      c.materia,
+      c.docente,
+      c.carrera,
+      nombreEdificio,
+      `edificio ${nombreEdificio}`,
+      nombreEspacio,
+      `aula ${nombreEspacio}`,
+      tipo,
+      esLab ? 'laboratorio laboratorios lab labs' : '',
+      esAulaEsp ? 'aula aulas' : '',
+      textoPiso,
+      `piso ${pisoNum ?? ''}`,
+      c.paralelo != null ? `paralelo ${c.paralelo}` : '',
+      c.pao != null ? `pao ${c.pao}` : '',
+    ].join(' '));
+
+    return palabras.every(p => corpus.includes(p) || (p.endsWith('s') && corpus.includes(p.slice(0, -1))));
+  };
+
+  const getClasesEnCasilla = (dia: string, hora: string) => {
+    const qNorm = normalizarTexto(searchQuery);
+    return clases.filter(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && (
+      qNorm
+        ? coincideBusqueda(c, qNorm)
         : ((filterEdificio === '' || c.edificio === filterEdificio) && (filterAula === '' || c.idEspacio === filterAula))
     ));
   };
+
+  const totalResultados = useMemo(() => {
+    if (!searchActive) return 0;
+    const qNorm = normalizarTexto(searchQuery);
+    return clases.filter(c => coincideBusqueda(c, qNorm)).length;
+  }, [searchActive, searchQuery, clases, edificios, espacios]);
 
   const nombreEdificioFiltrado = edificios.find(edificio => edificio.id === filterEdificio)?.nombre;
   const nombreAulaFiltrada = espacios.find(espacio => espacio.id === filterAula)?.nombre;
@@ -82,10 +126,6 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   // Sin aula seleccionada o sin clases no hay nada que borrar: el botón queda inactivo.
   const puedeBorrarAulaActual = filterAula !== '' && clasesEnAulaSeleccionada > 0;
 
-  // Al buscar (clase/docente) se ignora el filtro de ubicación: la grilla muestra dónde dicta
-  // en varios edificios/pisos/aulas. Los chips se colapsan a un guion y las tarjetas muestran
-  // edificio + piso para que el docente pueda ubicar/imprimir cada clase.
-  const searchActive = searchQuery.trim() !== '';
   const nombreEdificioDeClase = (c: any) => edificios.find(e => e.id === c.edificio)?.nombre;
   const pisoDeClase = (c: any) => espacios.find(e => e.id === c.idEspacio)?.piso;
 
@@ -143,13 +183,16 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Buscar clase, docente..."
-            className="w-full sm:w-[220px] shrink-0"
+            placeholder="Buscar clase, docente, aula, lab, edificio..."
+            className="w-full sm:w-[260px] md:w-[310px] shrink-0"
           />
-          {/* Selección actual (se cambia desde el panel Ubicaciones). Al buscar docente/clase se
-              colapsan a un guion: indica que la grilla traza sus clases en varios edificios/pisos/aulas. */}
+          {/* Selección actual (se cambia desde el panel Ubicaciones). Al buscar se muestra el contador
+              de clases encontradas en todos los edificios, pisos, aulas y laboratorios. */}
           {searchActive ? (
-            <span title="Buscando en todos los edificios, pisos y aulas" className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-500 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap"><Search className="w-3.5 h-3.5 text-gray-400 shrink-0" /> —</span>
+            <span title="Buscando en todos los edificios, aulas y laboratorios" className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap">
+              <Search className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+              {totalResultados} {totalResultados === 1 ? 'resultado' : 'resultados'}
+            </span>
           ) : (
             <>
               <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1.5 text-[11px] font-bold whitespace-nowrap max-w-[180px]"><Building2 className="w-3.5 h-3.5 text-gray-500 shrink-0" /> <span className="truncate">{nombreEdificioFiltrado || 'Sin edificio'}</span></span>
@@ -207,7 +250,13 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
               )}
             </button>
           )}
-          <button onClick={() => { setIsExportModalOpen(true); if (nombreEdificioFiltrado) setExportEdificio(nombreEdificioFiltrado); if (nombreAulaFiltrada) setExportAula(nombreAulaFiltrada); }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
+          <button onClick={() => { 
+            setIsExportModalOpen(true); 
+            if (nombreEdificioFiltrado) setExportEdificio(nombreEdificioFiltrado); 
+            if (nombreAulaFiltrada) setExportAula(nombreAulaFiltrada); 
+            // Setear también el ID del aula para filtrado preciso (filterAula ya es el ID del espacio)
+            if (filterAula && setExportAulaId) setExportAulaId(filterAula);
+          }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> Exportar
           </button>
           <button onClick={() => { setModalMode('create'); setFormValues({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: filterEdificio, tipoEspacio: espacios.find(e => e.id === filterAula)?.tipo || '', idEspacio: filterAula, paralelo: PARALELO_POR_DEFECTO, dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' }); setIsModalOpen(true); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-[12px] px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all border border-gray-800">
@@ -241,93 +290,106 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
               <tr key={hora} className="group">
                 <td className="w-24 p-2 text-center border border-gray-200 bg-white text-[10px] font-semibold text-gray-700 group-hover:bg-gray-50/50 transition-colors">{hora}</td>
                 {dias.map(dia => {
-                  const clase = getClaseEnCasilla(dia, hora);
-                  let bgStyle = {};
-                  let borderStyle = {};
-                  let textColor = "#4b5563"; // default gray
-                  let hexColor = "#9ca3af";
-                  let IconoCarrera = null;
-                  let customSvgContent: string | null = null;
-                  let carreraNombre = '';
+                  const clasesCasilla = getClasesEnCasilla(dia, hora);
 
-                  if (clase && clase.idCarrera) {
-                    const carreraInfo = carreras.find(c => c.id === clase.idCarrera);
-                    if (carreraInfo) {
-                      hexColor = carreraInfo.color_hex || '#9ca3af';
-                      bgStyle = { backgroundColor: hexToRgba(hexColor, 0.1) };
-                      borderStyle = { borderColor: hexToRgba(hexColor, 0.4) };
-                      textColor = hexColor;
-                      carreraNombre = carreraInfo.nombre;
-                      
-                      if (carreraInfo.customSvg) {
-                         customSvgContent = carreraInfo.customSvg;
-                      } else if (carreraInfo.icono && availableIcons[carreraInfo.icono]) {
-                         IconoCarrera = availableIcons[carreraInfo.icono];
+                  const renderCard = (clase: any, isMultiple: boolean) => {
+                    let bgStyle = {};
+                    let borderStyle = {};
+                    let textColor = "#4b5563"; // default gray
+                    let hexColor = "#9ca3af";
+                    let IconoCarrera = null;
+                    let customSvgContent: string | null = null;
+                    let carreraNombre = '';
+
+                    if (clase && clase.idCarrera) {
+                      const carreraInfo = carreras.find(c => c.id === clase.idCarrera);
+                      if (carreraInfo) {
+                        hexColor = carreraInfo.color_hex || '#9ca3af';
+                        bgStyle = { backgroundColor: hexToRgba(hexColor, 0.1) };
+                        borderStyle = { borderColor: hexToRgba(hexColor, 0.4) };
+                        textColor = hexColor;
+                        carreraNombre = carreraInfo.nombre;
+                        
+                        if (carreraInfo.customSvg) {
+                           customSvgContent = carreraInfo.customSvg;
+                        } else if (carreraInfo.icono && availableIcons[carreraInfo.icono]) {
+                           IconoCarrera = availableIcons[carreraInfo.icono];
+                        }
                       }
+                    } else if (clase) {
+                       bgStyle = { backgroundColor: '#f3f4f6' };
                     }
-                  } else if (clase) {
-                     // Fallback for old data structure if still exists
-                     bgStyle = { backgroundColor: '#f3f4f6' };
-                  }
-                  
+
+                    return (
+                      <div 
+                        key={clase.id}
+                        onClick={() => { 
+                          setSelectedClaseId(clase.id); 
+                          setFormValues({ 
+                            idMateria: clase.idMateria, 
+                            idDocente: clase.idDocente, 
+                            idFacultad: clase.idFacultad,
+                            idCarrera: clase.idCarrera,
+                            tipoEspacio: clase.tipoEspacio,
+                            idEdificio: clase.edificio, 
+                            idEspacio: clase.idEspacio, 
+                            paralelo: clase.paralelo != null ? String(clase.paralelo) : '',
+                            dia: clase.dia, 
+                            horaInicio: clase.horaInicio,
+                            horaFin: clase.horaFin,
+                          }); 
+                          setModalMode('edit'); 
+                          setIsModalOpen(true); 
+                        }}
+                        className={`w-full ${isMultiple ? 'p-2' : 'h-full p-2.5'} rounded-[8px] border flex flex-col justify-center gap-1 cursor-pointer shadow-sm hover:shadow-md transition-all relative overflow-hidden`}
+                        style={{ ...bgStyle, ...borderStyle }}
+                      >
+                        <div className="flex items-start gap-2 mb-0.5" style={{ color: textColor }}>
+                          <div className="mt-0.5 shrink-0">
+                            {customSvgContent ? (
+                              <div className="w-4 h-4 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: customSvgContent.replace(/<svg/, `<svg fill="${textColor}"`) }} />
+                            ) : IconoCarrera ? (
+                              <IconoCarrera className="w-4 h-4" strokeWidth={2.5}/>
+                            ) : (
+                              <span className="w-2.5 h-2.5 rounded-full block" style={{ backgroundColor: hexColor }}></span>
+                            )}
+                          </div>
+                          <span className="text-[13px] font-bold leading-tight truncate">{clase.materia}</span>
+                        </div>
+                        {carreraNombre && (
+                          <div className="pl-[24px] mb-1">
+                            <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full truncate inline-block max-w-full" style={{ backgroundColor: hexToRgba(hexColor, 0.15), color: textColor }}>{carreraNombre}</span>
+                          </div>
+                        )}
+                        <div className="pl-[24px] flex flex-col gap-1">
+                          {searchActive && nombreEdificioDeClase(clase) && (
+                            <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Building2 className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {nombreEdificioDeClase(clase)}</span>
+                          )}
+                          {searchActive && pisoDeClase(clase) != null && (
+                            <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Layers className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {formatoPiso(pisoDeClase(clase))}</span>
+                          )}
+                          <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><DoorOpen className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.aula}</span>
+                          {etiquetaPaoParalelo(clase.pao, clase.paralelo) && (
+                            <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Hash className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {etiquetaPaoParalelo(clase.pao, clase.paralelo)}</span>
+                          )}
+                          <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><User className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.docente}</span>
+                        </div>
+                      </div>
+                    );
+                  };
+
                   return (
                     <td key={`${dia}-${hora}`} className="p-0 border border-gray-200 relative w-[calc(100%/6)] h-[132px] group/cell hover:bg-gray-50/50 transition-colors">
-                      {clase ? (
-                        <div className="w-full h-full p-2.5 flex items-center justify-center relative z-10">
-                          <div 
-                            onClick={() => { 
-                              setSelectedClaseId(clase.id); 
-                              setFormValues({ 
-                                idMateria: clase.idMateria, 
-                                idDocente: clase.idDocente, 
-                                idFacultad: clase.idFacultad,
-                                idCarrera: clase.idCarrera,
-                                tipoEspacio: clase.tipoEspacio,
-                                idEdificio: clase.edificio, 
-                                idEspacio: clase.idEspacio, 
-                                paralelo: clase.paralelo != null ? String(clase.paralelo) : '',
-                                dia: clase.dia, 
-                                horaInicio: clase.horaInicio,
-                                horaFin: clase.horaFin,
-                              }); 
-                              setModalMode('edit'); 
-                              setIsModalOpen(true); 
-                            }}
-                            className={`w-full h-full p-2.5 rounded-[8px] border flex flex-col justify-center gap-1 cursor-pointer shadow-sm hover:shadow-md transition-all relative overflow-hidden`}
-                            style={{ ...bgStyle, ...borderStyle }}
-                          >
-                            <div className="flex items-start gap-2 mb-0.5" style={{ color: textColor }}>
-                              <div className="mt-0.5 shrink-0">
-                                {customSvgContent ? (
-                                  <div className="w-4 h-4 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: customSvgContent.replace(/<svg/, `<svg fill="${textColor}"`) }} />
-                                ) : IconoCarrera ? (
-                                  <IconoCarrera className="w-4 h-4" strokeWidth={2.5}/>
-                                ) : (
-                                  <span className="w-2.5 h-2.5 rounded-full block" style={{ backgroundColor: hexColor }}></span>
-                                )}
-                              </div>
-                              <span className="text-[13px] font-bold leading-tight truncate">{clase.materia}</span>
-                            </div>
-                            {carreraNombre && (
-                              <div className="pl-[24px] mb-1">
-                                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full truncate inline-block max-w-full" style={{ backgroundColor: hexToRgba(hexColor, 0.15), color: textColor }}>{carreraNombre}</span>
-                              </div>
-                            )}
-                            <div className="pl-[24px] flex flex-col gap-1">
-                              {searchActive && nombreEdificioDeClase(clase) && (
-                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Building2 className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {nombreEdificioDeClase(clase)}</span>
-                              )}
-                              {searchActive && pisoDeClase(clase) != null && (
-                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Layers className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {formatoPiso(pisoDeClase(clase))}</span>
-                              )}
-                              <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><BookOpen className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.aula}</span>
-                              {etiquetaPaoParalelo(clase.pao, clase.paralelo) && (
-                                <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><Hash className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {etiquetaPaoParalelo(clase.pao, clase.paralelo)}</span>
-                              )}
-                              <span className="text-[10.5px] font-medium text-gray-600 flex items-center gap-1.5 truncate"><User className="w-[12px] h-[12px] text-gray-400 shrink-0"/> {clase.docente}</span>
-                            </div>
+                      {clasesCasilla.length > 0 ? (
+                        clasesCasilla.length === 1 ? (
+                          <div className="w-full h-full p-2.5 flex items-center justify-center relative z-10">
+                            {renderCard(clasesCasilla[0], false)}
                           </div>
-                        </div>
+                        ) : (
+                          <div className="w-full h-full p-1.5 flex flex-col gap-1.5 overflow-y-auto max-h-[132px] custom-scrollbar relative z-10">
+                            {clasesCasilla.map(c => renderCard(c, true))}
+                          </div>
+                        )
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity z-0">
                           <button 

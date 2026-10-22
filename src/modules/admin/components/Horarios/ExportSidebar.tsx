@@ -17,6 +17,9 @@ interface ExportSidebarProps {
   setExportEdificio: (val: string) => void;
   exportAula: string;
   setExportAula: (val: string) => void;
+  /** ID del espacio seleccionado (para filtrar clases con precisión). */
+  exportAulaId: string;
+  setExportAulaId: (val: string) => void;
   /** Id de carrera por la que se filtra el documento; '' imprime todas. */
   exportCarrera: string;
   setExportCarrera: (val: string) => void;
@@ -48,6 +51,7 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
   setExportEdificio,
   exportAula,
   setExportAula,
+  setExportAulaId,
   exportCarrera,
   setExportCarrera,
   carrerasDisponibles,
@@ -91,7 +95,7 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Edificio / Ubicación</label>
             <div className="relative">
-              <select value={exportEdificio} onChange={e => { setExportEdificio(e.target.value); setExportAula(''); }} className="bg-white text-xs text-gray-800 rounded-xl py-3 pl-4 pr-10 outline-none border border-gray-200 focus:border-red-500 font-semibold cursor-pointer w-full appearance-none shadow-sm transition-all hover:border-gray-300">
+              <select value={exportEdificio} onChange={e => { setExportEdificio(e.target.value); setExportAula(''); setExportAulaId(''); }} className="bg-white text-xs text-gray-800 rounded-xl py-3 pl-4 pr-10 outline-none border border-gray-200 focus:border-red-500 font-semibold cursor-pointer w-full appearance-none shadow-sm transition-all hover:border-gray-300">
                 <option value="">Seleccione Ubicación...</option>
                 {[...edificios].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(edificio => (
                   <option key={edificio.id} value={edificio.nombre}>{edificio.nombre}</option>
@@ -104,7 +108,13 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Aula o Laboratorio</label>
             <div className="relative">
-              <select value={exportAula} onChange={e => setExportAula(e.target.value)} disabled={!exportEdificio} className="bg-white text-xs text-gray-800 rounded-xl py-3 pl-4 pr-10 outline-none border border-gray-200 focus:border-red-500 font-semibold cursor-pointer w-full appearance-none shadow-sm transition-all hover:border-gray-300 disabled:opacity-50 disabled:bg-gray-50">
+              <select value={exportAula} onChange={e => {
+                const nombreSeleccionado = e.target.value;
+                setExportAula(nombreSeleccionado);
+                // Guardar también el ID del espacio para filtrado preciso
+                const espacio = espaciosDisponibles.find(esp => esp.nombre === nombreSeleccionado);
+                setExportAulaId(espacio?.id ?? '');
+              }} disabled={!exportEdificio} className="bg-white text-xs text-gray-800 rounded-xl py-3 pl-4 pr-10 outline-none border border-gray-200 focus:border-red-500 font-semibold cursor-pointer w-full appearance-none shadow-sm transition-all hover:border-gray-300 disabled:opacity-50 disabled:bg-gray-50">
                 <option value="">Seleccione Espacio...</option>
                 {espaciosDisponibles.map(espacio => <option key={espacio.id} value={espacio.nombre}>{espacio.nombre}</option>)}
               </select>

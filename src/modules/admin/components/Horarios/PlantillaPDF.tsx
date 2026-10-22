@@ -10,6 +10,8 @@ interface PlantillaPDFProps {
   headerImg: string;
   footerImg: string;
   exportAula: string;
+  /** ID del espacio (filtra con precisión, evita mezclar aulas homónimas de distintos edificios). */
+  exportAulaId?: string;
   exportEdificio: string;
   /** Id de carrera; vacío imprime las clases de todas las carreras del aula. */
   exportCarrera?: string;
@@ -28,6 +30,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
   headerImg,
   footerImg,
   exportAula,
+  exportAulaId = '',
   exportEdificio,
   exportCarrera = '',
   exportPeriodo,
@@ -53,7 +56,9 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
   };
 
   const getClaseParaExportacion = (dia: string, hora: string, aulaTarget: string) => {
-    return clases.find(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && c.aula === aulaTarget
+    return clases.find(c => mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora)
+      // Si hay ID de espacio disponible, filtrar por él (preciso); si no, caer al nombre.
+      && (exportAulaId ? c.idEspacio === exportAulaId : c.aula === aulaTarget)
       && (!exportCarrera || c.idCarrera === exportCarrera));
   };
 

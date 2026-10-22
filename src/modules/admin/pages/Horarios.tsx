@@ -108,20 +108,32 @@ export const Horarios = () => {
         });
       }
     });
-    espaciosRaw.forEach(esp => {
-      if (esp.lat && esp.lng) {
-        locs.push({
-          id: `esp-${esp.id}`,
-          nombre: esp.nombre,
-          tipo: esp.tipo, // 'Académica', 'Laboratorio Técnico', etc.
-          lat: esp.lat,
-          lng: esp.lng,
-          estado: esp.estado,
-          imagen: esp.fotos_json && (esp.fotos_json as any[])[0] ? (esp.fotos_json as any[])[0] : 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=250&fit=crop',
-          capacidad: esp.capacidad,
-          detalle: `Piso ${esp.piso}`
-        });
+    espaciosRaw.forEach((esp, index) => {
+      const ed = edificiosRaw.find(e => e.id === esp.id_edificio);
+      let lat = esp.lat;
+      let lng = esp.lng;
+      if ((!lat || !lng) && ed && ed.lat && ed.lng) {
+        // Dispersión sutil (~4 metros) para que los marcadores en un mismo edificio no queden 100% solapados
+        const angle = (index * 137.5 * Math.PI) / 180;
+        const radius = 0.00004 * (1 + (index % 4) * 0.5);
+        lat = ed.lat + radius * Math.cos(angle);
+        lng = ed.lng + radius * Math.sin(angle);
+      } else if (!lat || !lng) {
+        lat = -1.6583;
+        lng = -78.6780;
       }
+
+      locs.push({
+        id: `esp-${esp.id}`,
+        nombre: esp.nombre,
+        tipo: esp.tipo, // 'Académica', 'Laboratorio Técnico', etc.
+        lat: lat,
+        lng: lng,
+        estado: esp.estado,
+        imagen: esp.fotos_json && (esp.fotos_json as any[])[0] ? (esp.fotos_json as any[])[0] : (ed?.imagen_url || 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=250&fit=crop'),
+        capacidad: esp.capacidad,
+        detalle: ed ? `${ed.nombre} • Piso ${esp.piso}` : `Piso ${esp.piso}`
+      });
     });
     return locs;
   }, [edificiosRaw, espaciosRaw]);
@@ -140,23 +152,30 @@ export const Horarios = () => {
   // Export State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportEdificio, setExportEdificio] = useState('');
+  /** Nombre del aula (se muestra en el encabezado del documento). */
   const [exportAula, setExportAula] = useState('');
+  /** ID del espacio (se usa para filtrar clases con precisión, evita colisiones de nombres). */
+  const [exportAulaId, setExportAulaId] = useState('');
   // Id de carrera por la que se filtra el documento; '' = todas. No se persiste junto al resto
   // de preferencias: depende del aula, y al cambiarla una carrera recordada ya no tendría clases.
   const [exportCarrera, setExportCarrera] = useState('');
 
   // Solo las carreras que realmente dictan en el aula elegida: ofrecer el catálogo completo
   // dejaría elegir carreras que devuelven una hoja en blanco.
+  // Filtra por idEspacio (ID) cuando está disponible; cae al nombre si no.
   const carrerasEnAulaExport = useMemo(() => {
     const encontradas = new Map<string, string>();
     clases.forEach(clase => {
-      if (clase.aula === exportAula && clase.idCarrera && clase.carrera) {
+      const coincideAula = exportAulaId
+        ? clase.idEspacio === exportAulaId
+        : clase.aula === exportAula;
+      if (coincideAula && clase.idCarrera && clase.carrera) {
         encontradas.set(clase.idCarrera, clase.carrera);
       }
     });
     return [...encontradas].map(([id, nombre]) => ({ id, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [clases, exportAula]);
+  }, [clases, exportAula, exportAulaId]);
 
   // Va al nombre del archivo: exportar aula por aula y carrera por carrera produciría si no
   // varios documentos distintos con el mismo nombre.
@@ -552,7 +571,7 @@ export const Horarios = () => {
   };
 
   const handleResetFilters = () => {
-    setExportEdificio(''); setExportAula(''); setExportCarrera(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
+    setExportEdificio(''); setExportAula(''); setExportAulaId(''); setExportCarrera(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
     setPaperSize('A4'); setIncludeFooter(true); setDocumentFontSize(11); setTypography('Inter');
   };
 
@@ -652,6 +671,7 @@ export const Horarios = () => {
                   filterAula={filterAula} setFilterAula={setFilterAula}
                   setIsExportModalOpen={setIsExportModalOpen}
                   setExportEdificio={setExportEdificio} setExportAula={setExportAula}
+                  setExportAulaId={setExportAulaId}
                   setModalMode={setModalMode} setFormValues={setFormValues} setIsModalOpen={setIsModalOpen}
                   clases={clases} 
                   carreras={carreras}
@@ -696,6 +716,7 @@ export const Horarios = () => {
                 setIsExportModalOpen={setIsExportModalOpen}
                 exportEdificio={exportEdificio} setExportEdificio={setExportEdificio}
                 exportAula={exportAula} setExportAula={setExportAula}
+                exportAulaId={exportAulaId} setExportAulaId={setExportAulaId}
                 exportCarrera={exportCarrera} setExportCarrera={setExportCarrera}
                 carrerasDisponibles={carrerasEnAulaExport}
                 exportPeriodo={exportPeriodo} setExportPeriodo={setExportPeriodo}
@@ -781,6 +802,7 @@ export const Horarios = () => {
                     footerImg={footerImg}
                     documentFontSize={documentFontSize}
                     exportAula={exportAula}
+                    exportAulaId={exportAulaId}
                     exportEdificio={exportEdificio}
                     exportCarrera={exportCarrera}
                     exportPeriodo={exportPeriodo}
@@ -799,6 +821,7 @@ export const Horarios = () => {
                       footerImg={footerImg}
                       documentFontSize={documentFontSize}
                       exportAula={exportAula}
+                      exportAulaId={exportAulaId}
                       exportEdificio={exportEdificio}
                       exportCarrera={exportCarrera}
                       exportPeriodo={exportPeriodo}
