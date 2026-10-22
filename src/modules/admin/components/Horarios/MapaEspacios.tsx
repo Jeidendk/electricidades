@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { MapPin, Search, SlidersHorizontal, Image as ImageIcon, UserCheck } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import { MapControls, getTileUrl, atribucionTiles, type MapLayer } from '../../../../components/ui/MapControls';
+import { esAula, esLaboratorio } from '../../data/espaciosData';
 
 interface MapaEspaciosProps {
   mapLocations: any[];
@@ -32,6 +33,19 @@ function MapController({ center, zoom, activeId }: { center: [number, number], z
   return null;
 }
 
+const getTipoEtiqueta = (tipo: string) => {
+  if (tipo === 'Edificio') return 'Edificio';
+  if (esAula(tipo)) return 'Aula';
+  if (esLaboratorio(tipo)) return 'Laboratorio';
+  return tipo;
+};
+
+const getTipoBadgeClass = (tipo: string) => {
+  if (tipo === 'Edificio') return 'bg-indigo-50 text-indigo-600 border border-indigo-100';
+  if (esAula(tipo)) return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+  return 'bg-amber-50 text-amber-600 border border-amber-100';
+};
+
 const getCustomIcon = (loc: any) => {
   let iconHtml = '';
   let bgColor = '';
@@ -42,7 +56,7 @@ const getCustomIcon = (loc: any) => {
 
   if (loc.tipo === 'Edificio') {
     iconHtml = `<div class="${bgColor} text-white p-2 rounded-full shadow-lg border-2 border-white flex items-center justify-center" style="width: 36px; height: 36px;"> <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg> </div>`;
-  } else if (loc.tipo === 'Aula') {
+  } else if (esAula(loc.tipo)) {
     iconHtml = `<div class="${bgColor} text-white p-2 rounded-full shadow-lg border-2 border-white flex items-center justify-center" style="width: 36px; height: 36px;"> <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"/><path d="M2 20h20"/><path d="M14 12v.01"/></svg> </div>`;
   } else {
     // Laboratorio
@@ -80,8 +94,25 @@ export const MapaEspacios: React.FC<MapaEspaciosProps> = ({
 
   const filteredMapLocations = useMemo(() => {
     return mapLocations.filter(loc => {
-      const matchType = mapFilterType === 'Todos' || loc.tipo === mapFilterType;
-      const matchSearch = loc.nombre.toLowerCase().includes(mapSearchQuery.toLowerCase()) || loc.detalle.toLowerCase().includes(mapSearchQuery.toLowerCase());
+      let matchType = false;
+      if (mapFilterType === 'Todos') {
+        matchType = true;
+      } else if (mapFilterType === 'Edificio') {
+        matchType = loc.tipo === 'Edificio';
+      } else if (mapFilterType === 'Aula') {
+        matchType = esAula(loc.tipo);
+      } else if (mapFilterType === 'Laboratorio') {
+        matchType = esLaboratorio(loc.tipo);
+      } else {
+        matchType = loc.tipo === mapFilterType;
+      }
+
+      const q = mapSearchQuery.toLowerCase().trim();
+      const matchSearch = !q || 
+        loc.nombre.toLowerCase().includes(q) || 
+        loc.detalle.toLowerCase().includes(q) ||
+        (loc.tipo && loc.tipo.toLowerCase().includes(q));
+
       return matchType && matchSearch;
     });
   }, [mapLocations, mapFilterType, mapSearchQuery]);
@@ -156,8 +187,8 @@ export const MapaEspacios: React.FC<MapaEspaciosProps> = ({
               <div className="flex flex-col flex-1 justify-center min-w-0">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <h4 className="text-xs font-bold text-gray-900 truncate" title={loc.nombre}>{loc.nombre}</h4>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap ${loc.tipo === 'Edificio' ? 'bg-indigo-50 text-indigo-600' : loc.tipo === 'Aula' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                    {loc.tipo}
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap ${getTipoBadgeClass(loc.tipo)}`}>
+                    {getTipoEtiqueta(loc.tipo)}
                   </span>
                 </div>
                 <p className="text-[10px] font-medium text-gray-500 line-clamp-2 mb-1.5 leading-tight">{loc.detalle}</p>
@@ -208,7 +239,12 @@ export const MapaEspacios: React.FC<MapaEspaciosProps> = ({
                     </div>
                   </div>
                   <div className="p-3">
-                    <h4 className="text-xs font-bold text-gray-900 mb-1">{loc.nombre}</h4>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <h4 className="text-xs font-bold text-gray-900 truncate" title={loc.nombre}>{loc.nombre}</h4>
+                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap ${getTipoBadgeClass(loc.tipo)}`}>
+                        {getTipoEtiqueta(loc.tipo)}
+                      </span>
+                    </div>
                     <p className="text-[10px] text-gray-500 font-medium leading-tight mb-2">{loc.detalle}</p>
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-600 bg-gray-50 px-2 py-1 rounded-md w-max">
                       <UserCheck className="w-3 h-3 text-gray-400"/>

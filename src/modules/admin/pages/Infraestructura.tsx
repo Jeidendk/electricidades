@@ -4,7 +4,7 @@ import {
   Edit2, Trash2, ChevronRight, Layers, DoorOpen, Microscope,
   Image as ImageIcon, CheckCircle, Info, AlertTriangle, Wrench,
   BookOpen, Monitor, Activity, Coffee, Camera, RotateCcw,
-  Users, FileText, Ruler, Briefcase } from 'lucide-react';
+  Users, FileText, Ruler, Briefcase, Lock, LockOpen } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -167,16 +167,6 @@ export const Infraestructura = () => {
   const [searchNav, setSearchNav] = useState('');
   /** El árbol se superpone en vez de quedarse fijo: se consulta a ratos, no todo el rato. */
   const [panelAbierto, setPanelAbierto] = useState(false);
-  /**
-   * Piso desplegado, con clave `edificio::piso` porque el mismo número existe en varios.
-   *
-   * Solo UNO a la vez: con tres pisos abiertos el panel vuelve a ser la lista amontonada que
-   * se quiso evitar, y hay que desplazarse para ver los de abajo.
-   */
-  const [pisoAbierto, setPisoAbierto] = useState<string | null>(null);
-
-  const alternarPiso = (clave: string) =>
-    setPisoAbierto(actual => (actual === clave ? null : clave));
 
   /**
    * Qué tarjeta del panel se ve EN CELULAR. Apiladas, elegir un edificio dejaba sus pisos fuera
@@ -211,8 +201,9 @@ export const Infraestructura = () => {
   const [espSearch, setEspSearch] = useState('');
   const [espEstadoFilter, setEspEstadoFilter] = useState('');
   const [espView, setEspView] = useState<'grid' | 'list'>('grid');
+  const [selectedPiso, setSelectedPiso] = useState<number | null>(null);
 
-  useEffect(() => { setEspTab('todos'); setEspSearch(''); setEspEstadoFilter(''); }, [selectedEdificioId]);
+  useEffect(() => { setEspTab('todos'); setEspSearch(''); setEspEstadoFilter(''); setSelectedPiso(null); }, [selectedEdificioId]);
 
   const edificioEspacios = useMemo(() => espaciosMapped.filter(e => e.idEdificio === selectedEdificioId), [espaciosMapped, selectedEdificioId]);
 
@@ -226,6 +217,7 @@ export const Infraestructura = () => {
 
   const filteredEspacios = useMemo(() => {
     let result = edificioEspacios;
+    if (selectedPiso !== null) result = result.filter(e => (e.piso ?? 0) === selectedPiso);
     if (espTab === 'aula') result = result.filter(e => isAula(e.tipo));
     else if (espTab === 'lab') result = result.filter(e => esLaboratorio(e.tipo));
     else if (espTab === 'oficina') result = result.filter(e => esOficina(e.tipo));
@@ -235,9 +227,9 @@ export const Infraestructura = () => {
       result = result.filter(e => e.nombre.toLowerCase().includes(q) || (e.equipamiento || '').toLowerCase().includes(q));
     }
     return result;
-  }, [edificioEspacios, espTab, espEstadoFilter, espSearch]);
+  }, [edificioEspacios, selectedPiso, espTab, espEstadoFilter, espSearch]);
 
-  const hasEspFilters = !!espSearch || !!espEstadoFilter || espTab !== 'todos';
+  const hasEspFilters = !!espSearch || !!espEstadoFilter || espTab !== 'todos' || selectedPiso !== null;
 
   const espTabItems = [
     { key: 'todos' as EspTab, label: 'Todos', count: edificioKpis.total, Icon: Layers },
@@ -309,6 +301,27 @@ export const Infraestructura = () => {
   const [selectedEdForm, setSelectedEdForm] = useState<any>(null);
   const [gpsEd, setGpsEd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [accionesDesbloqueadas, setAccionesDesbloqueadas] = useState(false);
+
+  const alternarCandado = async () => {
+    if (accionesDesbloqueadas) {
+      setAccionesDesbloqueadas(false);
+      return;
+    }
+
+    const Swal = (await import('sweetalert2')).default;
+    const { isConfirmed } = await Swal.fire({
+      icon: 'warning',
+      title: '¿Habilitar acciones destructivas?',
+      html: 'Se mostrará la opción <b>Eliminar edificio</b>.<br/>Eliminar un edificio afectará a sus pisos, aulas, laboratorios y horarios asociados.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, habilitar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#B00020',
+      focusCancel: true,
+    });
+    if (isConfirmed) setAccionesDesbloqueadas(true);
+  };
 
   const edToForm = (ed: any) => ({
     nombre: ed.nombre ?? '', pisos: ed.pisos ?? 1, area: ed.area ?? 0,
@@ -360,7 +373,7 @@ export const Infraestructura = () => {
     if (!selectedEdForm) return;
     await removeEdificio(selectedEdForm.id);
     if (selectedEdificioId === selectedEdForm.id) setSelectedEdificioId(null);
-    setEdModal(null); setSelectedEdForm(null);
+    setEdModal(null); setSelectedEdForm(null); setAccionesDesbloqueadas(false);
   };
 
   // ============ MODALS: ESPACIO ============
@@ -375,11 +388,12 @@ export const Infraestructura = () => {
 
   const opcionesPisos = useMemo(() => generarOpcionesPisos(), []);
 
-  const openCreateEspacio = (opts: { lat?: number | null; lng?: number | null; tipo?: string } = {}) => {
+  const openCreateEspacio = (opts: { lat?: number | null; lng?: number | null; tipo?: string; piso?: number } = {}) => {
     setSelectedEsp(null);
     setEspForm({
       ...espDefaults,
       idEdificio: selectedEdificioId || '',
+      piso: opts.piso ?? 0,
       lat: opts.lat ?? null, lng: opts.lng ?? null,
       tipo: opts.tipo ?? (espTab === 'lab' ? 'Laboratorio Técnico' : espTab === 'oficina' ? 'Oficina de Docentes' : 'Académica'),
     });
@@ -560,11 +574,10 @@ export const Infraestructura = () => {
                 </p>
               </div>
 
-              {/* DERECHA: pisos y aulas del edificio elegido. Un solo piso abierto a la vez. */}
-              <div className={`pointer-events-auto min-w-0 flex-1 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:overflow-y-auto ${pasoPanelMovil === 'pisos' ? 'flex' : 'hidden'}`}>
-                <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
-                  {/* Volver a la lista de edificios. Solo en celular: de sm en adelante la lista
-                      está a la vista, al lado, y el botón no tendría sentido. */}
+              {/* DERECHA: solo los pisos del edificio elegido. Al seleccionar un piso se filtra abajo en el edificio */}
+              <div className={`pointer-events-auto min-w-0 flex-1 flex-col gap-1.5 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:overflow-y-auto ${pasoPanelMovil === 'pisos' ? 'flex' : 'hidden'}`}>
+                <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
+                  {/* Volver a la lista de edificios en móvil */}
                   <button
                     onClick={() => setPasoPanelMovil('edificios')}
                     className="-ml-1 mr-0.5 flex h-5 w-5 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 sm:hidden"
@@ -572,53 +585,62 @@ export const Infraestructura = () => {
                   >
                     <ChevronRight className="h-3.5 w-3.5 rotate-180" />
                   </button>
-                  <Layers className="h-3 w-3" />
-                  <span className="truncate">{selectedEdificio ? selectedEdificio.nombre : 'Pisos y aulas'}</span>
+                  <Layers className="h-3.5 w-3.5 text-gray-400" />
+                  <span className="truncate">{selectedEdificio ? selectedEdificio.nombre : 'Pisos'}</span>
                 </div>
                 {!selectedEdificio ? (
                   <p className="px-2 py-3 text-[11px] italic text-gray-400">Elige un edificio.</p>
                 ) : (() => {
                   const edSpaces = espaciosMapped.filter(s => s.idEdificio === selectedEdificio.id);
                   if (edSpaces.length === 0) {
-                    return <p className="px-2 py-3 text-[11px] italic text-gray-400">Sin espacios.</p>;
+                    return <p className="px-2 py-3 text-[11px] italic text-gray-400">Sin espacios registrados.</p>;
                   }
-                  return [...new Set(edSpaces.map(sp => sp.piso ?? 0))]
-                    .sort((a, b) => a - b)
-                    .map(piso => {
-                      const clave = `${selectedEdificio.id}::${piso}`;
-                      const delPiso = edSpaces
-                        .filter(sp => (sp.piso ?? 0) === piso)
-                        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
-                      // Buscando se abren todos: obligar a desplegar para encontrar algo
-                      // es lo contrario de buscar.
-                      const abierto = pisoAbierto === clave || !!searchNav;
-                      return (
-                        <div key={clave} className="overflow-hidden rounded-xl border border-gray-100">
+                  const pisosUnicos = [...new Set(edSpaces.map(sp => sp.piso ?? 0))].sort((a, b) => a - b);
+                  return (
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => { setSelectedPiso(null); setPanelAbierto(false); }}
+                        className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[12px] font-bold transition-all border ${
+                          selectedPiso === null
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
+                            : 'text-gray-700 hover:bg-gray-50 border-transparent'
+                        }`}
+                      >
+                        <Layers className={`h-3.5 w-3.5 shrink-0 ${selectedPiso === null ? 'text-indigo-600' : 'text-gray-400'}`} />
+                        <span className="flex-1 truncate text-left">Todos los pisos</span>
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${selectedPiso === null ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-500'}`}>
+                          {edSpaces.length}
+                        </span>
+                      </button>
+                      {pisosUnicos.map(piso => {
+                        const delPiso = edSpaces.filter(sp => (sp.piso ?? 0) === piso);
+                        const isActivo = selectedPiso === piso;
+                        return (
                           <button
-                            onClick={() => alternarPiso(clave)}
-                            className={`flex w-full items-center gap-1.5 px-2.5 py-2 text-[12px] font-bold transition-colors ${abierto ? 'bg-indigo-50/60 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                            key={piso}
+                            onClick={() => {
+                              setSelectedPiso(piso);
+                              setPanelAbierto(false);
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[12px] font-bold transition-all border ${
+                              isActivo
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
+                                : 'text-gray-700 hover:bg-gray-50 border-gray-100'
+                            }`}
                           >
-                            <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} />
-                            <Layers className="h-3 w-3 shrink-0 text-gray-400" />
+                            <Layers className={`h-3.5 w-3.5 shrink-0 ${isActivo ? 'text-indigo-600' : 'text-gray-400'}`} />
                             <span className="flex-1 truncate text-left">{formatoPiso(piso)}</span>
-                            <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500">{delPiso.length}</span>
+                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${isActivo ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-500'}`}>
+                              {delPiso.length}
+                            </span>
                           </button>
-                          {abierto && (
-                            <div className="flex flex-col gap-0.5 border-t border-gray-100 p-1.5">
-                              {delPiso.map(sp => (
-                                <div key={sp.id} onClick={() => { openEditEspacio(sp); setPanelAbierto(false); }} title={`Editar ${sp.nombre}`} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50">
-                                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sp.estado === 'disponible' ? 'bg-emerald-500' : sp.estado === 'ocupada' ? 'bg-blue-500' : 'bg-orange-500'}`} />
-                                  <span className="flex-1 break-words text-[11.5px] font-semibold leading-snug text-gray-700">{sp.nombre}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    });
+                        );
+                      })}
+                    </div>
+                  );
                 })()}
                 {selectedEdificio && (
-                  <button onClick={() => openCreateEspacio({})} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
+                  <button onClick={() => openCreateEspacio(selectedPiso !== null ? { piso: selectedPiso } : {})} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
                     <Plus className="h-3 w-3" /> Agregar espacio
                   </button>
                 )}
@@ -696,12 +718,28 @@ export const Infraestructura = () => {
                     {/* Acciones */}
                     {/* En celular ocupan la fila a medias; desde sm vuelven a su ancho natural. */}
                     <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={alternarCandado}
+                        title={accionesDesbloqueadas
+                          ? 'Ocultar acción de eliminar edificio'
+                          : 'Habilitar acción destructiva (Eliminar edificio)'}
+                        className={`shrink-0 w-9 h-9 rounded-xl border flex items-center justify-center transition-colors shadow-sm ${
+                          accionesDesbloqueadas
+                            ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                      >
+                        {accionesDesbloqueadas ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      </button>
                       <button onClick={() => openEditEdificio(selectedEdificio)} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
                         <Edit2 className="w-3.5 h-3.5" /> Editar
                       </button>
-                      <button onClick={() => { setSelectedEdForm(selectedEdificio); setEdModal('delete'); }} className="flex-1 sm:flex-none bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2">
-                        <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                      </button>
+                      {accionesDesbloqueadas && (
+                        <button onClick={() => { setSelectedEdForm(selectedEdificio); setEdModal('delete'); }} className="flex-1 sm:flex-none bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 px-4 py-2 rounded-xl text-[12px] font-bold transition-all shadow-sm flex items-center justify-center gap-2 animate-fade-in">
+                          <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -734,8 +772,21 @@ export const Infraestructura = () => {
                       );
                     })}
                     <FilterDropdown label="Estado" value={espEstadoFilter || 'todos'} options={[{ key: 'todos', label: 'Todos' }, { key: 'disponible', label: 'Disponible' }, { key: 'ocupada', label: 'Ocupada' }, { key: 'mantenimiento', label: 'Mantenimiento' }]} onChange={k => setEspEstadoFilter(k === 'todos' ? '' : k)} />
+                    {selectedPiso !== null && (
+                      <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-3 py-1.5 text-[11px] font-bold shadow-sm">
+                        <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        {formatoPiso(selectedPiso)}
+                        <button
+                          onClick={() => setSelectedPiso(null)}
+                          title="Ver todos los pisos"
+                          className="ml-0.5 text-indigo-400 hover:text-red-500 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
                     {hasEspFilters && (
-                      <button onClick={() => { setEspSearch(''); setEspEstadoFilter(''); setEspTab('todos'); }} className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors">
+                      <button onClick={() => { setEspSearch(''); setEspEstadoFilter(''); setEspTab('todos'); setSelectedPiso(null); }} className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors">
                         <RotateCcw className="w-3 h-3" /> Limpiar
                       </button>
                     )}

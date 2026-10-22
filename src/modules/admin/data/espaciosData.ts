@@ -25,20 +25,26 @@ export const TIPOS_ESPACIO: { valor: TipoEspacio; etiqueta: string }[] = [
  * y los datos de ejemplo la escriben con tilde: comparar con === falla en silencio y
  * clasifica todas las aulas como laboratorio.
  */
-export const esAula = (tipo: string | null | undefined): boolean =>
-  normalizarTexto(tipo) === 'academica';
+export const esAula = (tipo: string | null | undefined): boolean => {
+  const norm = normalizarTexto(tipo);
+  return norm === 'academica' || norm === 'aula' || norm.includes('aula') || norm.includes('academica');
+};
 
 /** True si el espacio es una oficina de docentes (migración 0040). */
-export const esOficina = (tipo: string | null | undefined): boolean =>
-  normalizarTexto(tipo) === 'oficina de docentes';
+export const esOficina = (tipo: string | null | undefined): boolean => {
+  const norm = normalizarTexto(tipo);
+  return norm.includes('oficina');
+};
 
 /**
  * True si el espacio es un laboratorio. Se define por descarte porque hay dos etiquetas de
- * laboratorio y puede haber más; lo que NO se puede es seguir usando `!esAula`, que desde la
- * 0040 mete a las oficinas en el recuento de laboratorios.
+ * laboratorio y puede haber más; no incluye aulas, oficinas ni edificios.
  */
-export const esLaboratorio = (tipo: string | null | undefined): boolean =>
-  !esAula(tipo) && !esOficina(tipo);
+export const esLaboratorio = (tipo: string | null | undefined): boolean => {
+  const norm = normalizarTexto(tipo);
+  if (!norm || norm === 'edificio' || esAula(tipo) || esOficina(tipo)) return false;
+  return true;
+};
 
 export interface OpcionPiso {
   valor: number;
