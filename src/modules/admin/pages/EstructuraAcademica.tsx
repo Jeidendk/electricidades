@@ -9,7 +9,7 @@ import {
   // Iconos Seleccionables
   Cpu, FlaskConical, Briefcase, Stethoscope, Globe, Palette,
   Microscope, PenTool, Laptop, Zap, Database, Activity, Calculator,
-  Compass, Leaf, Network, Wifi, RotateCcw
+  Compass, Leaf, Network, Wifi, RotateCcw, Lock, LockOpen
 } from 'lucide-react';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { PageHero } from '../../../components/ui/PageHero';
@@ -168,7 +168,7 @@ export const EstructuraAcademica = () => {
   })), [carreras, esTecnico, carreraTecnico]);
 
   const materias: MateriaUI[] = useMemo(() => (dbMaterias || []).map(m => ({
-    id: m.id, idCarrera: m.id_carrera, semestre: m.semestre, nombre: m.nombre, codigo: m.codigo, creditos: m.creditos, silaboUrl: m.silabo_url ?? null, programaUrl: m.programa_url ?? null, recursosIds: recursosMap[m.id] || [], creadoPor: m.creado_por ?? null,
+    id: m.id, idCarrera: m.id_carrera, semestre: m.semestre, nombre: m.nombre, codigo: m.codigo, creditos: m.creditos != null ? Number(m.creditos) : 0, silaboUrl: m.silabo_url ?? null, programaUrl: m.programa_url ?? null, recursosIds: recursosMap[m.id] || [], creadoPor: m.creado_por ?? null,
   })), [dbMaterias, recursosMap]);
 
   const puedeGestionarMateria = (materia: MateriaUI) =>
@@ -204,7 +204,13 @@ export const EstructuraAcademica = () => {
   // Materia Modal
   const [isAddingMateria, setIsAddingMateria] = useState(false);
   const [editingMateriaId, setEditingMateriaId] = useState<string | null>(null);
-  const [formMateria, setFormMateria] = useState({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: '' });
+  const [formMateria, setFormMateria] = useState<{
+    nombre: string;
+    codigo: string;
+    semestre: number;
+    creditos: number | string;
+    idCarrera: string;
+  }>({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: '' });
   const [materiaError, setMateriaError] = useState<string | null>(null);
   const [savingMateria, setSavingMateria] = useState(false);
 
@@ -225,10 +231,33 @@ export const EstructuraAcademica = () => {
     }
   };
 
+  const [accionesFacultadDesbloqueadas, setAccionesFacultadDesbloqueadas] = useState(false);
+
+  const alternarCandadoFacultad = async () => {
+    if (accionesFacultadDesbloqueadas) {
+      setAccionesFacultadDesbloqueadas(false);
+      return;
+    }
+
+    const Swal = (await import('sweetalert2')).default;
+    const { isConfirmed } = await Swal.fire({
+      icon: 'warning',
+      title: '¿Habilitar acciones destructivas?',
+      html: 'Se mostrará la opción <b>Eliminar</b> de la facultad.<br/>Eliminar una facultad afectará a todas sus carreras, materias y asignaciones asociadas.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, habilitar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#B00020',
+      focusCancel: true,
+    });
+    if (isConfirmed) setAccionesFacultadDesbloqueadas(true);
+  };
+
   const handleDeleteFacultad = async (id: string, nombre: string) => {
     if (!(await confirmDelete({ title: `¿Eliminar "${nombre}"?`, text: 'Esta acción no se puede deshacer y afectará a sus carreras.' }))) return;
     await removeFacultad(id);
     if (selectedFacultadId === id) { setSelectedFacultadId(null); setSelectedCarreraId(null); }
+    setAccionesFacultadDesbloqueadas(false);
   };
 
   // --- HANDLERS CARRERA ---
@@ -263,6 +292,14 @@ export const EstructuraAcademica = () => {
     if (!formMateria.nombre.trim() || !formMateria.codigo.trim() || !formMateria.idCarrera) {
       setMateriaError('Completa todos los campos obligatorios.'); return;
     }
+    const creditosParsed = typeof formMateria.creditos === 'string'
+      ? parseFloat(formMateria.creditos.replace(',', '.'))
+      : Number(formMateria.creditos);
+
+    if (isNaN(creditosParsed) || creditosParsed < 0) {
+      setMateriaError('Ingresa una cantidad válida de créditos (ej. 2, 3 o 3.5).');
+      return;
+    }
     if (esTecnico && formMateria.idCarrera !== carreraTecnico?.id) {
       setMateriaError('Solo puedes registrar materias en la carrera asignada a tu perfil.');
       return;
@@ -277,9 +314,25 @@ export const EstructuraAcademica = () => {
     setSavingMateria(true); setMateriaError(null);
     try {
       if (editingMateriaId) {
-        await updateMateria(editingMateriaId, { id_carrera: formMateria.idCarrera, codigo: formMateria.codigo.trim().toUpperCase(), nombre: formMateria.nombre.trim(), semestre: formMateria.semestre, creditos: formMateria.creditos });
+        await updateMateria(editingMateriaId, {
+          id_carrera: formMateria.idCarrera,
+          codigo: formMateria.codigo.trim().toUpperCase(),
+          nombre: formMateria.nombre.trim(),
+          semestre: formMateria.semestre,
+          creditos: creditosParsed,
+        });
       } else {
-        await addMateria({ id: `MAT-${formMateria.codigo.trim().toUpperCase().replace(/\s+/g, '-')}-${Date.now()}`, id_carrera: formMateria.idCarrera, codigo: formMateria.codigo.trim().toUpperCase(), nombre: formMateria.nombre.trim(), semestre: formMateria.semestre, creditos: formMateria.creditos, silabo_url: null, programa_url: null, creado_por: currentUser?.id || null });
+        await addMateria({
+          id: `MAT-${formMateria.codigo.trim().toUpperCase().replace(/\s+/g, '-')}-${Date.now()}`,
+          id_carrera: formMateria.idCarrera,
+          codigo: formMateria.codigo.trim().toUpperCase(),
+          nombre: formMateria.nombre.trim(),
+          semestre: formMateria.semestre,
+          creditos: creditosParsed,
+          silabo_url: null,
+          programa_url: null,
+          creado_por: currentUser?.id || null,
+        });
       }
       setIsAddingMateria(false);
       setEditingMateriaId(null);
@@ -579,13 +632,29 @@ export const EstructuraAcademica = () => {
                       <p className="text-[11px] font-medium text-gray-400">{selectedFacultad.siglas} · Decano/a: {selectedFacultad.decano} · {facultadKpis.carreras} {facultadKpis.carreras === 1 ? 'carrera' : 'carreras'}</p>
                     </div>
                   </div>
-                  {!esTecnico && <div className="flex items-center gap-3 shrink-0">
+                  {!esTecnico && <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={alternarCandadoFacultad}
+                      title={accionesFacultadDesbloqueadas
+                        ? 'Ocultar acción de eliminar facultad'
+                        : 'Habilitar acción destructiva (Eliminar facultad)'}
+                      className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center transition-colors shadow-sm ${
+                        accionesFacultadDesbloqueadas
+                          ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      {accionesFacultadDesbloqueadas ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                    </button>
                     <button onClick={() => { setFormFacultad({ siglas: selectedFacultad.siglas, nombre: selectedFacultad.nombre, decano: selectedFacultad.decano, estado: selectedFacultad.estado, colorHex: selectedFacultad.colorHex, icono: selectedFacultad.icono, customSvg: selectedFacultad.customSvg }); setModalType('editFacultad'); }} className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
                       <Edit2 className="w-3.5 h-3.5" /> Editar Facultad
                     </button>
-                    <button onClick={() => handleDeleteFacultad(selectedFacultad.id, selectedFacultad.nombre)} className="bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
-                      <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                    </button>
+                    {accionesFacultadDesbloqueadas && (
+                      <button onClick={() => handleDeleteFacultad(selectedFacultad.id, selectedFacultad.nombre)} className="bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2 animate-fade-in">
+                        <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                      </button>
+                    )}
                   </div>}
                 </div>
 
@@ -945,7 +1014,7 @@ export const EstructuraAcademica = () => {
                                         <div className="flex items-center gap-3">
                                           <span className="flex items-center gap-1 text-[11px] font-semibold text-gray-500">
                                             <Layers className="w-3.5 h-3.5 text-gray-400" />
-                                            {m.creditos} créditos
+                                            {m.creditos} {m.creditos === 1 ? 'crédito' : 'créditos'}
                                           </span>
                                           <span className="flex items-center gap-1 text-[11px] font-semibold text-gray-500">
                                             <BookOpen className="w-3.5 h-3.5 text-gray-400" />
@@ -1240,9 +1309,15 @@ export const EstructuraAcademica = () => {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold text-gray-700">Créditos</label>
-            <select value={formMateria.creditos} onChange={e => setFormMateria({ ...formMateria, creditos: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] font-medium text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(c => <option key={c} value={c}>{c} créditos</option>)}
-            </select>
+            <input
+              type="number"
+              step="any"
+              min={0}
+              value={formMateria.creditos}
+              onChange={e => setFormMateria({ ...formMateria, creditos: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] font-medium text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              placeholder="Ej. 2, 3 o 3.5"
+            />
           </div>
           {materiaError && <p className="text-[11px] text-red-500 font-semibold bg-red-50 border border-red-100 px-3 py-2 rounded-lg">{materiaError}</p>}
         </div>

@@ -289,7 +289,7 @@ export interface Database {
           semestre: number
           nombre: string
           codigo: string
-          creditos: number
+          creditos: number | null
           silabo_url: string | null
           programa_url: string | null
           creado_por: string | null
@@ -302,7 +302,7 @@ export interface Database {
           semestre: number
           nombre: string
           codigo: string
-          creditos?: number
+          creditos?: number | null
           silabo_url?: string | null
           programa_url?: string | null
           creado_por?: string | null
@@ -314,7 +314,7 @@ export interface Database {
           semestre?: number
           nombre?: string
           codigo?: string
-          creditos?: number
+          creditos?: number | null
           silabo_url?: string | null
           programa_url?: string | null
           creado_por?: string | null
