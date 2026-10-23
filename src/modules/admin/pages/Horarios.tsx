@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { AlignmentType, BorderStyle, Document, Footer, ImageRun, Packer, Paragraph, Table, TableCell, TableRow, TextRun, VerticalAlignTable, WidthType, type FileChild } from 'docx';
 import { BreadcrumbRuta } from '../../../components/ui/BreadcrumbRuta';
 import { useOutletContext } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -9,19 +11,19 @@ import { DisponibilidadEspacios } from '../components/Horarios/DisponibilidadEsp
 import { AsignacionModal } from '../components/Horarios/AsignacionModal';
 import { ExportSidebar } from '../components/Horarios/ExportSidebar';
 import { PlantillaPDF } from '../components/Horarios/PlantillaPDF';
-import { PlantillaWord } from '../components/Horarios/PlantillaWord';
 import { useClasesStore } from '../../../store/clasesStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
-import { horasFinDisponibles, PARALELO_POR_DEFECTO, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from '../components/Horarios/horariosData';
+import { horasFinDisponibles, PARALELO_POR_DEFECTO, CAMPOS_CLASE_POR_DEFECTO, diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo, type CamposClase } from '../components/Horarios/horariosData';
 import { altoPaginaEnPx, contarPaginas, paginaDesdeScroll } from '../components/Horarios/paginacionPdf';
 import { mapearClases } from '../components/Horarios/mapearClases';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 import { avisoError } from '../../../lib/aviso';
+import banderaEspoch from '../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
 // Preferencias del formato de exportación (persisten entre sesiones para no
 // reconfigurar período, tipografía, orientación, etc. cada vez).
@@ -156,6 +158,7 @@ export const Horarios = () => {
   const [exportAula, setExportAula] = useState('');
   /** ID del espacio (se usa para filtrar clases con precisión, evita colisiones de nombres). */
   const [exportAulaId, setExportAulaId] = useState('');
+  const [exportAlcance, setExportAlcance] = useState<'aula' | 'edificio' | 'facultad'>('aula');
   // Id de carrera por la que se filtra el documento; '' = todas. No se persiste junto al resto
   // de preferencias: depende del aula, y al cambiarla una carrera recordada ya no tendría clases.
   const [exportCarrera, setExportCarrera] = useState('');
@@ -464,11 +467,11 @@ export const Horarios = () => {
     setPaginaActual(paginaDesdeScroll(evento.currentTarget.scrollTop, altoPagina, escalaVistaPrevia, totalPaginas));
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (documentos?: string, titulo?: string) => {
     setIsGeneratingPDF(true);
     try {
       const element = document.getElementById('documento-pdf-oficial');
-      if (!element) return;
+      if (!element && !documentos) return;
       
       const isLandscape = orientation === 'horizontal';
       
@@ -493,7 +496,7 @@ export const Horarios = () => {
         <html>
         <head>
           <meta charset="utf-8">
-          <title>${exportEdificio}_${exportAula || 'Blanco'}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}</title>
+          <title>${titulo || `${exportEdificio}_${exportAula || 'Blanco'}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}`}</title>
           ${styleTags}
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Roboto:wght@400;500;700;900&family=Montserrat:wght@400;500;700;900&family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
           <style>
@@ -502,7 +505,7 @@ export const Horarios = () => {
               margin: 15mm 25mm 15mm 25mm;
             }
             * { box-sizing: border-box; transform: none !important; transform-origin: unset !important; }
-            html, body { width: 100%; height: 100%; font-size: 11px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+            html, body { width: 100%; font-size: ${documentFontSize}pt; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
             /* table-layout se deja en AUTO a propósito. Con fixed todas las columnas miden
                igual y, en vertical, las palabras largas se dibujan FUERA de la celda; además la
                columna HORA quedaba tan angosta que el rango horario (que lleva nowrap) se metía
@@ -511,31 +514,14 @@ export const Horarios = () => {
             /* Red de seguridad por si alguna palabra sigue sin entrar: que se parta antes de
                salirse de su casilla. */
             .schedule-table th, .schedule-table td { overflow-wrap: break-word; }
-            /* El relleno era de 15px: por 2 lados y 13 filas sumaba ~390px de puro aire y
-               empujaba el final del horario a una segunda hoja. Compacto entra en una. */
-            .schedule-table th, .schedule-table td { border: 1.5px solid black !important; padding: 3px 4px; text-align: center; vertical-align: middle; }
+            .schedule-table th, .schedule-table td { border: 1.5px solid black !important; padding: 3px 4px !important; text-align: center; vertical-align: middle; }
             .schedule-table th { font-weight: 900; text-transform: uppercase; }
+            .schedule-table, .schedule-table th, .schedule-table td, .schedule-table td span { font-size: ${documentFontSize}pt !important; }
+            .schedule-table td span.pao-linea { display: block !important; width: 100% !important; white-space: nowrap !important; overflow: hidden !important; }
             .schedule-table tr { height: auto !important; }
             img { max-width: 100%; height: auto; }
-            /* El escudo ocupaba 115px de alto en pantalla; impreso, ese alto es una fila más. */
             .printable-area img { max-height: 78px; width: auto; }
-            ${isLandscape ? '' : `
-            /* VERTICAL: la letra se reduce A PROPÓSITO.
-               Antes se veía chica por accidente: con el relleno de 15px la tabla quedaba más
-               ancha que la hoja y Chrome aplicaba "ajustar a la página", encogiendo TODO el
-               documento. Al compactar el relleno la tabla ya entra por ancho, el navegador dejó
-               de encoger y la letra apareció a tamaño real: demasiado grande para retrato.
-               Se baja aquí, que es determinista y no depende de lo que decida el navegador.
-               La plantilla trae los tamaños en línea, así que hace falta !important.
-               El horizontal NO se toca: ahí sobra ancho y se ve bien. */
-            .schedule-table td div { font-size: ${Math.max(4, Math.round(documentFontSize * 0.46))}px !important; line-height: 1.08 !important; }
-            .schedule-table td > div > div:first-child { font-size: ${Math.max(5, Math.round(documentFontSize * 0.58))}px !important; }
-            .schedule-table th { font-size: ${Math.max(5, Math.round(documentFontSize * 0.68))}px !important; }
-            /* El título institucional se partía en cuatro líneas y se comía un tercio del alto. */
-            .printable-area h1 { font-size: ${Math.max(9, documentFontSize + 1)}px !important; letter-spacing: 0 !important; margin-bottom: 4px !important; }
-            .printable-area h2 { font-size: ${Math.max(7, documentFontSize - 1)}px !important; }
-            .printable-area img { max-height: 60px !important; }
-            `}
+            .print-footer-source { display: block !important; margin-top: 8mm !important; padding-top: 0 !important; break-inside: avoid; page-break-inside: avoid; }
             .printable-area { margin: 0 !important; padding: 0 40px 12px 40px !important; box-shadow: none !important; min-height: auto !important; width: 100% !important; }
             /* Antes se aplicaba page-break avoid a TODOS los elementos. Pedirle al navegador
                que no corte nada no evita el corte —el contenido tiene que caber igual—, solo lo
@@ -544,17 +530,27 @@ export const Horarios = () => {
             thead { display: table-header-group; }
             tr { page-break-inside: avoid; break-inside: avoid; }
             img { page-break-inside: avoid; break-inside: avoid; }
+            .horario-lote { break-after: page; page-break-after: always; }
+            .horario-lote:last-child { break-after: auto; page-break-after: auto; }
             @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
           </style>
         </head>
         <body>
           <div class="printable-area">
-            ${element.innerHTML}
+            ${documentos || element?.innerHTML || ''}
           </div>
           <script>
             window.onload = () => {
               setTimeout(() => {
                 document.querySelectorAll('.flex-shrink-0').forEach(el => { el.style.transform = 'none'; });
+                document.querySelectorAll('.pao-linea').forEach(el => {
+                  let px = ${documentFontSize} * 96 / 72;
+                  el.style.setProperty('font-size', '${documentFontSize}pt', 'important');
+                  while (el.scrollWidth > el.clientWidth && px > 5) {
+                    px *= 0.95;
+                    el.style.setProperty('font-size', px + 'px', 'important');
+                  }
+                });
               }, 100);
             };
           </script>
@@ -580,28 +576,78 @@ export const Horarios = () => {
     }
   };
 
-  const getExportStyles = () => {
-    // Compacto a propósito: con el relleno anterior (8px) las 12 franjas horarias más la
-    // cabecera y el pie no entraban en una hoja y Word partía el horario en dos.
-    return `<style>
-      body { margin: 0; }
-      /* Sin table-layout fixed: con columnas de ancho igual, en vertical las palabras largas
-         se salen de la celda. Que las reparta Word según el contenido. */
-      .schedule-table { border-collapse: collapse; width: 100%; }
-      .schedule-table th, .schedule-table td { border: 1.5px solid black; padding: 2px 3px; text-align: center; vertical-align: middle; overflow-wrap: break-word; }
-      .schedule-table th { font-weight: bold; }
-      /* Word corta por filas, no por dentro de una. */
-      tr, td, th, img { page-break-inside: avoid; mso-break-type: avoid; }
-    </style>`;
+  const getUbicacionesConClases = (edificioId?: string) => {
+    const espaciosConClases = new Set(clases.map(clase => clase.idEspacio).filter(Boolean));
+    const ubicaciones = [...edificiosRaw]
+      .filter(edificio => !edificioId || edificio.id === edificioId)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+      .flatMap(edificio => [...espaciosRaw]
+        .filter(espacio => espacio.id_edificio === edificio.id && espaciosConClases.has(espacio.id))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+        .map(espacio => ({ edificio, espacio })));
+
+    return ubicaciones;
   };
 
-  /** Medidas del papel en puntos, que es lo que entiende el `@page` de Word. */
-  const getWordPageSetup = () => {
-    const horizontal = orientation === 'horizontal';
-    const [corto, largo] = paperSize === 'Carta' ? [612, 792] : [595.3, 841.9];
-    const [ancho, alto] = horizontal ? [largo, corto] : [corto, largo];
-    // Antes estaba fijo en A4 horizontal, así que el documento ignoraba lo elegido en el panel.
-    return `<style> @page Section1 { size:${ancho}pt ${alto}pt; mso-page-orientation:${horizontal ? 'landscape' : 'portrait'}; margin:1.0cm 1.2cm 1.0cm 1.2cm; mso-header-margin:0pt; mso-footer-margin:0pt; mso-paper-source:0; } div.Section1 { page:Section1; } </style>`;
+  /**
+   * Las aulas del alcance elegido y el nombre del archivo. Con alcance `facultad` no se pide
+   * edificio: `getUbicacionesConClases()` sin argumento ya devuelve todos, ordenados por
+   * edificio y luego por aula, que es justamente el agrupado que se busca.
+   */
+  /** Cómo se nombra el alcance en los títulos de los botones de descarga. */
+  const etiquetaAlcance =
+    exportAlcance === 'aula' ? 'aula seleccionada'
+    : exportAlcance === 'edificio' ? 'todas las aulas del edificio'
+    : 'todos los horarios de la facultad, por edificio';
+
+  const resolverLoteExport = () => {
+    if (exportAlcance === 'facultad') {
+      const ubicaciones = getUbicacionesConClases();
+      if (ubicaciones.length === 0) {
+        void avisoError('No hay horarios para descargar', 'Todavía no hay clases asignadas a ningún aula.');
+        return null;
+      }
+      return { ubicaciones, nombre: 'Horarios_Facultad' };
+    }
+
+    const edificio = edificiosRaw.find(item => item.nombre === exportEdificio);
+    if (!edificio) {
+      void avisoError('Selecciona un edificio', 'Elige el edificio cuyos horarios quieres descargar.');
+      return null;
+    }
+    const ubicaciones = getUbicacionesConClases(edificio.id);
+    if (ubicaciones.length === 0) {
+      void avisoError('No hay horarios para descargar', `El edificio ${edificio.nombre} no tiene aulas con clases asignadas.`);
+      return null;
+    }
+    return { ubicaciones, nombre: `Horarios_${edificio.nombre}` };
+  };
+
+  const handleDownloadTodos = () => {
+    const lote = resolverLoteExport();
+    if (!lote) return;
+    const { ubicaciones, nombre } = lote;
+
+    const documentos = ubicaciones.map(({ edificio, espacio }) => {
+      const html = renderToStaticMarkup(
+        <PlantillaPDF
+          pdfZoom={120} orientation={orientation} paperSize={paperSize} typography={typography}
+          headerImg={headerImg} footerImg={footerImg} documentFontSize={documentFontSize}
+          exportAula={espacio.nombre} exportAulaId={espacio.id} exportEdificio={edificio.nombre}
+          exportPeriodo={exportPeriodo} clases={clases} includeFooter={includeFooter}
+          camposClase={camposClase}
+        />
+      );
+      return `<section class="horario-lote">${html}</section>`;
+    }).join('');
+
+    void handleDownloadPDF(documentos, nombre);
+  };
+
+  const handleDownloadTodosWord = async () => {
+    const lote = resolverLoteExport();
+    if (!lote) return;
+    await descargarWordDocx(lote.ubicaciones, `${lote.nombre}.docx`);
   };
 
   /**
@@ -612,7 +658,7 @@ export const Horarios = () => {
    * resuelve las dos cosas y deja el archivo autocontenido: se puede enviar por correo.
    */
   const aPngDataUri = (url: string): Promise<string> => {
-    if (url.startsWith('data:')) return Promise.resolve(url);
+    if (url.startsWith('data:image/png')) return Promise.resolve(url);
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -630,30 +676,125 @@ export const Horarios = () => {
     });
   };
 
-  const handleDownloadWord = async () => {
-    const element = document.getElementById('documento-word-oficial');
-    if (!element) return;
+  const descargarWordDocx = async (
+    ubicaciones: { edificio: (typeof edificiosRaw)[number]; espacio: (typeof espaciosRaw)[number] }[],
+    nombreArchivo: string,
+    carreraId = '',
+  ) => {
+    const fuente = typography || 'Arial';
+    // docx mide el tamaño de fuente en medios puntos; el número del panel está en puntos.
+    const tamano = documentFontSize;
+    const linea = (texto: string, negrita = false, size = tamano * 2) =>
+      new TextRun({ text: texto, bold: negrita, size, font: fuente });
+    const parrafo = (texto: string, negrita = false, size = tamano * 2) =>
+      new Paragraph({ children: [linea(texto, negrita, size)], spacing: { before: 0, after: 0 }, alignment: AlignmentType.CENTER });
+    const borde = { style: BorderStyle.SINGLE, size: 5, color: '222222' };
+    const celda = (renglones: { texto: string; negrita?: boolean; pao?: boolean }[]) => new TableCell({
+      children: renglones.length ? renglones.map(r => {
+        if (!r.pao) return parrafo(r.texto, r.negrita);
+        const anchoPt = orientation === 'horizontal' ? 139 : 94;
+        const puntos = Math.min(tamano, anchoPt / (r.texto.length * 0.55));
+        return parrafo(r.texto.replaceAll(' ', '\u00a0'), false, Math.max(10, Math.floor(puntos * 2)));
+      }) : [parrafo('')],
+      borders: { top: borde, bottom: borde, left: borde, right: borde },
+      margins: { top: 35, bottom: 35, left: 35, right: 35 },
+    });
+    const png = async (url: string) => {
+      const uri = await aPngDataUri(url);
+      return Uint8Array.from(atob(uri.split(',')[1]), char => char.charCodeAt(0));
+    };
+    let escudo: Uint8Array | null = null;
+    try { escudo = await png(headerImg || banderaEspoch); } catch { /* Título sin imagen si falla. */ }
+    const hijos: FileChild[] = [];
 
-    const copia = element.cloneNode(true) as HTMLElement;
-    await Promise.all(Array.from(copia.querySelectorAll('img')).map(async img => {
-      try {
-        img.setAttribute('src', await aPngDataUri(img.src));
-      } catch {
-        // Mejor sin escudo que con un recuadro roto en medio del encabezado.
-        img.remove();
+    ubicaciones.forEach(({ edificio, espacio }, indice) => {
+      if (indice > 0) hijos.push(new Paragraph({ pageBreakBefore: true, spacing: { after: 0 } }));
+      const sinBorde = { style: BorderStyle.NONE };
+      const lineaRoja = { style: BorderStyle.SINGLE, size: 6, color: 'EF4444' };
+      const bordesEncabezado = { top: sinBorde, left: sinBorde, right: sinBorde, bottom: sinBorde };
+      const anchoEncabezado = orientation === 'horizontal' ? [3100, 9300, 3100] : [2500, 5600, 2500];
+      hijos.push(new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        columnWidths: anchoEncabezado,
+        borders: { top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde, insideHorizontal: sinBorde, insideVertical: sinBorde },
+        rows: [new TableRow({ children: [
+          new TableCell({
+            borders: bordesEncabezado, verticalAlign: VerticalAlignTable.CENTER,
+            children: [new Paragraph({ alignment: AlignmentType.LEFT, children: escudo ? [new ImageRun({ type: 'png', data: escudo, transformation: orientation === 'horizontal' ? { width: 190, height: 115 } : { width: 150, height: 92 } })] : [linea('ESPOCH', true)] })],
+          }),
+          new TableCell({
+            borders: bordesEncabezado, verticalAlign: VerticalAlignTable.CENTER,
+            children: [
+              new Paragraph({ alignment: AlignmentType.CENTER, children: [linea('ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO', true, (tamano + 7) * 2)], spacing: { after: 40 } }),
+              new Paragraph({ alignment: AlignmentType.CENTER, children: [linea('FACULTAD DE INFORMÁTICA Y ELECTRÓNICA', true, (tamano + 3) * 2)] }),
+            ],
+          }),
+          new TableCell({ borders: bordesEncabezado, children: [new Paragraph('')] }),
+        ] })],
+      }));
+      hijos.push(new Paragraph({ children: [new TextRun(' ')], border: { bottom: lineaRoja }, spacing: { after: 40 } }));
+      hijos.push(new Paragraph({ children: [linea(espacio.nombre.toUpperCase(), true, (tamano + 4) * 2)], spacing: { after: 25 } }));
+      hijos.push(new Paragraph({ children: [linea(edificio.nombre.toUpperCase(), true, (tamano + 1) * 2)], spacing: { after: 25 } }));
+      hijos.push(new Paragraph({ children: [linea(exportPeriodo, true, (tamano + 1) * 2)], spacing: { after: 100 } }));
+
+      const filas = [new TableRow({ children: ['HORA', ...diasFormales].map(dia => celda([{ texto: dia.toUpperCase(), negrita: true }])) })];
+      horas.forEach(hora => {
+        const celdas = [celda([{ texto: hora.replaceAll(':', 'H'), negrita: true }])];
+        diasFormales.forEach(dia => {
+          const clase = clases.find(c => c.idEspacio === espacio.id && mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && (!carreraId || c.idCarrera === carreraId));
+          const renglones = clase ? [
+            { texto: clase.materia.toUpperCase(), negrita: true },
+            ...(camposClase.paoParalelo && etiquetaPaoParalelo(clase.pao, clase.paralelo) ? [{ texto: etiquetaPaoParalelo(clase.pao, clase.paralelo), pao: true }] : []),
+            ...(camposClase.carrera && clase.carrera ? [{ texto: clase.carrera.toUpperCase() }] : []),
+            ...(camposClase.docente && clase.docente ? [{ texto: clase.docente.toUpperCase() }] : []),
+          ] : [];
+          celdas.push(celda(renglones));
+        });
+        filas.push(new TableRow({ children: celdas, cantSplit: true }));
+      });
+      hijos.push(new Table({ rows: filas, width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: orientation === 'horizontal' ? [1600, 2780, 2780, 2780, 2780, 2780] : [1200, 1880, 1880, 1880, 1880, 1880] }));
+    });
+
+    let pie: Footer | undefined;
+    if (includeFooter) {
+      let contenido: Paragraph;
+      if (footerImg) {
+        try { contenido = new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'png', data: await png(footerImg), transformation: { width: 260, height: 45 } })] }); }
+        catch { contenido = parrafo('Riobamba - Ecuador', false, Math.max(7, tamano - 2) * 2); }
+      } else {
+        contenido = new Paragraph({ alignment: AlignmentType.CENTER, children: [linea('Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155.  Riobamba - Ecuador', false, Math.max(7, tamano - 2) * 2)] });
       }
-    }));
+      pie = new Footer({ children: [contenido] });
+    }
+    const horizontal = orientation === 'horizontal';
+    const corto = paperSize === 'Carta' ? 12240 : 11906;
+    const largo = paperSize === 'Carta' ? 15840 : 16838;
+    const doc = new Document({ sections: [{
+      properties: { page: { size: { width: horizontal ? largo : corto, height: horizontal ? corto : largo }, margin: { top: 700, bottom: 1000, left: 650, right: 650, footer: 350 } } },
+      footers: pie ? { default: pie } : undefined,
+      children: hijos,
+    }] });
+    const url = URL.createObjectURL(await Packer.toBlob(doc));
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = nombreArchivo;
+    enlace.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
-    const fullHTML = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${exportAula || 'Horario'}</title>${getExportStyles()}${getWordPageSetup()}</head><body><div class='Section1'>${copia.innerHTML}</div></body></html>`;
-    const blob = new Blob([fullHTML], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${exportEdificio}_${exportAula || 'Blanco'}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}.doc`; a.click();
-    URL.revokeObjectURL(url);
+  const handleDownloadWord = async () => {
+    const edificio = edificiosRaw.find(item => item.nombre === exportEdificio);
+    const espacio = espaciosRaw.find(item => item.id === exportAulaId)
+      ?? espaciosRaw.find(item => item.id_edificio === edificio?.id && item.nombre === exportAula);
+    if (!edificio || !espacio) {
+      void avisoError('Selecciona un aula', 'Elige un edificio y un aula antes de descargar el horario Word.');
+      return;
+    }
+    await descargarWordDocx([{ edificio, espacio }], `${exportEdificio}_${exportAula}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}.docx`, exportCarrera);
   };
 
   const handleResetFilters = () => {
-    setExportEdificio(''); setExportAula(''); setExportAulaId(''); setExportCarrera(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
+    setExportEdificio(''); setExportAula(''); setExportAulaId(''); setExportAlcance('aula'); setExportCarrera(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
     setPaperSize('A4'); setIncludeFooter(true); setDocumentFontSize(11); setTypography('Inter');
   };
 
@@ -809,7 +950,7 @@ export const Horarios = () => {
                 documentFontSize={documentFontSize} setDocumentFontSize={setDocumentFontSize}
                 typography={typography} setTypography={setTypography}
                 formattedDate={formattedDate} formattedTime={formattedTime}
-                handlePrint={handleDownloadPDF} handleResetFilters={handleResetFilters}
+                exportAlcance={exportAlcance} setExportAlcance={setExportAlcance} handleResetFilters={handleResetFilters}
               />
 
               <div className="flex-1 flex flex-col h-full bg-[#f1f3f4] rounded-[20px] overflow-hidden border border-gray-200/50 min-h-[600px] lg:min-h-0">
@@ -864,13 +1005,13 @@ export const Horarios = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button onClick={handleDownloadPDF} disabled={isGeneratingPDF} className="flex flex-col items-center justify-center py-1.5 px-3 border border-red-100 rounded-xl bg-red-50/50 hover:bg-red-50 text-red-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
+                    <button onClick={() => { if (exportAlcance === 'aula') void handleDownloadPDF(); else handleDownloadTodos(); }} disabled={isGeneratingPDF} title={`PDF: ${etiquetaAlcance}`} className="flex flex-col items-center justify-center py-1.5 px-3 border border-red-100 rounded-xl bg-red-50/50 hover:bg-red-50 text-red-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
                       {isGeneratingPDF ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4 text-red-600" />}
                       <span className="text-[9px] font-bold">PDF</span>
                     </button>
-                    <button onClick={handleDownloadWord} className="flex flex-col items-center justify-center py-1.5 px-3 border border-blue-100 rounded-xl bg-blue-50/50 hover:bg-blue-50 text-blue-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
+                    <button onClick={() => { if (exportAlcance === 'aula') void handleDownloadWord(); else void handleDownloadTodosWord(); }} title={`Word: ${etiquetaAlcance}`} className="flex flex-col items-center justify-center py-1.5 px-3 border border-blue-100 rounded-xl bg-blue-50/50 hover:bg-blue-50 text-blue-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
                       <FileText className="w-4 h-4 text-blue-600" />
-                      <span className="text-[9px] font-bold">DOCX</span>
+                      <span className="text-[9px] font-bold">Word</span>
                     </button>
                   </div>
                 </div>
@@ -879,6 +1020,7 @@ export const Horarios = () => {
                   <PlantillaPDF 
                     pdfZoom={pdfZoom}
                     orientation={orientation}
+                    paperSize={paperSize}
                     typography={typography}
                     headerImg={headerImg}
                     footerImg={footerImg}
@@ -893,25 +1035,6 @@ export const Horarios = () => {
                     camposClase={camposClase}
                   />
                   
-                  {/* Hidden templates for Word exports */}
-                  <div className="hidden">
-                    <PlantillaWord 
-                      pdfZoom={100}
-                      orientation={orientation}
-                      typography={typography}
-                      headerImg={headerImg}
-                      footerImg={footerImg}
-                      documentFontSize={documentFontSize}
-                      exportAula={exportAula}
-                      exportAulaId={exportAulaId}
-                      exportEdificio={exportEdificio}
-                      exportCarrera={exportCarrera}
-                      exportPeriodo={exportPeriodo}
-                      clases={clases}
-                      includeFooter={includeFooter}
-                      camposClase={camposClase}
-                    />
-                  </div>
                 </div>
               </div>
             </div>

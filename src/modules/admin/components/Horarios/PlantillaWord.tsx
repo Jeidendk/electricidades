@@ -73,7 +73,7 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
     <div id="documento-word-oficial" style={{ fontFamily: getFontFamily(typography), color: '#000000' }}>
       
       {/* HEADER */}
-      <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: 'none', marginBottom: '5px' }}>
+      <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: 'none', marginBottom: '5px', pageBreakAfter: 'avoid' }}>
         <tbody>
           <tr>
             <td width="230" align="left" valign="top" style={{ padding: 0, borderBottom: '2px solid #ef4444' }}>
@@ -93,7 +93,7 @@ export const PlantillaWord: React.FC<PlantillaWordProps> = ({
       </table>
 
       {/* DETAILS */}
-      <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: 'none', marginBottom: '10px' }}>
+      <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: 'none', marginBottom: '10px', pageBreakAfter: 'avoid' }}>
         <tbody>
           <tr>
             <td align="left" style={{ padding: '5px 0' }}>

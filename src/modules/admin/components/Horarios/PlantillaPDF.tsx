@@ -1,11 +1,33 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from './horariosData';
 import { mismoDia } from '../../../../lib/texto';
 import banderaEspoch from '../../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
+const LineaPao = ({ texto, tamano }: { texto: string; tamano: number }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const elemento = ref.current;
+    if (!elemento) return;
+    const ajustar = () => {
+      let px = tamano * 96 / 72;
+      elemento.style.fontSize = `${tamano}pt`;
+      while (elemento.scrollWidth > elemento.clientWidth && px > 5) {
+        px *= 0.95;
+        elemento.style.fontSize = `${px}px`;
+      }
+    };
+    const observador = new ResizeObserver(ajustar);
+    if (elemento.parentElement) observador.observe(elemento.parentElement);
+    ajustar();
+    return () => observador.disconnect();
+  }, [texto, tamano]);
+  return <span ref={ref} className="pao-linea uppercase font-medium leading-none text-[#475569]" style={{ fontSize: `${tamano}pt`, display: 'block', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden' }}>{texto}</span>;
+};
+
 interface PlantillaPDFProps {
   pdfZoom: number;
   orientation: 'vertical' | 'horizontal';
+  paperSize?: 'A4' | 'Carta';
   typography: string;
   headerImg: string;
   footerImg: string;
@@ -26,6 +48,7 @@ interface PlantillaPDFProps {
 export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
   pdfZoom,
   orientation,
+  paperSize = 'A4',
   typography,
   headerImg,
   footerImg,
@@ -62,14 +85,14 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
       && (!exportCarrera || c.idCarrera === exportCarrera));
   };
 
-  const getHeader1Size = () => `${documentFontSize + 7}px`;
-  const getHeader2Size = () => `${documentFontSize + 3}px`;
-  const getAulaSize = () => `${documentFontSize + 4}px`;
-  const getSubtitleSize = () => `${documentFontSize + 1}px`;
-  const getTableSize = () => `${documentFontSize + 2}px`;
+  const getHeader1Size = () => `${documentFontSize + 7}pt`;
+  const getHeader2Size = () => `${documentFontSize + 3}pt`;
+  const getAulaSize = () => `${documentFontSize + 4}pt`;
+  const getSubtitleSize = () => `${documentFontSize + 1}pt`;
+  const getTableSize = () => `${documentFontSize}pt`;
 
-  const getTitleSize = () => `${documentFontSize}px`;
-  const getSubSize = () => `${Math.max(6, documentFontSize - 2)}px`;
+  const getTitleSize = () => `${documentFontSize}pt`;
+  const getSubSize = () => `${documentFontSize}pt`;
 
   return (
     <div style={{ transform: `scale(${pdfZoom / 120})`, transformOrigin: 'top center', transition: 'transform 0.15s ease-out' }} className="flex-shrink-0">
@@ -80,7 +103,12 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
             ? 'w-[800px] h-auto' 
             : 'w-[1300px] h-auto'
         }`}
-        style={{ fontFamily: getFontFamily(typography) }}
+        style={{
+          fontFamily: getFontFamily(typography),
+          minHeight: orientation === 'horizontal'
+            ? (paperSize === 'Carta' ? '1005px' : '919px')
+            : (paperSize === 'Carta' ? '1035px' : '1132px'),
+        }}
       >
         {/* HEADER AS A TABLE FOR WORD/EXCEL COMPATIBILITY */}
         <table width="100%" style={{ borderCollapse: 'collapse', border: 'none', borderBottom: '1px solid #ef4444', marginBottom: '10px' }}>
@@ -149,9 +177,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
                               {claseExport.materia}
                             </span>
                             {camposClase.paoParalelo && etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo) && (
-                              <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
-                                {etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo)}
-                              </span>
+                              <LineaPao texto={etiquetaPaoParalelo(claseExport.pao, claseExport.paralelo)} tamano={documentFontSize} />
                             )}
                             {camposClase.carrera && claseExport.carrera && (
                               <span className="uppercase font-medium leading-none text-[#475569]" style={{ fontSize: getSubSize() }}>
@@ -176,13 +202,12 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
 
         {/* FOOTER */}
         {includeFooter && (
-          <div className="mt-12 border-t-[1px] border-[#ef4444] pt-8 text-center text-[10px] text-gray-500 font-medium tracking-wide block w-full" style={{ fontFamily: getFontFamily(typography) }}>
+          <div className="print-footer-source mt-auto pt-4 text-center text-[10px] text-gray-500 font-medium tracking-wide block w-full" style={{ fontFamily: getFontFamily(typography) }}>
             {footerImg ? (
               <img src={footerImg} alt="Pie de Página" className="w-auto mx-auto object-contain" style={{ height: '45px', maxHeight: '45px' }} />
             ) : (
               <>
-                Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155.<br/>
-                Riobamba - Ecuador
+                Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155. Riobamba - Ecuador
               </>
             )}
           </div>

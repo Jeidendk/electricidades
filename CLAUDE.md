@@ -71,6 +71,73 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Vuelve el alcance "Toda la facultad (por edificio)".** El selector de Generar Formato
+  ofrece ahora tres niveles: aula seleccionada, todas las aulas del edificio, y todas las de
+  la facultad. Sirve tanto para PDF como para Word.
+  **No hizo falta lógica nueva**: `getUbicacionesConClases()` sin argumento ya devolvía todas
+  las aulas con clases, ordenadas por edificio y luego por aula, que es el agrupado pedido.
+  Se extrajo `resolverLoteExport()`, que elige las ubicaciones y el nombre del archivo, y que
+  **no exige edificio seleccionado** cuando el alcance es la facultad entera.
+  **Solo entran aulas con clases**: incluir las vacías llenaría el documento de hojas en blanco.
+- **Alcance de descarga reducido.** El selector ofrece solo aula seleccionada
+  o todas las aulas con clases del edificio seleccionado. La opción de todos
+  los edificios queda fuera por ahora.
+- **Una sola zona de descarga de horarios.** PDF y Word quedan únicamente en
+  la barra superior. El panel lateral elige el alcance: aula seleccionada,
+  todas las aulas con clases del edificio seleccionado o todos los edificios.
+  Se quitaron los botones duplicados y el botón Imprimir del pie del panel.
+- **PAO y paralelo en una sola línea.** En PDF la línea se mide y reduce solo
+  cuando no cabe en la celda, tanto en vista previa como al imprimir. En DOCX
+  los espacios no separables y un tamaño calculado para el ancho de la columna
+  evitan que «PAO 3 · PARALELO 1» se parta o invada otra casilla.
+- **PDF: recuperar espaciado y pie solo al final.** Se revirtió la compresión
+  reciente de filas, encabezado y márgenes. El pie dejó de ser fijo/repetido:
+  forma parte del horario y se imprime una vez, después de la tabla, en la
+  última página de ese horario.
+- **PDF: evitar pie superpuesto.** `@page margin:0` dejaba la tabla ocupar la
+  zona del pie. Se reservó otra vez margen inferior real para impresión y se
+  compactaron el encabezado y las filas sin reducir el tamaño elegido de letra.
+- **Pie del PDF igual al Word.** Se quitó la línea roja y el salto de línea del
+  texto institucional. La hoja impresa usa márgenes CSS propios y `@page`
+  sin márgenes del navegador para evitar la URL y la numeración automáticas.
+- **PDF de horarios: pie al fondo y tamaño en puntos.** La vista previa coloca el
+  pie al fondo de la hoja y la impresión lo repite como elemento fijo de cada
+  página, con espacio reservado en el margen inferior;
+  el pie que aparece en la vista previa no se duplica al imprimir. La tabla usa
+  exactamente los puntos elegidos en el panel, sin reducción oculta en vertical.
+- **DOCX respeta fuente y tamaño configurados.** Se quitó el tope artificial de
+  10 pt y los tamaños fijos de 6/7,5 pt en la tabla. El valor del panel se
+  convierte a medios puntos de Word y se usa como tamaño base en cada casilla;
+  los títulos institucionales conservan su jerarquía relativa.
+- **Encabezado DOCX sin recuadro.** Se quitaron los bordes exteriores e interiores
+  de la tabla que alinea escudo y título. La línea roja ahora es un párrafo
+  independiente debajo de ambos, a todo el ancho de la página.
+- **Encabezado DOCX igual al formato institucional.** El escudo vuelve a la
+  izquierda, el nombre de la ESPOCH y la facultad van centrados a su lado y una
+  línea roja separa el encabezado de los datos del aula. Se aplica a la descarga
+  individual y a la masiva.
+- **Word de horarios ahora es DOCX real.** Las exportaciones individual y masiva
+  generan un documento Word con pie de página nativo y salto de página antes de
+  cada aula. Se reemplazó el HTML con extensión .doc, que duplicaba el pie dentro
+  del cuerpo. La orientación y el tamaño de papel siguen las opciones del panel.
+- **Word individual: pie institucional al fondo.** La descarga de un aula usa ahora
+  la misma sección con pie real de Word que la descarga masiva; la plantilla
+  oculta ya no dibuja el pie como tabla inmediatamente después del horario.
+- **Word masivo: pie al fondo y un aula por página.** El pie institucional se
+  declara como pie de sección de Word, no como tabla debajo del horario. El salto
+  antes de cada aula incluye contenido visible para que Word no descarte un
+  párrafo vacío de altura cero.
+- **Word masivo: evitar páginas casi vacías.** Se quitó el salto de página del
+  contenedor de cada horario (Word lo desplazaba y separaba cabecera, aula y tabla).
+  Ahora se inserta un salto explícito antes de cada aula posterior y se mantienen
+  juntas la cabecera y los datos del aula con la tabla.
+- **Descarga masiva de horarios en PDF o Word.** El panel Generar Formato muestra
+  dos botones bajo «Todos los horarios por edificio». Word usa la plantilla
+  individual existente, incluye el escudo incrustado y separa cada aula en una página.
+- **Horarios: descarga conjunta por edificio.** En Generar Formato se añadió un botón
+  para imprimir o guardar en un solo PDF los horarios de todas las aulas con clases,
+  ordenadas por edificio y aula. Cada aula comienza en una página nueva y conserva
+  las preferencias de formato existentes. La exportación individual sigue disponible.
 - **`table-layout: fixed` rompía el horario exportado en VERTICAL.** Se había agregado junto con
   el relleno compacto, y es lo que hacía que en retrato las palabras largas se dibujaran FUERA
   de la celda y que el rango horario (que lleva `nowrap`) se metiera dentro de LUNES. Con

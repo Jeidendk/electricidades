@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Download, ChevronDown, Clock, Building2, Users, GraduationCap, Printer, RefreshCcw } from 'lucide-react';
+import { X, Download, ChevronDown, Clock, Building2, Users, GraduationCap, RefreshCcw } from 'lucide-react';
 import { useEdificiosStore } from '../../../../store/edificiosStore';
 import { useEspaciosStore } from '../../../../store/espaciosStore';
 import type { CamposClase } from './horariosData';
@@ -41,7 +41,9 @@ interface ExportSidebarProps {
   setTypography: (val: string) => void;
   formattedDate: string;
   formattedTime: string;
-  handlePrint: () => void;
+  /** Qué horarios entran en la descarga: una aula, un edificio entero o toda la facultad. */
+  exportAlcance: 'aula' | 'edificio' | 'facultad';
+  setExportAlcance: (val: 'aula' | 'edificio' | 'facultad') => void;
   handleResetFilters: () => void;
 }
 
@@ -71,7 +73,8 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
   setTypography,
   formattedDate,
   formattedTime,
-  handlePrint,
+  exportAlcance,
+  setExportAlcance,
   handleResetFilters
 }) => {
   const edificios = useEdificiosStore(state => state.items);
@@ -268,9 +271,14 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
       </div>
 
       <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col gap-2 shrink-0">
-        <button onClick={handlePrint} className="w-full py-2.5 rounded-xl bg-[#1e2733] hover:bg-black text-white text-[10px] font-black shadow-md transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 cursor-pointer">
-          <Printer className="w-3.5 h-3.5" /> Imprimir
-        </button>
+        <label htmlFor="alcance-horarios" className="text-[10px] font-extrabold text-gray-600">Qué horarios descargar</label>
+        <select id="alcance-horarios" value={exportAlcance} onChange={e => setExportAlcance(e.target.value as 'aula' | 'edificio' | 'facultad')} className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11px] font-bold text-gray-700 outline-none focus:border-red-500">
+          <option value="aula">Aula seleccionada</option>
+          <option value="edificio" disabled={!exportEdificio}>Todas las aulas del edificio</option>
+          {/* No depende del edificio elegido: recorre todos los que tengan clases. */}
+          <option value="facultad">Toda la facultad (por edificio)</option>
+        </select>
+        <span className="text-[10px] text-gray-500">Descarga con PDF o Word en la barra superior.</span>
         <button onClick={handleResetFilters} className="w-full py-1.5 text-gray-400 hover:text-gray-600 text-[10px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
           <RefreshCcw className="w-3 h-3" /> Restablecer parámetros
         </button>
