@@ -23,6 +23,16 @@ import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 // Constantes para formularios (dropdowns)
 const ROLES = ['Administrador', 'Estudiante', 'Tecnico', 'Docente'];
 
+/**
+ * Roles que llevan facultad y carrera.
+ *
+ * El COORDINADOR la necesita para que Estructura Académica le muestre la carrera que coordina:
+ * el filtro se resuelve por `carrera_nombre`, así que sin ese dato la pantalla le queda vacía.
+ * Decano y subdecano NO están aquí a propósito: ven toda la facultad, no una carrera.
+ */
+const ROLES_CON_CARRERA = ['Estudiante', 'Tecnico', 'Coordinador'];
+const llevaCarrera = (rol: string) => ROLES_CON_CARRERA.includes(rol);
+
 export const Usuarios = () => {
   const { items, fetchUsuarios, addUsuario, updateUsuario, removeUsuario } = useUsuariosStore();
   const facultades = useFacultadesStore(s => s.facultades);
@@ -316,6 +326,17 @@ export const Usuarios = () => {
         S.fire({ icon: 'warning', title: 'Correo requerido', text: 'Ingresa el correo institucional del nuevo usuario.', confirmButtonColor: '#B00020' });
         return;
       }
+      // Sin carrera, Estructura Académica le queda VACÍA al coordinador y nada en pantalla
+      // explica por qué. Se avisa al crearlo en vez de dejar que lo descubra después.
+      if (formValues.rol === 'Coordinador' && !formValues.carreraId) {
+        S.fire({
+          icon: 'warning',
+          title: 'Falta la carrera',
+          text: 'Elige la facultad y la carrera que coordina: es lo que determina qué verá en Estructura Académica.',
+          confirmButtonColor: '#B00020',
+        });
+        return;
+      }
       setIsSubmitting(true);
       // Metadata según el rol; el usuario la sincroniza a su fila al iniciar sesión
       // (authStore.syncPerfilOnLogin). Estudiante: facultad+carrera+PAO+paralelo+código.
@@ -327,7 +348,7 @@ export const Usuarios = () => {
         apellido: formValues.apellido.trim(),
         rol: formValues.rol,
       };
-      if (formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') {
+      if (llevaCarrera(formValues.rol)) {
         if (fac) meta.facultad_nombre = fac.siglas || fac.nombre;
         if (car) meta.carrera_nombre = car.nombre;
       }
@@ -452,8 +473,7 @@ export const Usuarios = () => {
         const facultad = facultades.find((item: any) => item.id === formValues.facultadId);
         const carrera = carreras.find((item: any) => item.id === formValues.carreraId);
         const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
-        const tieneAsignacionAcademica =
-          formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico';
+        const tieneAsignacionAcademica = llevaCarrera(formValues.rol);
 
         const patch: any = {
           nombre: formValues.nombre.trim(),
@@ -919,7 +939,7 @@ export const Usuarios = () => {
                         value={formValues.rol}
                         onChange={e => {
                           const rol = e.target.value;
-                          const requiereCarrera = rol === 'Estudiante' || rol === 'Tecnico';
+                          const requiereCarrera = llevaCarrera(rol);
                           setFormValues({
                             ...formValues,
                             rol,
@@ -968,7 +988,7 @@ export const Usuarios = () => {
                   )}
 
                   {/* Facultad + Carrera — al crear o editar Estudiante/Técnico. */}
-                  {(formValues.rol === 'Estudiante' || formValues.rol === 'Tecnico') && (
+                  {llevaCarrera(formValues.rol) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
