@@ -71,6 +71,27 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
 - Favoritos del panel Ubicaciones se quitaron (dependían de localStorage por-navegador).
 
 ## Registro de cambios (más reciente arriba)
+- **Roles de autoridad: Decano, Subdecano y Coordinador (migraciones 0051 y 0052, EJECUTAR LA
+  0051, DESPUÉS LA 0052, Y AMBAS ANTES DE CREAR CUENTAS).** Consultan Horarios, Infraestructura,
+  Estructura Académica y Reportes en `/autoridad/*`, sin crear, editar ni eliminar.
+  **Lo que impide que escriban es la RLS, no la interfaz.** `clases`, `espacios`, `edificios`,
+  `materias`, `carreras` y `facultades` tenían `allow_all` con `true/true`: como las políticas
+  permisivas se suman con OR, esa sola anulaba a las demás y **cualquier cuenta con sesión podía
+  borrar un aula llamando a la API REST**. La 0052 la quita y deja lectura para autenticados y
+  escritura solo para `es_staff()`. Era un agujero que ya existía; los roles nuevos solo lo
+  hicieron urgente. **Quedan otras tablas con `allow_all`** (inventario, asignaciones,
+  mantenimiento, recursos, formatos): las autoridades no entran ahí, pero el agujero sigue.
+  **El coordinador se limita a su carrera**, reusando `usuarios.carrera_nombre` igual que el
+  técnico. En `EstructuraAcademica`, `esTecnico` cubría DOS cosas —acotar a una carrera y
+  ocultar la gestión—: se separó en `limitadoACarrera` y `ocultarGestion`, porque el coordinador
+  necesita la primera y no la segunda. **Sin `carrera_nombre` cargado no ve ninguna carrera**;
+  la 0051 trae la consulta para listar los que estén sin asignar.
+  **Cuidado con el orden del mapeo de roles**: "subdecano" CONTIENE "decano", así que se
+  comprueba primero; al revés, todo subdecano entraría como decano sin que nadie lo note.
+  `useSoloLectura()` lee `soloLectura` del contexto del Outlet (lo pone `AutoridadLayout`) y
+  cae al rol: así una pantalla alcanzada por otra ruta sigue siendo de consulta.
+  **Sin verificar**: no se ejecutaron las migraciones ni se probó con sesión real. Falta
+  comprobar que admin y técnico sigan guardando en las seis tablas.
 - **Vuelve el alcance "Toda la facultad (por edificio)".** El selector de Generar Formato
   ofrece ahora tres niveles: aula seleccionada, todas las aulas del edificio, y todas las de
   la facultad. Sirve tanto para PDF como para Word.

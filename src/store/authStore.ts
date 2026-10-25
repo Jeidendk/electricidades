@@ -4,7 +4,20 @@ import type { Session } from '@supabase/supabase-js';
 import { aNumeroOpcional, normalizarTexto } from '../lib/texto';
 import { componerNombreCompleto } from '../lib/texto';
 
-export type Rol = 'admin' | 'tecnico' | 'student' | 'docente';
+export type Rol = 'admin' | 'tecnico' | 'student' | 'docente' | 'decano' | 'subdecano' | 'coordinador';
+
+/**
+ * Roles de autoridad (migración 0051): consultan Horarios, Infraestructura, Estructura
+ * Académica y Reportes, y NO escriben nada.
+ *
+ * Esta lista gobierna el enrutado y qué botones se muestran. **No es el control de acceso**:
+ * quien impide de verdad que escriban es la RLS de la migración 0052, porque la clave anónima
+ * va en el navegador y cualquiera puede llamar a la API sin pasar por estas pantallas.
+ */
+export const ROLES_AUTORIDAD = ['decano', 'subdecano', 'coordinador'] as const;
+
+export const esRolAutoridad = (rol: Rol | undefined | null): boolean =>
+  !!rol && (ROLES_AUTORIDAD as readonly string[]).includes(rol);
 
 /**
  * Texto del rol para mostrar en pantalla.
@@ -18,6 +31,9 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
   tecnico: 'Técnico',
   student: 'Estudiante',
   docente: 'Docente',
+  decano: 'Decano',
+  subdecano: 'Subdecano',
+  coordinador: 'Coordinador',
 };
 
 export interface AuthUser {
@@ -30,7 +46,7 @@ export interface AuthUser {
   tecnicoId?: string;
   facultadNombre?: string;
   carreraId?: string;     // carrera del estudiante (de metadata de registro) → horario automático
-  carreraNombre?: string; // carrera asignada al estudiante o técnico
+  carreraNombre?: string; // carrera asignada al estudiante, al técnico o al coordinador
   pao?: number;           // nivel académico del estudiante
   paralelo?: number;      // paralelo del estudiante para su horario
   codigoInstitucional?: string; // código estudiantil, que los oficios piden por su nombre
@@ -157,6 +173,15 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
       rolFuncional = 'admin';
     } else if (nombreRol.includes('tecnico') || nombreRol.includes('técnico')) {
       rolFuncional = 'tecnico';
+    // OJO AL ORDEN: "subdecano" CONTIENE "decano". Si se comprobara 'decano' primero, todo
+    // subdecano entraría por esa rama y nadie lo notaría, porque ambos ven lo mismo salvo
+    // la etiqueta. Lo mismo con 'docente', que no se parece pero se evalúa después igual.
+    } else if (nombreRol.includes('subdecano')) {
+      rolFuncional = 'subdecano';
+    } else if (nombreRol.includes('decano')) {
+      rolFuncional = 'decano';
+    } else if (nombreRol.includes('coordinador')) {
+      rolFuncional = 'coordinador';
     } else if (nombreRol.includes('docente')) {
       rolFuncional = 'docente';
     }

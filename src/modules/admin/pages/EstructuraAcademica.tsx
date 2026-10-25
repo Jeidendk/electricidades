@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useSoloLectura } from '../../../lib/soloLectura';
 import { useOutletContext } from 'react-router-dom';
 import {
   Search, Plus, Edit2, Trash2, GraduationCap, Building,
@@ -77,6 +78,14 @@ export const EstructuraAcademica = () => {
   const { recursosMap, fetchByMaterias } = useMateriaRecursosStore();
   const { currentUser } = useOutletContext<any>();
   const esTecnico = currentUser?.role === 'tecnico';
+  const soloLectura = useSoloLectura();
+  /**
+   * `esTecnico` cubría DOS cosas distintas: limitar la vista a una carrera y ocultar la
+   * gestión. El coordinador necesita lo primero pero no lo segundo al revés —ve su carrera y
+   * no escribe—, así que se separan.
+   */
+  const limitadoACarrera = esTecnico || currentUser?.role === 'coordinador';
+  const ocultarGestion = esTecnico || soloLectura;
   // Se compara normalizado (sin tildes ni mayúsculas): "Electrónica" y "Electronica" son la misma
   // carrera. Con igualdad exacta, un acento distinto dejaba al técnico sin carrera resuelta.
   const carreraTecnico = useMemo(() => {
@@ -107,7 +116,7 @@ export const EstructuraAcademica = () => {
 
   // Initial Selection
   useEffect(() => {
-    if (esTecnico) {
+    if (limitadoACarrera) {
       if (carreraTecnico) {
         setSelectedFacultadId(carreraTecnico.id_facultad);
         setSelectedCarreraId(carreraTecnico.id);
@@ -120,7 +129,7 @@ export const EstructuraAcademica = () => {
       setSelectedFacultadId(facultades[0].id);
       setExpandedFacultades([facultades[0].id]);
     }
-  }, [facultades, selectedFacultadId, selectedCarreraId, esTecnico, carreraTecnico]);
+  }, [facultades, selectedFacultadId, selectedCarreraId, limitadoACarrera, carreraTecnico]);
 
   const toggleExpand = (id: string) => {
     setExpandedFacultades(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
@@ -131,7 +140,7 @@ export const EstructuraAcademica = () => {
     // El técnico nunca abre la vista de facultad (es la del admin: alta y baja de carreras).
     // La condición depende SOLO del rol: si dependiera de `carreraTecnico`, mientras las carreras
     // aún se cargan el técnico caería en la rama del admin y vería esa pantalla unos instantes.
-    if (esTecnico) {
+    if (limitadoACarrera) {
       if (carreraTecnico) selectCarrera(carreraTecnico.id_facultad, carreraTecnico.id);
       return;
     }
@@ -155,24 +164,24 @@ export const EstructuraAcademica = () => {
 
   // MAPPED DATA
   const mappedFacultades = useMemo(() => facultades
-    .filter(f => !esTecnico || f.id === carreraTecnico?.id_facultad)
+    .filter(f => !limitadoACarrera || f.id === carreraTecnico?.id_facultad)
     .map(f => ({
     ...f, colorHex: f.color_hex || '#3b82f6', customSvg: f.custom_svg, decano: f.decano || 'No Asignado', estado: f.estado || 'activo',
-    totalCarreras: carreras.filter(c => c.id_facultad === f.id && (!esTecnico || c.id === carreraTecnico?.id)).length
-  })), [facultades, carreras, esTecnico, carreraTecnico]);
+    totalCarreras: carreras.filter(c => c.id_facultad === f.id && (!limitadoACarrera || c.id === carreraTecnico?.id)).length
+  })), [facultades, carreras, limitadoACarrera, carreraTecnico]);
 
   const mappedCarreras = useMemo(() => carreras
-    .filter(c => !esTecnico || c.id === carreraTecnico?.id)
+    .filter(c => !limitadoACarrera || c.id === carreraTecnico?.id)
     .map(c => ({
     ...c, colorHex: c.color_hex || '#3b82f6', customSvg: c.custom_svg, idFacultad: c.id_facultad, director: c.director || 'No Asignado', semestres: c.semestres ?? 9, estado: c.estado || 'activo'
-  })), [carreras, esTecnico, carreraTecnico]);
+  })), [carreras, limitadoACarrera, carreraTecnico]);
 
   const materias: MateriaUI[] = useMemo(() => (dbMaterias || []).map(m => ({
     id: m.id, idCarrera: m.id_carrera, semestre: m.semestre, nombre: m.nombre, codigo: m.codigo, creditos: m.creditos != null ? Number(m.creditos) : 0, silaboUrl: m.silabo_url ?? null, programaUrl: m.programa_url ?? null, recursosIds: recursosMap[m.id] || [], creadoPor: m.creado_por ?? null,
   })), [dbMaterias, recursosMap]);
 
   const puedeGestionarMateria = (materia: MateriaUI) =>
-    !esTecnico || materia.creadoPor === currentUser?.id;
+    !soloLectura && (!ocultarGestion || materia.creadoPor === currentUser?.id);
 
   // --- MODALS STATE ---
   const [modalType, setModalType] = useState<null | 'createFacultad' | 'editFacultad' | 'createCarrera' | 'editCarrera'>(null);
@@ -300,7 +309,7 @@ export const EstructuraAcademica = () => {
       setMateriaError('Ingresa una cantidad válida de créditos (ej. 2, 3 o 3.5).');
       return;
     }
-    if (esTecnico && formMateria.idCarrera !== carreraTecnico?.id) {
+    if (limitadoACarrera && formMateria.idCarrera !== carreraTecnico?.id) {
       setMateriaError('Solo puedes registrar materias en la carrera asignada a tu perfil.');
       return;
     }
@@ -486,7 +495,7 @@ export const EstructuraAcademica = () => {
           ]}
           backgroundImage={HERO_BG.aula}
         />
-      ) : selectedFacultad && !esTecnico ? (
+      ) : selectedFacultad && !ocultarGestion ? (
         <PageHero
           icon={availableIcons[selectedFacultad.icono] || Building}
           title={selectedFacultad.nombre}
@@ -513,7 +522,7 @@ export const EstructuraAcademica = () => {
           abierto={panelAbierto}
           onCerrar={() => setPanelAbierto(false)}
           titulo="Facultades y carreras"
-          accion={!esTecnico && (
+          accion={!ocultarGestion && (
                 <button
                   onClick={() => { setFormFacultad(defaultFacultadValues); setModalType('createFacultad'); }}
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm"
@@ -564,7 +573,7 @@ export const EstructuraAcademica = () => {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] font-bold text-gray-600 bg-white border border-gray-100 px-2 py-0.5 rounded-full shadow-sm" title={`${facCarreras.length} ${facCarreras.length === 1 ? 'carrera' : 'carreras'}`}>{facCarreras.length}</span>
-                      {!esTecnico && (
+                      {!ocultarGestion && (
                         <button onClick={(e) => { e.stopPropagation(); setFormCarrera({ ...defaultCarreraValues, idFacultad: fac.id }); setModalType('createCarrera'); }} className="w-6 h-6 border border-gray-200 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-colors shadow-sm" title="Agregar carrera">
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -594,7 +603,7 @@ export const EstructuraAcademica = () => {
                         );
                       })}
 
-                      {facCarreras.length === 0 && !esTecnico && (
+                      {facCarreras.length === 0 && !ocultarGestion && (
                         <button
                           onClick={() => { setFormCarrera({ ...defaultCarreraValues, idFacultad: fac.id }); setModalType('createCarrera'); }}
                           className="flex items-center justify-center gap-2 py-2.5 border border-dashed border-gray-200 rounded-xl text-[11px] font-bold text-gray-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-colors w-full"
@@ -617,7 +626,7 @@ export const EstructuraAcademica = () => {
 
           {/* MODO FACULTAD */}
           {/* Vista de facultad: solo administración. El técnico trabaja dentro de su carrera. */}
-          {selectedFacultad && !selectedCarreraId && !esTecnico && (
+          {selectedFacultad && !selectedCarreraId && !ocultarGestion && (
             <div className="flex flex-col h-full overflow-hidden bg-white">
               <div className="flex-1 min-h-0 p-6 md:p-8 flex flex-col bg-white overflow-hidden">
                 {/* CARD IDENTIDAD FACULTAD: datos y acciones propias de la facultad */}
@@ -632,7 +641,7 @@ export const EstructuraAcademica = () => {
                       <p className="text-[11px] font-medium text-gray-400">{selectedFacultad.siglas} · Decano/a: {selectedFacultad.decano} · {facultadKpis.carreras} {facultadKpis.carreras === 1 ? 'carrera' : 'carreras'}</p>
                     </div>
                   </div>
-                  {!esTecnico && <div className="flex items-center gap-2 shrink-0">
+                  {!ocultarGestion && <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={alternarCandadoFacultad}
@@ -675,7 +684,7 @@ export const EstructuraAcademica = () => {
                   <div className="flex items-center gap-3">
                     <ViewToggle value={carreraViewMode} onChange={setCarreraViewMode} />
 
-                    {!esTecnico && (
+                    {!ocultarGestion && (
                       <button onClick={() => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }} className="bg-[#0f172a] hover:bg-black text-white px-4 py-2 rounded-full text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
                         <Plus className="w-3.5 h-3.5" /> Nueva Carrera
                       </button>
@@ -694,8 +703,8 @@ export const EstructuraAcademica = () => {
                       <EmptyState
                         icon={GraduationCap}
                         title={searchCarrera ? `Sin resultados para "${searchCarrera}"` : 'Sin carreras registradas'}
-                        actionLabel={searchCarrera || esTecnico ? undefined : 'Crear primera carrera'}
-                        onAction={searchCarrera || esTecnico ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
+                        actionLabel={searchCarrera || ocultarGestion ? undefined : 'Crear primera carrera'}
+                        onAction={searchCarrera || ocultarGestion ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
                         secondaryLabel={searchCarrera ? 'Limpiar búsqueda' : undefined}
                         onSecondary={searchCarrera ? () => setSearchCarrera('') : undefined}
                         className="py-12"
@@ -724,7 +733,7 @@ export const EstructuraAcademica = () => {
                         key: 'acciones', header: 'Acciones', width: '120px', align: 'right',
                         render: car => (
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {!esTecnico && (
+                            {!ocultarGestion && (
                               <>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setEditingCarreraId(car.id); setFormCarrera({ idFacultad: car.idFacultad, nombre: car.nombre, semestres: car.semestres, director: car.director, estado: car.estado, colorHex: car.colorHex, icono: car.icono, customSvg: car.customSvg }); setModalType('editCarrera'); }} className="p-1.5 text-gray-400 hover:text-blue-600 bg-white rounded-md border border-gray-200 hover:border-blue-300 shadow-sm transition-all"><Edit2 className="w-3.5 h-3.5" /></button>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteCarrera(car.id, car.nombre); }} className="p-1.5 text-gray-400 hover:text-red-600 bg-white rounded-md border border-gray-200 hover:border-red-300 shadow-sm transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -775,8 +784,8 @@ export const EstructuraAcademica = () => {
                         variant="card"
                         title={searchCarrera ? `Sin resultados para "${searchCarrera}"` : 'Sin carreras registradas'}
                         description={searchCarrera ? undefined : 'Crea la primera carrera para esta facultad.'}
-                        actionLabel={searchCarrera || esTecnico ? undefined : 'Crear primera carrera'}
-                        onAction={searchCarrera || esTecnico ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
+                        actionLabel={searchCarrera || ocultarGestion ? undefined : 'Crear primera carrera'}
+                        onAction={searchCarrera || ocultarGestion ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
                         secondaryLabel={searchCarrera ? 'Limpiar búsqueda' : undefined}
                         onSecondary={searchCarrera ? () => setSearchCarrera('') : undefined}
                         className="col-span-full"
@@ -798,7 +807,7 @@ export const EstructuraAcademica = () => {
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm mx-6 mt-6 mb-4 px-5 py-3 flex items-center justify-between gap-4 flex-wrap shrink-0">
                   <div className="flex items-center gap-4 flex-wrap">
                     <nav className="flex items-center gap-1.5 text-[12px] font-bold" aria-label="Breadcrumb">
-                      {esTecnico ? (
+                      {ocultarGestion ? (
                         <span className="text-gray-500" title={selectedFacultad?.nombre}>{selectedFacultad?.siglas || 'Facultad'}</span>
                       ) : (
                         <button onClick={() => setSelectedCarreraId(null)} className="text-gray-500 hover:text-indigo-600 transition-colors" title={`Volver a ${selectedFacultad?.nombre || 'la facultad'}`}>{selectedFacultad?.siglas || 'Facultad'}</button>
@@ -807,7 +816,7 @@ export const EstructuraAcademica = () => {
                       <span className="text-gray-900 truncate max-w-[180px]">{selectedCarrera.nombre}</span>
                     </nav>
                     {<EstadoBadge estado={selectedCarrera.estado} />}
-                    {!esTecnico && <div className="flex items-center gap-1">
+                    {!ocultarGestion && <div className="flex items-center gap-1">
                       <button onClick={() => { setEditingCarreraId(selectedCarrera.id); setFormCarrera({ nombre: selectedCarrera.nombre, semestres: selectedCarrera.semestres, icono: selectedCarrera.icono, idFacultad: selectedCarrera.idFacultad, estado: selectedCarrera.estado, director: selectedCarrera.director, colorHex: selectedCarrera.colorHex, customSvg: selectedCarrera.customSvg }); setModalType('editCarrera'); }} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Editar carrera">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>

@@ -1,7 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useThemeStore, applyTheme } from '../store/themeStore';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, esRolAutoridad } from '../store/authStore';
 import { useUiPrefsStore } from '../store/uiPrefsStore';
 import type { Rol } from '../store/authStore';
 import { esErrorDeVersionVieja, olvidarRecarga, recargarUnaVez } from '../lib/recargaPorDespliegue';
@@ -41,6 +41,7 @@ const MisTramites = lazy(() => cargarPagina(() => import('../modules/student/pag
 const AdminLayout = lazy(() => cargarPagina(() => import('../modules/admin/layout/AdminLayout').then(m => ({ default: m.AdminLayout }))));
 const TecnicoLayout = lazy(() => cargarPagina(() => import('../modules/tecnico/layout/TecnicoLayout').then(m => ({ default: m.TecnicoLayout }))));
 const TecnicoDashboard = lazy(() => cargarPagina(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard }))));
+const AutoridadLayout = lazy(() => cargarPagina(() => import('../modules/autoridad/layout/AutoridadLayout').then(m => ({ default: m.AutoridadLayout }))));
 const DocenteLayout = lazy(() => cargarPagina(() => import('../modules/docente/layout/DocenteLayout').then(m => ({ default: m.DocenteLayout }))));
 const DocenteDashboard = lazy(() => cargarPagina(() => import('../modules/docente/pages/DocenteDashboard').then(m => ({ default: m.DocenteDashboard }))));
 const Dashboard = lazy(() => cargarPagina(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard }))));
@@ -82,6 +83,7 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
   if (allowedRoles && user.role !== 'admin' && !allowedRoles.includes(user.role)) {
     if (user.role === 'tecnico') return <Navigate to="/tecnico" replace />;
     if (user.role === 'docente') return <Navigate to="/docente" replace />;
+    if (esRolAutoridad(user.role)) return <Navigate to="/autoridad" replace />;
     return <Navigate to="/student" replace />;
   }
 
@@ -89,7 +91,11 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
 };
 
 const homeFor = (role: Rol) =>
-  role === 'admin' ? '/admin' : role === 'tecnico' ? '/tecnico/dashboard' : role === 'docente' ? '/docente/dashboard' : '/student';
+  role === 'admin' ? '/admin'
+    : role === 'tecnico' ? '/tecnico/dashboard'
+    : role === 'docente' ? '/docente/dashboard'
+    : esRolAutoridad(role) ? '/autoridad/horarios'
+    : '/student';
 
 const PublicRoute = () => {
   const user = useAuthStore((s) => s.user);
@@ -109,9 +115,13 @@ const PublicRoute = () => {
       ? '/tecnico/dashboard'
       : user.role === 'docente'
         ? '/docente/dashboard'
-        : lastPath && lastPath !== '/login' && lastPath !== '/'
-          ? lastPath
-          : homeFor(user.role);
+        // Las autoridades van siempre a su panel: `lastPath` puede apuntar a una ruta de admin
+        // de una sesión anterior en el mismo navegador, y ahí el guard las rebotaría.
+        : esRolAutoridad(user.role)
+          ? '/autoridad/horarios'
+          : lastPath && lastPath !== '/login' && lastPath !== '/'
+            ? lastPath
+            : homeFor(user.role);
     return <Navigate to={target} replace />;
   }
 
@@ -243,6 +253,21 @@ export const AppRouter = () => {
             <Route path="recursos" element={<Recursos />} />
             <Route path="formatos" element={<Formatos />} />
             {ASISTENTE_VISIBLE && <Route path="asistente" element={<Asistente />} />}
+            <Route path="reportes" element={<Reportes />} />
+          </Route>
+        </Route>
+
+        {/* ── Rutas de Autoridad (Decano, Subdecano, Coordinador) ──
+            Solo consulta: las cuatro pantallas son las mismas de admin, pero el layout les pasa
+            `soloLectura` por el contexto del Outlet. Que no puedan escribir lo garantiza la RLS
+            de la migración 0052, no estas rutas. */}
+        <Route element={<RequireAuth allowedRoles={['decano', 'subdecano', 'coordinador']} />}>
+          <Route path="/autoridad" element={<AutoridadLayout />}>
+            <Route index element={<Navigate to="/autoridad/horarios" replace />} />
+            <Route path="horarios" element={<Horarios />} />
+            <Route path="infraestructura" element={<Infraestructura />} />
+            <Route path="estructura-academica" element={<EstructuraAcademica />} />
+            <Route path="academico" element={<Navigate to="/autoridad/estructura-academica" replace />} />
             <Route path="reportes" element={<Reportes />} />
           </Route>
         </Route>

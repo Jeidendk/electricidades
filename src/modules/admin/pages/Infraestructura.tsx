@@ -21,6 +21,7 @@ import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { MapControls, getTileUrl, atribucionTiles, type MapLayer } from '../../../components/ui/MapControls';
 import { UserLocationMarker } from '../../../components/ui/UserLocationMarker';
 import { useEdificiosStore } from '../../../store/edificiosStore';
+import { useSoloLectura } from '../../../lib/soloLectura';
 import { useEspaciosStore } from '../../../store/espaciosStore';
 import { uploadImage } from '../../../lib/upload';
 import { getCurrentPosition } from '../../../lib/geolocation';
@@ -303,6 +304,9 @@ export const Infraestructura = () => {
   const [submitting, setSubmitting] = useState(false);
   const [accionesDesbloqueadas, setAccionesDesbloqueadas] = useState(false);
 
+  // Decano, subdecano y coordinador solo consultan.
+  const soloLectura = useSoloLectura();
+
   const alternarCandado = async () => {
     if (accionesDesbloqueadas) {
       setAccionesDesbloqueadas(false);
@@ -566,9 +570,11 @@ export const Infraestructura = () => {
                     </button>
                   );
                 })}
-                <button onClick={() => openCreateEdificio()} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
-                  <Plus className="h-3 w-3" /> Nuevo edificio
-                </button>
+                {!soloLectura && (
+                  <button onClick={() => openCreateEdificio()} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
+                    <Plus className="h-3 w-3" /> Nuevo edificio
+                  </button>
+                )}
                 <p className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-bold text-gray-400">
                   {edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios
                 </p>
@@ -715,8 +721,9 @@ export const Infraestructura = () => {
                       )}
                     </div>
 
-                    {/* Acciones */}
-                    {/* En celular ocupan la fila a medias; desde sm vuelven a su ancho natural. */}
+                    {/* Acciones. En modo consulta no se muestra ninguna: ni el candado, que
+                        solo sirve para destapar el borrado. */}
+                    {!soloLectura && (
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
@@ -741,6 +748,7 @@ export const Infraestructura = () => {
                         </button>
                       )}
                     </div>
+                    )}
                   </div>
                 </div>
 
@@ -793,9 +801,11 @@ export const Infraestructura = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     <ViewToggle value={espView} onChange={setEspView} />
-                    <button onClick={() => openCreateEspacio({})} className="bg-[#0f172a] hover:bg-black text-white px-4 py-2 rounded-lg text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
+{!soloLectura && (
+                                        <button onClick={() => openCreateEspacio({})} className="bg-[#0f172a] hover:bg-black text-white px-4 py-2 rounded-lg text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
                       <Plus className="w-4 h-4" /> Agregar Espacio
                     </button>
+                    )}
                   </div>
                 </div>
 

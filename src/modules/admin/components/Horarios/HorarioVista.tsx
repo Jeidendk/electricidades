@@ -31,6 +31,8 @@ interface HorarioVistaProps {
   canBorrarAula: boolean;
   /** Cuántas clases tiene el aula filtrada: en 0 no se ofrece borrar (evita un borrado vacío). */
   clasesEnAulaSeleccionada: number;
+  /** Panel de consulta (decano, subdecano, coordinador): sin alta ni edición. */
+  soloLectura?: boolean;
   /** Abre la consulta de disponibilidad. Vive junto a los chips de ubicación, que es donde
       se está mirando "qué hay en esta aula" cuando surge la pregunta "y cuál está libre". */
   onVerDisponibilidad?: () => void;
@@ -65,6 +67,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
   handleBorrarClasesDelAula,
   canBorrarAula,
   clasesEnAulaSeleccionada,
+  soloLectura = false,
   onVerDisponibilidad,
 }) => {
   const searchActive = searchQuery.trim() !== '';
@@ -259,9 +262,11 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
           }} className="text-gray-600 hover:text-gray-900 bg-white border border-gray-200 font-bold text-[12px] px-3 py-2 rounded-full flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> Exportar
           </button>
-          <button onClick={() => { setModalMode('create'); setFormValues({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: filterEdificio, tipoEspacio: espacios.find(e => e.id === filterAula)?.tipo || '', idEspacio: filterAula, paralelo: PARALELO_POR_DEFECTO, dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' }); setIsModalOpen(true); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-[12px] px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all border border-gray-800">
-            <Plus className="w-3.5 h-3.5" /> Nueva Clase
-          </button>
+          {!soloLectura && (
+            <button onClick={() => { setModalMode('create'); setFormValues({ idMateria: '', idDocente: '', idFacultad: '', idCarrera: '', idEdificio: filterEdificio, tipoEspacio: espacios.find(e => e.id === filterAula)?.tipo || '', idEspacio: filterAula, paralelo: PARALELO_POR_DEFECTO, dia: 'Lunes', horaInicio: '07:00', horaFin: '08:00' }); setIsModalOpen(true); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-[12px] px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-all border border-gray-800">
+              <Plus className="w-3.5 h-3.5" /> Nueva Clase
+            </button>
+          )}
         </div>
       </div>
 

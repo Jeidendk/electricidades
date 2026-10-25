@@ -23,6 +23,7 @@ import { mapearClases } from '../components/Horarios/mapearClases';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 import { avisoError } from '../../../lib/aviso';
+import { useSoloLectura } from '../../../lib/soloLectura';
 import banderaEspoch from '../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
 // Preferencias del formato de exportación (persisten entre sesiones para no
@@ -217,11 +218,15 @@ export const Horarios = () => {
     currentUser?.role === 'tecnico' ||
     String(currentUser?.rol || '').toLocaleLowerCase('es').includes('técnico') ||
     String(currentUser?.rol || '').toLocaleLowerCase('es').includes('tecnico');
+  // Decano, subdecano y coordinador consultan el horario pero no lo tocan.
+  const soloLectura = useSoloLectura();
   const selectedClase = clases.find(c => c.id === selectedClaseId);
   const isReadOnly =
-    modalMode === 'edit' &&
-    esTecnico &&
-    selectedClase?.creadoPor !== currentUser?.id;
+    soloLectura || (
+      modalMode === 'edit' &&
+      esTecnico &&
+      selectedClase?.creadoPor !== currentUser?.id
+    );
 
   const totalClases = clases.length;
   const aulasUsadas = new Set(clases.map(c => c.aula)).size;
@@ -902,10 +907,11 @@ export const Horarios = () => {
                   espacios={espaciosRaw}
                   setSelectedClaseId={setSelectedClaseId}
                   handleFormatAll={handleFormatAll}
-                  canFormatAll={!esTecnico}
+                  canFormatAll={!esTecnico && !soloLectura}
                   handleBorrarClasesDelAula={handleBorrarClasesDelAula}
-                  canBorrarAula={!esTecnico}
+                  canBorrarAula={!esTecnico && !soloLectura}
                   clasesEnAulaSeleccionada={clasesDelAula.length}
+                  soloLectura={soloLectura}
                   onVerDisponibilidad={() => setActiveTab('disponibilidad')}
                 />
               )}
