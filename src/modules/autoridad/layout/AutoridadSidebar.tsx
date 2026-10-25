@@ -103,16 +103,19 @@ export const AutoridadSidebar = () => {
             ))}
           </nav>
 
+          {/* Mismo reloj que el resto de los paneles: se copia tal cual, no se reinventa. */}
           {!collapsed && (
-            <div className="px-5 py-3 border-t border-gray-800 shrink-0">
-              <div className="text-[10px] font-bold tracking-widest text-gray-500">{day}</div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold text-white leading-none">{time}</span>
-                <span className="text-[10px] text-gray-500 font-semibold">{dateStr}</span>
+            <div className="mt-auto w-full flex justify-center pb-8 pt-4 overflow-hidden animate-fade-in">
+              <div className="w-[150px] h-[150px] rounded-full bg-[#0a0d11] border-[12px] border-[#131921] shadow-[0_0_25px_rgba(0,0,0,0.8)] flex flex-col items-center justify-center relative shrink-0">
+                <div className="absolute inset-0 rounded-full shadow-[inset_0_0_15px_rgba(0,0,0,0.5)] pointer-events-none"></div>
+                <span className="text-[40px] font-bold text-white tracking-tighter leading-none mt-2 z-10">{time}</span>
+                <span className="text-[10px] font-extrabold text-[#ffc107] uppercase tracking-[0.2em] mt-2 z-10">{day}</span>
+                <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-1 z-10">{dateStr}</span>
               </div>
             </div>
           )}
 
+          {/* Cuenta: mismas opciones que en admin, en un solo componente compartido. */}
           <MenuUsuario colapsado={collapsed} />
         </aside>
       </div>
