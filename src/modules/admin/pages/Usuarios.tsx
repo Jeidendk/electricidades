@@ -33,6 +33,13 @@ const ROLES = ['Administrador', 'Estudiante', 'Tecnico', 'Docente'];
 const ROLES_CON_CARRERA = ['Estudiante', 'Tecnico', 'Coordinador'];
 const llevaCarrera = (rol: string) => ROLES_CON_CARRERA.includes(rol);
 
+/**
+ * Roles que llevan facultad. Son los de carrera más decano y subdecano: a ellos la facultad
+ * no les filtra nada —ven todas las carreras— pero deja constancia de a cuál pertenecen.
+ */
+const ROLES_CON_FACULTAD = [...ROLES_CON_CARRERA, 'Decano', 'Subdecano'];
+const llevaFacultad = (rol: string) => ROLES_CON_FACULTAD.includes(rol);
+
 export const Usuarios = () => {
   const { items, fetchUsuarios, addUsuario, updateUsuario, removeUsuario } = useUsuariosStore();
   const facultades = useFacultadesStore(s => s.facultades);
@@ -348,10 +355,8 @@ export const Usuarios = () => {
         apellido: formValues.apellido.trim(),
         rol: formValues.rol,
       };
-      if (llevaCarrera(formValues.rol)) {
-        if (fac) meta.facultad_nombre = fac.siglas || fac.nombre;
-        if (car) meta.carrera_nombre = car.nombre;
-      }
+      if (llevaFacultad(formValues.rol) && fac) meta.facultad_nombre = fac.siglas || fac.nombre;
+      if (llevaCarrera(formValues.rol) && car) meta.carrera_nombre = car.nombre;
       if (formValues.rol === 'Estudiante') {
         if (formValues.codigo.trim()) meta.codigo_institucional = formValues.codigo.trim();
         if (formValues.pao) meta.pao = formValues.pao;
@@ -473,14 +478,14 @@ export const Usuarios = () => {
         const facultad = facultades.find((item: any) => item.id === formValues.facultadId);
         const carrera = carreras.find((item: any) => item.id === formValues.carreraId);
         const nombreFacultad = facultad?.siglas || facultad?.nombre || '';
-        const tieneAsignacionAcademica = llevaCarrera(formValues.rol);
-
+        // Dos banderas y no una: decano y subdecano llevan facultad pero NO carrera. Con una
+        // sola, al editarlos se les borraría la facultad al guardar.
         const patch: any = {
           nombre: formValues.nombre.trim(),
           apellido: formValues.apellido.trim(),
           estado: formValues.estado as any,
-          facultad_nombre: tieneAsignacionAcademica ? nombreFacultad || null : null,
-          carrera_nombre: tieneAsignacionAcademica ? carrera?.nombre || null : null,
+          facultad_nombre: llevaFacultad(formValues.rol) ? nombreFacultad || null : null,
+          carrera_nombre: llevaCarrera(formValues.rol) ? carrera?.nombre || null : null,
           codigo_institucional:
             formValues.rol === 'Estudiante' ? formValues.codigo.trim() || null : null,
           pao:
@@ -939,13 +944,14 @@ export const Usuarios = () => {
                         value={formValues.rol}
                         onChange={e => {
                           const rol = e.target.value;
-                          const requiereCarrera = llevaCarrera(rol);
                           setFormValues({
                             ...formValues,
                             rol,
                             email: rol === 'Docente' ? '' : formValues.email,
-                            facultadId: requiereCarrera ? formValues.facultadId : '',
-                            carreraId: requiereCarrera ? formValues.carreraId : '',
+                            // Se conserva cada campo según lo que el rol nuevo lleve: al pasar a
+                            // Decano la facultad queda y solo se limpia la carrera.
+                            facultadId: llevaFacultad(rol) ? formValues.facultadId : '',
+                            carreraId: llevaCarrera(rol) ? formValues.carreraId : '',
                             codigo: rol === 'Estudiante' ? formValues.codigo : '',
                             pao: rol === 'Estudiante' ? formValues.pao : '',
                             paralelo: rol === 'Estudiante' ? formValues.paralelo : '',
@@ -988,7 +994,7 @@ export const Usuarios = () => {
                   )}
 
                   {/* Facultad + Carrera — al crear o editar Estudiante/Técnico. */}
-                  {llevaCarrera(formValues.rol) && (
+                  {llevaFacultad(formValues.rol) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Facultad</label>
@@ -997,6 +1003,8 @@ export const Usuarios = () => {
                           {facultades.map((f: any) => <option key={f.id} value={f.id}>{f.siglas || f.nombre}</option>)}
                         </select>
                       </div>
+                      {/* Decano y subdecano no eligen carrera: su alcance es la facultad entera. */}
+                      {llevaCarrera(formValues.rol) && (
                       <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Carrera</label>
                         <select disabled={!formValues.facultadId} value={formValues.carreraId} onChange={e => setFormValues({ ...formValues, carreraId: e.target.value, pao: '', paralelo: '' })} className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:opacity-50 disabled:cursor-not-allowed">
@@ -1004,6 +1012,7 @@ export const Usuarios = () => {
                           {carrerasDeFacultad.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                         </select>
                       </div>
+                      )}
                     </div>
                   )}
 

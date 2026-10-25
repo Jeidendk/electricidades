@@ -81,11 +81,15 @@ horarios semestrales, usuarios y docentes. Interfaces por rol: **admin**, **téc
   escritura solo para `es_staff()`. Era un agujero que ya existía; los roles nuevos solo lo
   hicieron urgente. **Quedan otras tablas con `allow_all`** (inventario, asignaciones,
   mantenimiento, recursos, formatos): las autoridades no entran ahí, pero el agujero sigue.
-  **Al crear un coordinador se piden facultad y carrera**, como al técnico: la condición
+  **Los tres llevan facultad; solo el coordinador lleva carrera.** La condición
   `rol === 'Estudiante' || rol === 'Tecnico'` estaba repetida a mano en **cuatro** sitios de
-  `Usuarios.tsx` (metadata del alta, edición, cambio de rol y el JSX) y ahora sale de
-  `ROLES_CON_CARRERA`. Decano y subdecano **no** la llevan: ven toda la facultad, no una
-  carrera. Guardar sin carrera avisa, porque si no la pantalla le queda vacía sin explicación.
+  `Usuarios.tsx` (metadata del alta, edición, cambio de rol y el JSX); ahora son dos listas,
+  `ROLES_CON_CARRERA` y `ROLES_CON_FACULTAD` (que la suma a decano y subdecano).
+  **Hacen falta dos y no una**: con una sola bandera, al editar un decano se le borraba la
+  facultad al guardar, y al cambiar el rol a Decano se limpiaba el campo recién elegido.
+  A decano y subdecano la facultad **no les filtra nada** —ven todas las carreras—, es
+  constancia de a cuál pertenecen. Guardar un coordinador sin carrera avisa, porque si no la
+  pantalla le queda vacía sin explicación.
   **El coordinador se limita a su carrera**, reusando `usuarios.carrera_nombre` igual que el
   técnico. En `EstructuraAcademica`, `esTecnico` cubría DOS cosas —acotar a una carrera y
   ocultar la gestión—: se separó en `limitadoACarrera` y `ocultarGestion`, porque el coordinador
