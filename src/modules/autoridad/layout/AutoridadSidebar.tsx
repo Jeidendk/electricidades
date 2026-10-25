@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronLeft, GraduationCap, Clock, Building2, GraduationCap as GradCap, BarChart2, Eye } from 'lucide-react';
+import { ChevronLeft, GraduationCap, Clock, Building2, GraduationCap as GradCap, BarChart2, Eye, LayoutGrid } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
 import { useAuthStore, ETIQUETA_ROL } from '../../../store/authStore';
@@ -41,6 +41,7 @@ export const AutoridadSidebar = () => {
     } ${collapsed ? 'justify-center px-0' : ''}`;
 
   const opciones = [
+    { to: '/autoridad/dashboard', etiqueta: 'DASHBOARD', Icon: LayoutGrid },
     { to: '/autoridad/horarios', etiqueta: 'HORARIOS', Icon: Clock },
     { to: '/autoridad/infraestructura', etiqueta: 'INFRAESTRUCTURA', Icon: Building2 },
     { to: '/autoridad/estructura-academica', etiqueta: 'ESTRUC. ACAD.', Icon: GradCap },

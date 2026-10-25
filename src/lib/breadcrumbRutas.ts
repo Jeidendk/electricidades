@@ -11,6 +11,14 @@ export interface RutaNombrada {
 
 const RUTAS: Record<string, RutaNombrada> = {
   '/admin/dashboard': { seccion: 'Inicio', titulo: 'Panel de Control' },
+
+  // Panel de consulta de decano, subdecano y coordinador. Son las mismas pantallas de admin,
+  // pero bajo otra ruta: sin estas entradas el rastro mostraría el segmento crudo.
+  '/autoridad/dashboard': { seccion: 'Inicio', titulo: 'Panel de Control' },
+  '/autoridad/horarios': { seccion: 'Académico', titulo: 'Horarios' },
+  '/autoridad/infraestructura': { seccion: 'Infraestructura', titulo: 'Infraestructura' },
+  '/autoridad/estructura-academica': { seccion: 'Institución', titulo: 'Estructura Académica' },
+  '/autoridad/reportes': { seccion: 'Sistema', titulo: 'Reportes' },
   '/admin/tramites': { seccion: 'Trámites', titulo: 'Trámites' },
   '/admin/prestamos': { seccion: 'Trámites', titulo: 'Préstamos' },
   '/admin/formatos': { seccion: 'Recursos', titulo: 'Repositorio' },

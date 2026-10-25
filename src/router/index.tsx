@@ -41,6 +41,7 @@ const MisTramites = lazy(() => cargarPagina(() => import('../modules/student/pag
 const AdminLayout = lazy(() => cargarPagina(() => import('../modules/admin/layout/AdminLayout').then(m => ({ default: m.AdminLayout }))));
 const TecnicoLayout = lazy(() => cargarPagina(() => import('../modules/tecnico/layout/TecnicoLayout').then(m => ({ default: m.TecnicoLayout }))));
 const TecnicoDashboard = lazy(() => cargarPagina(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard }))));
+const AutoridadDashboard = lazy(() => cargarPagina(() => import('../modules/autoridad/pages/AutoridadDashboard').then(m => ({ default: m.AutoridadDashboard }))));
 const AutoridadLayout = lazy(() => cargarPagina(() => import('../modules/autoridad/layout/AutoridadLayout').then(m => ({ default: m.AutoridadLayout }))));
 const DocenteLayout = lazy(() => cargarPagina(() => import('../modules/docente/layout/DocenteLayout').then(m => ({ default: m.DocenteLayout }))));
 const DocenteDashboard = lazy(() => cargarPagina(() => import('../modules/docente/pages/DocenteDashboard').then(m => ({ default: m.DocenteDashboard }))));
@@ -94,7 +95,7 @@ const homeFor = (role: Rol) =>
   role === 'admin' ? '/admin'
     : role === 'tecnico' ? '/tecnico/dashboard'
     : role === 'docente' ? '/docente/dashboard'
-    : esRolAutoridad(role) ? '/autoridad/horarios'
+    : esRolAutoridad(role) ? '/autoridad/dashboard'
     : '/student';
 
 const PublicRoute = () => {
@@ -118,7 +119,7 @@ const PublicRoute = () => {
         // Las autoridades van siempre a su panel: `lastPath` puede apuntar a una ruta de admin
         // de una sesión anterior en el mismo navegador, y ahí el guard las rebotaría.
         : esRolAutoridad(user.role)
-          ? '/autoridad/horarios'
+          ? '/autoridad/dashboard'
           : lastPath && lastPath !== '/login' && lastPath !== '/'
             ? lastPath
             : homeFor(user.role);
@@ -263,7 +264,8 @@ export const AppRouter = () => {
             de la migración 0052, no estas rutas. */}
         <Route element={<RequireAuth allowedRoles={['decano', 'subdecano', 'coordinador']} />}>
           <Route path="/autoridad" element={<AutoridadLayout />}>
-            <Route index element={<Navigate to="/autoridad/horarios" replace />} />
+            <Route index element={<Navigate to="/autoridad/dashboard" replace />} />
+            <Route path="dashboard" element={<AutoridadDashboard />} />
             <Route path="horarios" element={<Horarios />} />
             <Route path="infraestructura" element={<Infraestructura />} />
             <Route path="estructura-academica" element={<EstructuraAcademica />} />
