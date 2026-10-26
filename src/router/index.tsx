@@ -43,6 +43,7 @@ const TecnicoLayout = lazy(() => cargarPagina(() => import('../modules/tecnico/l
 const TecnicoDashboard = lazy(() => cargarPagina(() => import('../modules/tecnico/pages/TecnicoDashboard').then(m => ({ default: m.TecnicoDashboard }))));
 const AutoridadDashboard = lazy(() => cargarPagina(() => import('../modules/autoridad/pages/AutoridadDashboard').then(m => ({ default: m.AutoridadDashboard }))));
 const AutoridadLayout = lazy(() => cargarPagina(() => import('../modules/autoridad/layout/AutoridadLayout').then(m => ({ default: m.AutoridadLayout }))));
+const AdministrativoLayout = lazy(() => cargarPagina(() => import('../modules/administrativo/layout/AdministrativoLayout').then(m => ({ default: m.AdministrativoLayout }))));
 const DocenteLayout = lazy(() => cargarPagina(() => import('../modules/docente/layout/DocenteLayout').then(m => ({ default: m.DocenteLayout }))));
 const DocenteDashboard = lazy(() => cargarPagina(() => import('../modules/docente/pages/DocenteDashboard').then(m => ({ default: m.DocenteDashboard }))));
 const Dashboard = lazy(() => cargarPagina(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard }))));
@@ -85,6 +86,7 @@ const RequireAuth = ({ allowedRoles }: { allowedRoles?: Rol[] }) => {
     if (user.role === 'tecnico') return <Navigate to="/tecnico" replace />;
     if (user.role === 'docente') return <Navigate to="/docente" replace />;
     if (esRolAutoridad(user.role)) return <Navigate to="/autoridad" replace />;
+    if (user.role === 'administrativo') return <Navigate to="/administrativo" replace />;
     return <Navigate to="/student" replace />;
   }
 
@@ -95,6 +97,7 @@ const homeFor = (role: Rol) =>
   role === 'admin' ? '/admin'
     : role === 'tecnico' ? '/tecnico/dashboard'
     : role === 'docente' ? '/docente/dashboard'
+    : role === 'administrativo' ? '/administrativo/dashboard'
     : esRolAutoridad(role) ? '/autoridad/dashboard'
     : '/student';
 
@@ -116,6 +119,8 @@ const PublicRoute = () => {
       ? '/tecnico/dashboard'
       : user.role === 'docente'
         ? '/docente/dashboard'
+        : user.role === 'administrativo'
+          ? '/administrativo/dashboard'
         // Las autoridades van siempre a su panel: `lastPath` puede apuntar a una ruta de admin
         // de una sesión anterior en el mismo navegador, y ahí el guard las rebotaría.
         : esRolAutoridad(user.role)
@@ -270,6 +275,19 @@ export const AppRouter = () => {
             <Route path="infraestructura" element={<Infraestructura />} />
             <Route path="estructura-academica" element={<EstructuraAcademica />} />
             <Route path="academico" element={<Navigate to="/autoridad/estructura-academica" replace />} />
+            <Route path="reportes" element={<Reportes />} />
+          </Route>
+        </Route>
+
+        {/* ── Rutas del Administrativo ── */}
+        <Route element={<RequireAuth allowedRoles={['administrativo']} />}>
+          <Route path="/administrativo" element={<AdministrativoLayout />}>
+            <Route index element={<Navigate to="/administrativo/dashboard" replace />} />
+            <Route path="dashboard" element={<AutoridadDashboard />} />
+            <Route path="horarios" element={<Horarios />} />
+            <Route path="infraestructura" element={<Infraestructura />} />
+            <Route path="estructura-academica" element={<EstructuraAcademica />} />
+            <Route path="academico" element={<Navigate to="/administrativo/estructura-academica" replace />} />
             <Route path="reportes" element={<Reportes />} />
           </Route>
         </Route>

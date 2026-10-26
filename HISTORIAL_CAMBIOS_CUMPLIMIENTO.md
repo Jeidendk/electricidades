@@ -92,6 +92,16 @@ Cada Codex debe avisar en el chat antes de iniciar un bloque y al terminar cada 
 - **Pendientes/riesgos:** falta validación visual autenticada en resoluciones de escritorio y portátil.
 - **Estado:** `parcial`; implementación y compilación terminadas, validación visual autenticada pendiente.
 
+### 2026-10-26 — Horarios — Composición visual final de Disponibilidad
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** el usuario entregó la referencia visual final. Se explicó que navegación, días y actualización se reunirían en una barra, y que la línea temporal usaría materias y horas reales; el usuario autorizó el ajuste y pidió que el botón se llame `Volver`.
+- **Cambio realizado:** la cabecera independiente fue sustituida por una barra única con `Volver`, pestañas de lunes a viernes y `Actualizar`. Cada fila representa sus clases reales como bloques coloreados ubicados según su hora, mostrando nombre de materia y rango; los huecos permanecen diferenciados visualmente.
+- **Archivos/migraciones:** `src/modules/admin/components/Horarios/DisponibilidadEspacios.tsx`; `src/index.css`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** ESLint específico sin errores. `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados).
+- **Pendientes/riesgos:** falta validación visual autenticada con horarios reales que incluyan bloques cortos, continuos y simultáneos; los nombres extensos se recortan en el bloque y se muestran completos al pasar el cursor.
+- **Estado:** `parcial`; implementación y compilación terminadas, validación visual autenticada pendiente.
+
 ### 2026-10-25 — Reportes — Eliminación de encabezados externos duplicados
 
 - **Responsable/Codex:** Codex, tarea actual.
@@ -330,3 +340,88 @@ Cada Codex debe avisar en el chat antes de iniciar un bloque y al terminar cada 
 - **Comprobaciones:** ambos paths siguen presentes localmente, quedaron fuera del índice y las reglas se validaron con `git check-ignore`. `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados). El remoto ya contenía commits que eliminaban esos paths.
 - **Pendientes/riesgos:** GitHub dejará de contener el historial de migraciones; la copia local deberá respaldarse de forma segura.
 - **Estado:** `parcial`; exclusiones y verificaciones terminadas, publicación del conjunto de cambios pendiente.
+
+### 2026-10-26 — Horarios — Rediseño de disponibilidad de espacios
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** se compararon los dos diseños entregados, se explicó que el selector de día se reemplazaría por pestañas curvas y que la tabla distribuiría mejor la información sin cambiar cálculos, consultas ni permisos; el usuario autorizó el cambio.
+- **Cambio realizado:** Disponibilidad muestra de forma directa las pestañas de lunes a viernes, con el día activo en rojo. La tabla separa espacio, edificio, tipo/capacidad, línea horaria, total y franjas libres, conservando búsqueda, filtros, orden, paginación, recarga y acceso al horario.
+- **Archivos/migraciones:** `src/modules/admin/components/Horarios/DisponibilidadEspacios.tsx`; `src/index.css`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados). Los bloques horarios continúan usando los intervalos reales calculados por `calcularDisponibilidad` y no datos demostrativos.
+- **Pendientes/riesgos:** falta validación visual autenticada en escritorio y móvil; en pantallas estrechas la tabla conserva desplazamiento horizontal para evitar mezclar o cortar columnas.
+- **Estado:** `parcial`; implementación y compilación terminadas, validación visual autenticada pendiente.
+
+### 2026-10-26 — Horarios — Estados, colores de carrera y simplificación de Disponibilidad
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** se explicó que se retiraría por completo el filtro por horas, que Libre usaría verde plano, Sin programación gris plano y las clases el color real de su carrera. También se propuso centrar estados, añadir la leyenda de carreras y completar el rastro con `/ Disponibilidad`; el usuario autorizó el bloque.
+- **Cambio realizado:** se eliminó la casilla `Filtrar por horas`, sus estados, validaciones, campos y filtrado interno. La línea temporal usa verde plano en tramos libres y el `color_hex` de cada carrera para las clases. El pie centra Libre y Sin programación, muestra las carreras visibles y ya no presenta un color rojo genérico ni el contador de espacios ocultos. El hero identifica `Académico / Horarios / Disponibilidad`.
+- **Archivos/migraciones:** `src/modules/admin/components/Horarios/DisponibilidadEspacios.tsx`; `src/modules/admin/pages/Horarios.tsx`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** ESLint del componente de Disponibilidad sin errores. `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados). El lint completo de `Horarios.tsx` conserva incidencias preexistentes no relacionadas, que no se modificaron para evitar ampliar el alcance.
+- **Pendientes/riesgos:** falta validación visual autenticada con carreras de colores distintos y en pantallas estrechas; las clases sin carrera asociada usan gris neutro como respaldo.
+- **Estado:** `parcial`; implementación y compilación terminadas, validación visual autenticada pendiente.
+
+### 2026-10-26 — Horarios — Mayor legibilidad y pie unificado en Disponibilidad
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** se propuso ampliar la línea temporal, presentar materia y hora como tarjetas más legibles y reunir Libre con los colores de carreras en una única fila. El usuario autorizó y aclaró que los colores de carreras debían conservarse y que Horarios no debía verse activo dentro de Disponibilidad.
+- **Cambio realizado:** la línea temporal recibió mayor ancho y altura; cada clase presenta icono académico, materia y rango horario manteniendo su posición proporcional. El pie conserva Libre y las carreras visibles en una sola fila entre el selector y la paginación, y se retiró Sin programación. En el hero, Académico y Horarios son ancestros grises sin subrayado; solo Disponibilidad queda resaltado.
+- **Archivos/migraciones:** `src/modules/admin/components/Horarios/DisponibilidadEspacios.tsx`; `src/modules/admin/pages/Horarios.tsx`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** ESLint del componente de Disponibilidad sin errores. `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados).
+- **Pendientes/riesgos:** falta validación visual autenticada con nombres de materias extensos y varias carreras simultáneas; el pie permite desplazamiento horizontal si la leyenda completa no cabe.
+- **Estado:** `parcial`; implementación y compilación terminadas, validación visual autenticada pendiente.
+
+### 2026-10-26 — Horarios — Separación visual entre tiempo libre y clases ocupadas
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** se explicó que la línea temporal pasaría a tener una base gris, que únicamente los intervalos libres serían verdes y que las clases usarían fondos sólidos según su carrera; el usuario autorizó el ajuste.
+- **Cambio realizado:** la disponibilidad ya no pinta toda la jornada de verde. La base queda gris, los tramos devueltos por `calcularDisponibilidad` se representan en verde y cada clase ocupa su intervalo con un pastel opaco derivado del color de su carrera, evitando que el verde aparezca debajo de bloques ocupados.
+- **Archivos/migraciones:** `src/modules/admin/components/Horarios/DisponibilidadEspacios.tsx`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** ESLint del componente de Disponibilidad sin errores. `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados).
+- **Pendientes/riesgos:** falta validación visual autenticada con clases contiguas, huecos libres y carreras con colores muy claros; el generador de pastel conserva un respaldo gris para colores inválidos.
+- **Estado:** `parcial`; implementación y compilación terminadas, validación visual autenticada pendiente.
+
+### 2026-10-26 — Horarios — Ampliación de la línea de Disponibilidad
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** se propuso ampliar Disponibilidad, reducir las columnas informativas y compactar la última columna sin retirar `Ver horario`; el usuario autorizó ambos ajustes.
+- **Cambio realizado:** Disponibilidad pasó de 39% a 47% del ancho de la tabla. Espacio, Edificio, Tipo/Capacidad, Horas libres y Franjas libres se compactaron de forma controlada; la columna final bajó de 7% a 6% y su botón conserva texto, icono y funcionalidad con menor relleno.
+- **Archivos/migraciones:** `src/modules/admin/components/Horarios/DisponibilidadEspacios.tsx`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, cálculos, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** ESLint del componente de Disponibilidad sin errores. `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados).
+- **Pendientes/riesgos:** falta validación visual autenticada con nombres extensos y resoluciones estrechas; la tabla conserva desplazamiento horizontal para evitar cortar columnas.
+- **Estado:** `parcial`; implementación y compilación terminadas, validación visual autenticada pendiente.
+
+### 2026-10-26 — Reportes — Catálogo de tarjetas a pantalla completa
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** se explicó que la referencia de tarjetas se adaptaría a la paleta ESPOCH, en tres columnas y dos filas elásticas, sin copiar contenido ajeno ni activar reportes todavía no implementados; el usuario autorizó el rediseño.
+- **Cambio realizado:** las seis tarjetas ahora distribuyen el alto restante del catálogo en escritorio. Cada una presenta icono circular, estado, categoría, título, descripción, etiquetas y un pie de acción diferenciado. Tablet y móvil conservan dos o una columna con desplazamiento vertical.
+- **Archivos/migraciones:** `src/modules/admin/pages/Reportes.tsx`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, exportaciones, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** `npm run build` terminó correctamente (`tsc -b` y Vite, 2922 módulos transformados). El lint aislado conserva tres errores de tipado `any` y una advertencia de dependencias ya existentes fuera del bloque modificado.
+- **Pendientes/riesgos:** falta validación visual autenticada en 1366×768, 1600×900, tablet y móvil. Infraestructura y Monitoreo siguen pendientes de implementación funcional y requieren aprobación separada de su contenido.
+- **Estado:** `parcial`; rediseño y compilación terminados, validación visual autenticada pendiente.
+
+### 2026-10-26 — Reportes — Fondos WebP temáticos en el catálogo
+
+- **Responsable/Codex:** Codex, tarea actual.
+- **Aviso previo:** se explicó que se incorporarían seis fotografías locales en formato WebP, optimizadas a 900×500 px y protegidas por degradados para mantener la lectura; el usuario autorizó el bloque.
+- **Cambio realizado:** Carga docente, Horarios, Historial, Inventario, Infraestructura y Mantenimiento muestran un fondo temático a la derecha. Las imágenes se revisaron visualmente, se reemplazaron tres recursos que no representaban correctamente su categoría y se añadieron dos degradados blancos detrás del contenido.
+- **Archivos/migraciones:** `src/modules/admin/pages/Reportes.tsx`; seis archivos en `src/assets/reportes/*.webp`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`; `CLAUDE.md`. Sin cambios de datos, exportaciones, rutas, roles, permisos, políticas RLS ni Supabase.
+- **Comprobaciones:** los seis WebP suman aproximadamente 270 KB. ESLint del archivo modificado terminó sin incidencias nuevas al excluir las tres reglas preexistentes documentadas. `npm run build` terminó correctamente (`tsc -b` y Vite, 2928 módulos transformados) y emitió los seis recursos con hash.
+- **Pendientes/riesgos:** falta validación visual autenticada del contraste y recorte en resoluciones de escritorio, tablet y móvil. Infraestructura y Monitoreo continúan pendientes como bloques funcionales separados.
+- **Estado:** `parcial`; recursos, integración y compilación terminados, validación visual autenticada pendiente.
+### 2026-10-26 — Rol Administrativo y dashboard de consulta
+
+- **Aviso previo:** se explicó que el HTML adjunto se usaría como guía visual, conservando datos reales y sin ejecutar SQL en Supabase; el usuario autorizó continuar.
+- **Cambio realizado:** se añadió el rol funcional `administrativo`, su etiqueta, enrutado y un layout de consulta con Dashboard, Horarios, Infraestructura, Estructura Académica y Reportes. El dashboard reutiliza los indicadores reales del panel de autoridades, pero muestra el ámbito institucional completo. Las pantallas reciben `soloLectura` para ocultar acciones de edición/eliminación.
+- **Archivos:** `src/store/authStore.ts`, `src/router/index.tsx`, `src/modules/administrativo/layout/AdministrativoLayout.tsx`, `src/modules/autoridad/layout/AutoridadSidebar.tsx`, `src/modules/autoridad/pages/AutoridadDashboard.tsx`, `src/modules/admin/pages/Usuarios.tsx`.
+- **SQL preparado (no ejecutado):** `supabase/migrations/0058_rol_administrativo_consulta.sql`. Añade el rol solo si no existe, incorpora Administrativo a la función de lectura de autoridad y prepara lectura/registro acotado de reportes y descarga de formatos; no concede UPDATE/DELETE/INSERT de catálogos.
+- **Riesgos pendientes:** la migración debe probarse primero en Supabase y revisar que las políticas existentes no tengan condiciones más restrictivas; falta validación visual autenticada y probar exportación desde el rol Administrativo.
+- **Comprobaciones:** `npm run build` terminó correctamente (`tsc -b` y Vite, 2930 módulos transformados). `supabase/` y `CLAUDE.md` permanecen ignorados.
+- **Estado:** parcial; compilación terminada, migración local pendiente de autorización explícita y prueba autenticada pendiente.
+
+### 2026-10-26 — Unificación de Decano y Subdecano en Administrativo
+
+- **Aviso previo:** se explicó que la unificación reasignaría usuarios sin borrar los roles históricos; el usuario aprobó.
+- **Cambio realizado:** la migración local `0058_rol_administrativo_consulta.sql` ahora reasigna usuarios con rol `Decano` o `Subdecano` al rol `Administrativo`. Los registros antiguos de `roles` se conservan para no romper referencias históricas.
+- **Estado:** preparado localmente; no ejecutado en Supabase.

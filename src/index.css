@@ -19,6 +19,120 @@
   --color-espoch-navy: #1a2b4b;      /* texto de breadcrumb */
 }
 
+/* Pestañas de día de la consulta de disponibilidad. El borde inferior compartido
+   mantiene el grupo unido y las curvas distinguen el día activo sin añadir otra tarjeta. */
+.availability-day-tabs {
+  display: flex;
+  min-height: 58px;
+  border: 1px solid #e6edf4;
+  border-bottom: 3px solid #c91024;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 4px 20px rgb(15 23 42 / 4%);
+}
+
+.availability-day-tabs__group {
+  display: flex;
+  flex: 1 0 650px;
+  width: max-content;
+  height: 55px;
+  align-items: flex-end;
+  justify-content: center;
+  padding-inline: 24px;
+}
+
+.availability-day-tabs__side {
+  display: flex;
+  flex: 1 0 205px;
+  height: 55px;
+  align-items: center;
+  padding-inline: 16px;
+}
+
+.availability-day-tabs__side--start {
+  justify-content: flex-start;
+}
+
+.availability-day-tabs__side--end {
+  justify-content: flex-end;
+}
+
+.availability-day-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  height: 46px;
+  min-width: 128px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  background: #fff;
+  padding-inline: 22px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  transition: color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.availability-day-tab:hover {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.availability-day-tab.active {
+  z-index: 2;
+  min-width: 140px;
+  border-radius: 19px 19px 0 0;
+  background: #c91024;
+  color: #fff;
+  filter: drop-shadow(0 5px 10px rgb(201 16 36 / 25%));
+}
+
+.availability-day-tab.active::before,
+.availability-day-tab.active::after {
+  position: absolute;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  content: '';
+  pointer-events: none;
+}
+
+.availability-day-tab.active::before {
+  left: -18px;
+  background: radial-gradient(circle at 0 0, transparent 18px, #c91024 18.5px);
+}
+
+.availability-day-tab.active::after {
+  right: -18px;
+  background: radial-gradient(circle at 100% 0, transparent 18px, #c91024 18.5px);
+}
+
+@media (max-width: 767px) {
+  .availability-day-tabs {
+    border-radius: 18px;
+  }
+
+  .availability-day-tabs__group {
+    flex-basis: 560px;
+    justify-content: flex-start;
+    padding-inline: 18px;
+  }
+
+  .availability-day-tabs__side {
+    flex-basis: auto;
+    padding-inline: 10px;
+  }
+
+  .availability-day-tab,
+  .availability-day-tab.active {
+    min-width: 112px;
+    padding-inline: 16px;
+  }
+}
+
 @layer base {
   body {
     font-family: var(--font-sans);

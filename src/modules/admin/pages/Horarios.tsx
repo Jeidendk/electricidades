@@ -630,15 +630,21 @@ export const Horarios = () => {
                     Horarios
                   </h2>
                 ) : (
-                  /* Fuera del horario, el título es el camino de vuelta: es donde se mira para
-                     saber dónde se está, así que es donde se busca para salir. */
-                  <button
-                    onClick={() => setActiveTab('horario')}
-                    title="Volver al horario de distribución"
-                    className="text-[12px] font-extrabold text-espoch-yellow tracking-tight leading-none underline decoration-espoch-yellow/40 underline-offset-4 transition-colors hover:decoration-espoch-yellow"
-                  >
-                    Horarios
-                  </button>
+                  <>
+                    {/* Fuera del horario, Horarios conserva el camino de vuelta y el último
+                        nivel identifica con claridad la vista interna actual. */}
+                    <button
+                      onClick={() => setActiveTab('horario')}
+                      title="Volver al horario de distribución"
+                      className="text-[10px] font-bold uppercase tracking-widest leading-none text-gray-400 transition-colors hover:text-gray-200"
+                    >
+                      Horarios
+                    </button>
+                    <span className="text-[11px] font-bold text-gray-600">/</span>
+                    <h2 className="text-[12px] font-extrabold text-espoch-yellow tracking-tight leading-none">
+                      {activeTab === 'disponibilidad' ? 'Disponibilidad' : 'Mapa de espacios'}
+                    </h2>
+                  </>
                 )}
               </div>
               <p className="text-[11px] text-gray-400 font-medium">Asigne docentes, aulas y edificios a los bloques horarios.</p>
@@ -724,6 +730,7 @@ export const Horarios = () => {
               )}
               {activeTab === 'disponibilidad' && (
                 <DisponibilidadEspacios
+                  carreras={carreras}
                   onVolver={() => setActiveTab('horario')}
                   onVerHorario={(edificioId, espacioId) => {
                     setFilterEdificio(edificioId);

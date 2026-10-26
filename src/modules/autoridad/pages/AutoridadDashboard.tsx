@@ -46,6 +46,7 @@ export const AutoridadDashboard = () => {
 
   const clases = useMemo(() => mapearClases(rawClases, carreras as any), [rawClases, carreras]);
   const esCoordinador = usuario?.role === 'coordinador';
+  const esAdministrativo = usuario?.role === 'administrativo';
 
   const facultadPropia = useMemo(() => {
     const buscada = normalizarTexto(usuario?.facultadNombre);
@@ -64,10 +65,11 @@ export const AutoridadDashboard = () => {
   }, [carreras, esCoordinador, usuario?.carreraNombre]);
 
   const carrerasAmbito = useMemo(() => {
+    if (esAdministrativo) return carreras;
     if (esCoordinador) return carreraPropia ? [carreraPropia] : [];
     if (!facultadPropia) return [];
     return carreras.filter((carrera: any) => carrera.id_facultad === facultadPropia.id);
-  }, [carreras, carreraPropia, esCoordinador, facultadPropia]);
+  }, [carreras, carreraPropia, esAdministrativo, esCoordinador, facultadPropia]);
 
   const clasesVisibles = useMemo(() => {
     const ids = new Set(carrerasAmbito.map((carrera: any) => carrera.id));
@@ -150,7 +152,7 @@ export const AutoridadDashboard = () => {
   }, [clasesVisibles, edificios]);
 
   const rol = ETIQUETA_ROL[usuario?.role ?? 'decano'];
-  const alcance = esCoordinador ? carreraPropia?.nombre : facultadPropia?.nombre;
+  const alcance = esAdministrativo ? 'toda la institución' : esCoordinador ? carreraPropia?.nombre : facultadPropia?.nombre;
   const sinAmbito = !alcance;
 
   const kpis = [

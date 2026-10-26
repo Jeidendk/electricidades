@@ -9,7 +9,7 @@ import { useAuthStore, ETIQUETA_ROL } from '../../../store/authStore';
  * Menú de Decano, Subdecano y Coordinador. Son cuatro pantallas de consulta y ninguna de
  * gestión, así que no hay submenús: la lista entera cabe a la vista.
  */
-export const AutoridadSidebar = () => {
+export const AutoridadSidebar = ({ basePath = '/autoridad', administrativo = false }: { basePath?: string; administrativo?: boolean }) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const mobileOpen = useSidebarStore(s => s.mobileOpen);
@@ -41,11 +41,11 @@ export const AutoridadSidebar = () => {
     } ${collapsed ? 'justify-center px-0' : ''}`;
 
   const opciones = [
-    { to: '/autoridad/dashboard', etiqueta: 'DASHBOARD', Icon: LayoutGrid },
-    { to: '/autoridad/horarios', etiqueta: 'HORARIOS', Icon: Clock },
-    { to: '/autoridad/infraestructura', etiqueta: 'INFRAESTRUCTURA', Icon: Building2 },
-    { to: '/autoridad/estructura-academica', etiqueta: 'ESTRUC. ACAD.', Icon: GradCap },
-    { to: '/autoridad/reportes', etiqueta: 'REPORTES', Icon: BarChart2 },
+    { to: `${basePath}/dashboard`, etiqueta: 'DASHBOARD', Icon: LayoutGrid },
+    { to: `${basePath}/horarios`, etiqueta: 'HORARIOS', Icon: Clock },
+    { to: `${basePath}/infraestructura`, etiqueta: 'INFRAESTRUCTURA', Icon: Building2 },
+    { to: `${basePath}/estructura-academica`, etiqueta: 'ESTRUC. ACAD.', Icon: GradCap },
+    { to: `${basePath}/reportes`, etiqueta: 'REPORTES', Icon: BarChart2 },
   ];
 
   return (
@@ -69,7 +69,7 @@ export const AutoridadSidebar = () => {
                   <span className="text-xl font-extrabold tracking-tight text-white leading-none whitespace-nowrap">ESPOCH</span>
                   {/* La etiqueta sale del rol: los tres comparten panel y así cada uno ve el suyo. */}
                   <span className="text-espoch-yellow text-[9px] font-bold tracking-[0.2em] mt-1 whitespace-nowrap">
-                    {rol ? ETIQUETA_ROL[rol].toUpperCase() : 'AUTORIDAD'}
+                    {administrativo ? 'ADMINISTRATIVO' : rol ? ETIQUETA_ROL[rol].toUpperCase() : 'AUTORIDAD'}
                   </span>
                 </div>
               )}

@@ -4,7 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { aNumeroOpcional, normalizarTexto } from '../lib/texto';
 import { componerNombreCompleto } from '../lib/texto';
 
-export type Rol = 'admin' | 'tecnico' | 'student' | 'docente' | 'decano' | 'subdecano' | 'coordinador';
+export type Rol = 'admin' | 'tecnico' | 'student' | 'docente' | 'decano' | 'subdecano' | 'coordinador' | 'administrativo';
 
 /**
  * Roles de autoridad (migración 0051): consultan Horarios, Infraestructura, Estructura
@@ -34,6 +34,7 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
   decano: 'Decano',
   subdecano: 'Subdecano',
   coordinador: 'Coordinador',
+  administrativo: 'Administrativo',
 };
 
 export interface AuthUser {
@@ -184,6 +185,8 @@ async function fetchPerfil(userId: string): Promise<AuthUser | null> {
       rolFuncional = 'coordinador';
     } else if (nombreRol.includes('docente')) {
       rolFuncional = 'docente';
+    } else if (nombreRol.includes('administrativo')) {
+      rolFuncional = 'administrativo';
     }
   }
 

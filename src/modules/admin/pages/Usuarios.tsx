@@ -21,7 +21,7 @@ import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
 // Constantes para formularios (dropdowns)
-const ROLES = ['Administrador', 'Estudiante', 'Tecnico', 'Docente'];
+const ROLES = ['Administrador', 'Administrativo', 'Estudiante', 'Tecnico', 'Docente'];
 
 /**
  * Roles que llevan facultad y carrera.
