@@ -1,4 +1,9 @@
 import banderaEspoch from '../../../assets/Bandera-ESPOCH-HORARIOS.webp';
+import {
+  AlignmentType, BorderStyle, Document, Footer, ImageRun, Packer, Paragraph,
+  Table, TableCell, TableRow, TextRun, VerticalAlignTable, WidthType,
+  type FileChild,
+} from 'docx';
 import { diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo } from '../components/Horarios/horariosData';
 import { mismoDia } from '../../../lib/texto';
 import {
@@ -103,6 +108,186 @@ const franjasConClase = (bloques: BloqueDocente[]) => {
     diasFormales.some(dia => bloqueEnCasilla(bloques, dia, franja)),
   );
   return ocupadas.length > 0 ? ocupadas : horas;
+};
+
+const imagenComoPng = (url: string): Promise<Uint8Array> => new Promise((resolve, reject) => {
+  const imagen = new Image();
+  imagen.crossOrigin = 'anonymous';
+  imagen.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = imagen.naturalWidth;
+    canvas.height = imagen.naturalHeight;
+    const contexto = canvas.getContext('2d');
+    if (!contexto) {
+      reject(new Error('No se pudo preparar el escudo institucional.'));
+      return;
+    }
+    contexto.drawImage(imagen, 0, 0);
+    const base64 = canvas.toDataURL('image/png').split(',')[1];
+    resolve(Uint8Array.from(atob(base64), caracter => caracter.charCodeAt(0)));
+  };
+  imagen.onerror = () => reject(new Error('No se pudo cargar el escudo institucional.'));
+  imagen.src = url;
+});
+
+/**
+ * Genera un Word editable con una hoja por docente. Conserva la misma estructura del PDF:
+ * encabezado institucional, resumen de carga, grilla semanal y pie de página.
+ */
+export const exportarWordDocentes = async (
+  resumenes: ResumenDocente[],
+  nombreEdificio: (id: string) => string,
+  nombreArchivo = 'carga-docente.docx',
+) => {
+  const fuente = 'Times New Roman';
+  const texto = (contenido: string, negrita = false, tamano = 16) =>
+    new TextRun({ text: contenido, bold: negrita, size: tamano, font: fuente });
+  const parrafoCentrado = (contenido: string, negrita = false, tamano = 16) =>
+    new Paragraph({
+      children: [texto(contenido, negrita, tamano)],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 0 },
+    });
+  const borde = { style: BorderStyle.SINGLE, size: 6, color: '222222' };
+  const celda = (renglones: { contenido: string; negrita?: boolean }[], ancho?: number) => new TableCell({
+    width: ancho ? { size: ancho, type: WidthType.DXA } : undefined,
+    verticalAlign: VerticalAlignTable.CENTER,
+    borders: { top: borde, bottom: borde, left: borde, right: borde },
+    margins: { top: 45, bottom: 45, left: 35, right: 35 },
+    children: (renglones.length ? renglones : [{ contenido: '' }]).map(renglon =>
+      parrafoCentrado(renglon.contenido, renglon.negrita, renglon.negrita ? 16 : 14),
+    ),
+  });
+  const sinBorde = { style: BorderStyle.NONE };
+  let escudo: Uint8Array | null = null;
+  try {
+    escudo = await imagenComoPng(banderaEspoch);
+  } catch {
+    // El documento sigue siendo válido con el nombre institucional si la imagen no carga.
+  }
+
+  const hijos: FileChild[] = [];
+  resumenes.forEach((resumen, indice) => {
+    if (indice > 0) hijos.push(new Paragraph({ pageBreakBefore: true, spacing: { after: 0 } }));
+    hijos.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      columnWidths: [2900, 9200, 2900],
+      borders: {
+        top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde,
+        insideHorizontal: sinBorde, insideVertical: sinBorde,
+      },
+      rows: [new TableRow({
+        children: [
+          new TableCell({
+            borders: { top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde },
+            verticalAlign: VerticalAlignTable.CENTER,
+            children: [new Paragraph({
+              children: escudo
+                ? [new ImageRun({ type: 'png', data: escudo, transformation: { width: 150, height: 92 } })]
+                : [texto('ESPOCH', true, 20)],
+            })],
+          }),
+          new TableCell({
+            borders: { top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde },
+            verticalAlign: VerticalAlignTable.CENTER,
+            children: [
+              parrafoCentrado('ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO', true, 28),
+              new Paragraph({
+                children: [texto('FACULTAD DE INFORMÁTICA Y ELECTRÓNICA', true, 20)],
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 80, after: 0 },
+              }),
+            ],
+          }),
+          new TableCell({
+            borders: { top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde },
+            children: [new Paragraph('')],
+          }),
+        ],
+      })],
+    }));
+    hijos.push(new Paragraph({
+      children: [texto(' ')],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'EF4444' } },
+      spacing: { after: 80 },
+    }));
+    hijos.push(new Paragraph({
+      children: [texto(resumen.docente.toUpperCase(), true, 22)],
+      spacing: { after: 35 },
+    }));
+    hijos.push(new Paragraph({
+      children: [texto(`TOTAL DE HORAS SEMANALES: ${resumen.horasSemana}`, true, 17)],
+      spacing: { after: 25 },
+    }));
+    hijos.push(new Paragraph({
+      children: [texto(
+        `${resumen.materias.length} ${resumen.materias.length === 1 ? 'MATERIA' : 'MATERIAS'}: ${resumen.materias.join(' · ')}`,
+        true,
+        16,
+      )],
+      spacing: { after: 100 },
+    }));
+
+    const filas = [new TableRow({
+      tableHeader: true,
+      children: ['HORA', ...diasFormales].map((dia, posicion) =>
+        celda([{ contenido: dia.toUpperCase(), negrita: true }], posicion === 0 ? 1500 : undefined),
+      ),
+    })];
+    franjasConClase(resumen.bloques).forEach(franja => {
+      const celdas = [celda([{ contenido: franja.replace(/:00/g, 'H00'), negrita: true }], 1500)];
+      diasFormales.forEach(dia => {
+        const bloque = bloqueEnCasilla(resumen.bloques, dia, franja);
+        if (!bloque) {
+          celdas.push(celda([]));
+          return;
+        }
+        const pao = etiquetaPaoParalelo(bloque.pao, bloque.paralelo);
+        const ubicacion = [bloque.aula, nombreEdificio(bloque.edificio)].filter(Boolean).join(' · ');
+        celdas.push(celda([
+          { contenido: bloque.materia.toUpperCase(), negrita: true },
+          ...(pao ? [{ contenido: pao }] : []),
+          ...(bloque.carrera ? [{ contenido: bloque.carrera.toUpperCase() }] : []),
+          ...(ubicacion ? [{ contenido: ubicacion.toUpperCase() }] : []),
+        ]));
+      });
+      filas.push(new TableRow({ children: celdas, cantSplit: true }));
+    });
+    hijos.push(new Table({
+      rows: filas,
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      columnWidths: [1500, 2700, 2700, 2700, 2700, 2700],
+    }));
+  });
+
+  const pie = new Footer({
+    children: [new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [texto(
+        'Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155.  Riobamba - Ecuador',
+        false,
+        14,
+      )],
+    })],
+  });
+  const documento = new Document({
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 16838, height: 11906 },
+          margin: { top: 650, bottom: 900, left: 650, right: 650, footer: 300 },
+        },
+      },
+      footers: { default: pie },
+      children: hijos,
+    }],
+  });
+  const url = URL.createObjectURL(await Packer.toBlob(documento));
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  enlace.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 /** Una hoja por docente, con la misma maqueta institucional que el horario por aula. */

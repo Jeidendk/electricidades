@@ -43,6 +43,46 @@ const hexToRgba = (hex: string, opacity: number) => {
   return result ? `rgba(${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}, ${opacity})` : `rgba(0,0,0,${opacity})`;
 };
 
+/**
+ * Convierte un icono personalizado en una fuente apta para <img>.
+ *
+ * Los archivos nuevos llegan como data:image/... desde FileReader. También se acepta el SVG
+ * en texto que dejaron versiones antiguas, pero se retiran nodos activos, eventos y referencias
+ * externas antes de convertirlo en una imagen aislada. Nunca se inserta como HTML del documento.
+ */
+const fuenteImagenPersonalizada = (contenido: unknown): string | null => {
+  if (typeof contenido !== 'string') return null;
+  const valor = contenido.trim();
+  if (!valor) return null;
+
+  if (/^data:image\/(?:png|jpe?g|webp|gif|svg\+xml)(?:;charset=[^;,]+)?;base64,[a-z0-9+/=\s]+$/i.test(valor)) {
+    return valor;
+  }
+
+  if (!/^<svg[\s>]/i.test(valor)) return null;
+
+  const documento = new DOMParser().parseFromString(valor, 'image/svg+xml');
+  const svg = documento.documentElement;
+  if (svg.nodeName.toLowerCase() !== 'svg' || documento.querySelector('parsererror')) return null;
+
+  svg.querySelectorAll('script, foreignObject, iframe, object, embed, audio, video, image, use, style, link, meta, animate, animateMotion, animateTransform, set')
+    .forEach(nodo => nodo.remove());
+
+  [svg, ...Array.from(svg.querySelectorAll('*'))].forEach(elemento => {
+    Array.from(elemento.attributes).forEach(atributo => {
+      const nombre = atributo.name.toLowerCase();
+      const valorAtributo = atributo.value.trim();
+      const esReferencia = nombre === 'href' || nombre === 'xlink:href';
+      const valorPeligroso = /javascript:|data:text\/html|url\s*\(/i.test(valorAtributo);
+      if (nombre.startsWith('on') || nombre === 'style' || valorPeligroso || (esReferencia && !valorAtributo.startsWith('#'))) {
+        elemento.removeAttribute(atributo.name);
+      }
+    });
+  });
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.outerHTML)}`;
+};
+
 export const HorarioVista: React.FC<HorarioVistaProps> = ({
   searchQuery,
   setSearchQuery,
@@ -316,7 +356,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                         carreraNombre = carreraInfo.nombre;
                         
                         if (carreraInfo.customSvg) {
-                           customSvgContent = carreraInfo.customSvg;
+                           customSvgContent = fuenteImagenPersonalizada(carreraInfo.customSvg);
                         } else if (carreraInfo.icono && availableIcons[carreraInfo.icono]) {
                            IconoCarrera = availableIcons[carreraInfo.icono];
                         }
@@ -352,7 +392,7 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
                         <div className="flex items-start gap-2 mb-0.5" style={{ color: textColor }}>
                           <div className="mt-0.5 shrink-0">
                             {customSvgContent ? (
-                              <div className="w-4 h-4 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: customSvgContent.replace(/<svg/, `<svg fill="${textColor}"`) }} />
+                              <img src={customSvgContent} alt="" aria-hidden="true" className="w-4 h-4 object-contain" />
                             ) : IconoCarrera ? (
                               <IconoCarrera className="w-4 h-4" strokeWidth={2.5}/>
                             ) : (
@@ -499,8 +539,8 @@ export const HorarioVista: React.FC<HorarioVistaProps> = ({
               <div key={carrera.id} className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: carrera.color_hex || '#9ca3af' }}></span>
                 <span className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-                  {carrera.customSvg ? (
-                    <div className="w-3 h-3 opacity-60" dangerouslySetInnerHTML={{ __html: carrera.customSvg }} />
+                  {fuenteImagenPersonalizada(carrera.customSvg) ? (
+                    <img src={fuenteImagenPersonalizada(carrera.customSvg)!} alt="" aria-hidden="true" className="w-3 h-3 object-contain opacity-60" />
                   ) : Icon ? (
                     <Icon className="w-3 h-3 opacity-60" />
                   ) : null}

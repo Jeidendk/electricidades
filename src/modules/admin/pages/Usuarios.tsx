@@ -729,16 +729,16 @@ export const Usuarios = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex shrink-0 flex-nowrap items-center gap-3">
               {selectedIds.length > 0 && (
-                <button onClick={() => setModalType('bulkDelete')} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-red-200 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+                <button onClick={() => setModalType('bulkDelete')} className="flex items-center gap-2 whitespace-nowrap px-5 py-2.5 rounded-full border border-red-200 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
                   <Trash2 className="w-3.5 h-3.5" /> Eliminar ({selectedIds.length})
                 </button>
               )}
-              <button onClick={exportCsv} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+              <button onClick={exportCsv} className="flex items-center gap-2 whitespace-nowrap px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
                 <Download className="w-3.5 h-3.5" /> Exportar{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
               </button>
-              <button onClick={() => { setFormValues({ ...defaultFormValues, rol: rolParaAlta }); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
+              <button onClick={() => { setFormValues({ ...defaultFormValues, rol: rolParaAlta }); setModalType('create'); }} className="bg-[#0f172a] hover:bg-black text-white font-bold text-xs whitespace-nowrap px-6 py-2.5 rounded-full flex items-center gap-2 shadow-lg transition-all border border-gray-800">
                 <Plus className="w-3.5 h-3.5" /> {soloDocentes ? 'Nuevo docente' : 'Nuevo registro'}
               </button>
             </div>
@@ -960,9 +960,13 @@ export const Usuarios = () => {
                         disabled={editandoDocente}
                         className="bg-gray-50/50 text-[13px] text-gray-900 rounded-xl py-3 px-4 outline-none border border-gray-200 focus:border-blue-500 focus:bg-white font-medium cursor-pointer w-full transition-all disabled:cursor-not-allowed disabled:opacity-70"
                       >
-                        {(modalType === 'edit' && !editandoDocente
-                          ? rolNombres.filter(r => r !== 'Docente' || formValues.rol === 'Docente')
-                          : rolNombres
+                        {(soloDocentes
+                          // El técnico solo gestiona docentes: ofrecerle los demás roles en el
+                          // select es prometer algo que la pantalla no deja hacer, y la RLS tampoco.
+                          ? ['Docente']
+                          : modalType === 'edit' && !editandoDocente
+                            ? rolNombres.filter(r => r !== 'Docente' || formValues.rol === 'Docente')
+                            : rolNombres
                         ).map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </div>

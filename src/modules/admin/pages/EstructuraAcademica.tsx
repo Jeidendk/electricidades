@@ -495,7 +495,7 @@ export const EstructuraAcademica = () => {
           ]}
           backgroundImage={HERO_BG.aula}
         />
-      ) : selectedFacultad && !ocultarGestion ? (
+      ) : selectedFacultad && !limitadoACarrera ? (
         <PageHero
           icon={availableIcons[selectedFacultad.icono] || Building}
           title={selectedFacultad.nombre}
@@ -625,8 +625,8 @@ export const EstructuraAcademica = () => {
           <AcentoTarjeta />
 
           {/* MODO FACULTAD */}
-          {/* Vista de facultad: solo administración. El técnico trabaja dentro de su carrera. */}
-          {selectedFacultad && !selectedCarreraId && !ocultarGestion && (
+          {/* La vista de facultad también está disponible en modo consulta. El técnico trabaja dentro de su carrera. */}
+          {selectedFacultad && !selectedCarreraId && !limitadoACarrera && (
             <div className="flex flex-col h-full overflow-hidden bg-white">
               <div className="flex-1 min-h-0 p-6 md:p-8 flex flex-col bg-white overflow-hidden">
                 {/* CARD IDENTIDAD FACULTAD: datos y acciones propias de la facultad */}
@@ -783,7 +783,7 @@ export const EstructuraAcademica = () => {
                         icon={GraduationCap}
                         variant="card"
                         title={searchCarrera ? `Sin resultados para "${searchCarrera}"` : 'Sin carreras registradas'}
-                        description={searchCarrera ? undefined : 'Crea la primera carrera para esta facultad.'}
+                        description={searchCarrera ? undefined : ocultarGestion ? 'Esta facultad aún no tiene carreras registradas.' : 'Crea la primera carrera para esta facultad.'}
                         actionLabel={searchCarrera || ocultarGestion ? undefined : 'Crear primera carrera'}
                         onAction={searchCarrera || ocultarGestion ? undefined : () => { setFormCarrera({ ...defaultCarreraValues, idFacultad: selectedFacultad.id }); setModalType('createCarrera'); }}
                         secondaryLabel={searchCarrera ? 'Limpiar búsqueda' : undefined}
@@ -807,7 +807,7 @@ export const EstructuraAcademica = () => {
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm mx-6 mt-6 mb-4 px-5 py-3 flex items-center justify-between gap-4 flex-wrap shrink-0">
                   <div className="flex items-center gap-4 flex-wrap">
                     <nav className="flex items-center gap-1.5 text-[12px] font-bold" aria-label="Breadcrumb">
-                      {ocultarGestion ? (
+                      {limitadoACarrera ? (
                         <span className="text-gray-500" title={selectedFacultad?.nombre}>{selectedFacultad?.siglas || 'Facultad'}</span>
                       ) : (
                         <button onClick={() => setSelectedCarreraId(null)} className="text-gray-500 hover:text-indigo-600 transition-colors" title={`Volver a ${selectedFacultad?.nombre || 'la facultad'}`}>{selectedFacultad?.siglas || 'Facultad'}</button>
@@ -842,9 +842,9 @@ export const EstructuraAcademica = () => {
 
                   <div className="flex items-center gap-3">
                     <ViewToggle value={viewMode} onChange={setViewMode} />
-                    <button onClick={() => { setFormMateria({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: selectedCarrera.id }); setIsAddingMateria(true); }} className="bg-[#0f172a] hover:bg-black text-white px-5 py-2.5 rounded-lg text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
+                    {!soloLectura && <button onClick={() => { setFormMateria({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: selectedCarrera.id }); setIsAddingMateria(true); }} className="bg-[#0f172a] hover:bg-black text-white px-5 py-2.5 rounded-lg text-[12px] font-bold transition-all shadow-sm flex items-center gap-2">
                       <Plus className="w-4 h-4" /> Agregar Materia
-                    </button>
+                    </button>}
                   </div>
                 </div>
 
@@ -864,8 +864,8 @@ export const EstructuraAcademica = () => {
                           <EmptyState
                             icon={Layers}
                             title={carreraMaterias.length === 0 ? 'Sin materias registradas' : 'Sin resultados con estos filtros'}
-                            actionLabel={carreraMaterias.length === 0 ? 'Agregar primera materia' : undefined}
-                            onAction={carreraMaterias.length === 0 ? () => { setFormMateria({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: selectedCarrera.id }); setIsAddingMateria(true); } : undefined}
+                            actionLabel={carreraMaterias.length === 0 && !soloLectura ? 'Agregar primera materia' : undefined}
+                            onAction={carreraMaterias.length === 0 && !soloLectura ? () => { setFormMateria({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: selectedCarrera.id }); setIsAddingMateria(true); } : undefined}
                             secondaryLabel={carreraMaterias.length > 0 ? 'Limpiar filtros' : undefined}
                             onSecondary={carreraMaterias.length > 0 ? () => { setSearchMateria(''); setSelectedSemestreFilter('Todos'); } : undefined}
                           />
@@ -914,8 +914,8 @@ export const EstructuraAcademica = () => {
                         <EmptyState
                           icon={Layers}
                           title={carreraMaterias.length === 0 ? 'Sin materias registradas' : 'Sin resultados con estos filtros'}
-                          actionLabel={carreraMaterias.length === 0 ? 'Agregar primera materia' : undefined}
-                          onAction={carreraMaterias.length === 0 ? () => { setFormMateria({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: selectedCarrera.id }); setIsAddingMateria(true); } : undefined}
+                          actionLabel={carreraMaterias.length === 0 && !soloLectura ? 'Agregar primera materia' : undefined}
+                          onAction={carreraMaterias.length === 0 && !soloLectura ? () => { setFormMateria({ nombre: '', codigo: '', semestre: 1, creditos: 3, idCarrera: selectedCarrera.id }); setIsAddingMateria(true); } : undefined}
                           secondaryLabel={carreraMaterias.length > 0 ? 'Limpiar filtros' : undefined}
                           onSecondary={carreraMaterias.length > 0 ? () => { setSearchMateria(''); setSelectedSemestreFilter('Todos'); } : undefined}
                           className="w-full"
@@ -1062,7 +1062,7 @@ export const EstructuraAcademica = () => {
                                   ))}
 
                                   {/* Botón Agregar Materia */}
-                                  <button
+                                  {!soloLectura && (<button
                                     onClick={() => { setFormMateria({ nombre: '', codigo: '', semestre: sem, creditos: 3, idCarrera: selectedCarrera.id }); setIsAddingMateria(true); }}
                                     className="flex flex-col items-center justify-center gap-2 py-4 px-4 rounded-xl transition-all shrink-0 w-full"
                                     style={{
@@ -1089,7 +1089,7 @@ export const EstructuraAcademica = () => {
                                       <p className="text-[13px] font-bold text-gray-800">Agregar Materia</p>
                                       <p className="text-[11px] text-gray-400 font-normal mt-0.5">Arrastra o haz clic para añadir</p>
                                     </div>
-                                  </button>
+                                  </button>)}
                                 </div>
                               </div>
                             );
@@ -1108,7 +1108,7 @@ export const EstructuraAcademica = () => {
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50">
               <Building className="w-16 h-16 text-gray-200 mb-4" />
               <h3 className="text-lg font-bold text-gray-800 mb-2">Selecciona una facultad o carrera</h3>
-              <p className="text-sm text-gray-500 max-w-sm">Navega por la estructura académica en el panel izquierdo para gestionar su información, o crea una nueva.</p>
+              <p className="text-sm text-gray-500 max-w-sm">{soloLectura ? 'Abre el panel de facultades y carreras para consultar la estructura académica.' : 'Navega por la estructura académica en el panel izquierdo para gestionar su información, o crea una nueva.'}</p>
             </div>
           )}
         </div>

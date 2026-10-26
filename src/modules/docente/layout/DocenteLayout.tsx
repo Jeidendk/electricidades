@@ -5,7 +5,6 @@ import { useAuthStore } from '../../../store/authStore';
 import { useClasesStore } from '../../../store/clasesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
-import { useRecursosStore } from '../../../store/recursosStore';
 import { useEffect } from 'react';
 
 export const DocenteLayout = () => {
@@ -15,7 +14,6 @@ export const DocenteLayout = () => {
     useClasesStore.getState().fetchClases();
     useMateriasStore.getState().fetchMaterias();
     useEspaciosStore.getState().fetchEspacios();
-    useRecursosStore.getState().fetchRecursos();
   }, []);
 
   return (

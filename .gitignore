@@ -27,6 +27,10 @@ eslint_out.txt
 # Use npm lockfile only
 pnpm-lock.yaml
 
+# Local security/database files (kept only on the development machine)
+/CLAUDE.md
+/supabase/
+
 # Claude Code local config / session
 .claude/
 

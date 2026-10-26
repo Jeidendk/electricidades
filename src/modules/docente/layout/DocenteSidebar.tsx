@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FileText, ChevronLeft, GraduationCap, ChevronDown, LayoutGrid,
-  Clock, Library, Inbox, ArrowLeftRight, GraduationCap as GradCap, BarChart2, MessageSquare
+  ChevronLeft, GraduationCap, LayoutGrid, Clock,
+  GraduationCap as GradCap, BarChart2, MessageSquare
 } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
@@ -10,16 +10,12 @@ import { ASISTENTE_VISIBLE } from '../../../lib/asistente/disponibilidad';
 
 export const DocenteSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [tramitesOpen, setTramitesOpen] = useState(false);
-  const [recursosOpen, setRecursosOpen] = useState(false);
   const location = useLocation();
   const mobileOpen = useSidebarStore(s => s.mobileOpen);
   const setMobileOpen = useSidebarStore(s => s.setMobileOpen);
 
   // Cierra el drawer móvil al cambiar de página.
   useEffect(() => { setMobileOpen(false); }, [location.pathname, setMobileOpen]);
-  const currentPage = location.pathname;
-
   const [time, setTime] = useState('--:--');
   const [day, setDay] = useState('CARGANDO');
   const [dateStr, setDateStr] = useState('---');
@@ -37,28 +33,9 @@ export const DocenteSidebar = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const isTramitesSection = ['/docente/solicitudes', '/docente/prestamos'].includes(currentPage);
-  const isRecursosSection = ['/docente/recursos', '/docente/formatos'].includes(currentPage);
-  const tramitesVisible = tramitesOpen || isTramitesSection;
-  const recursosVisible = recursosOpen || isRecursosSection;
-
-  const toggleSubmenu = (menu: 'tramites' | 'recursos') => {
-    if (collapsed) setCollapsed(false);
-    setTramitesOpen(menu === 'tramites' ? !tramitesOpen : false);
-    setRecursosOpen(menu === 'recursos' ? !recursosOpen : false);
-  };
-
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-4 px-6 py-3 transition-colors text-sm font-medium ${
       isActive ? 'text-white bg-espoch-sidebarhover border-l-[3px] border-espoch-yellow font-bold' : 'text-gray-400 hover:text-white hover:bg-espoch-sidebarhover'
-    } ${collapsed ? 'justify-center px-0' : ''}`;
-
-  const subLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 pl-5 pr-4 py-2.5 text-[11px] font-semibold hover:text-white transition-all ml-1 ${isActive ? 'bg-espoch-red text-white font-extrabold rounded-lg shadow-sm' : 'text-gray-400'}`;
-
-  const sectionBtnClass = (active: boolean) =>
-    `w-full flex items-center justify-between px-6 py-3 transition-colors text-sm font-medium cursor-pointer ${
-      active ? 'text-white bg-espoch-sidebarhover border-l-[3px] border-espoch-yellow font-bold' : 'text-gray-400 hover:text-white hover:bg-espoch-sidebarhover'
     } ${collapsed ? 'justify-center px-0' : ''}`;
 
   return (
@@ -111,34 +88,6 @@ export const DocenteSidebar = () => {
           <NavLink to="/docente/estructura-academica" className={navLinkClass} title={collapsed ? 'ESTRUCTURA ACADÉMICA' : ''}>
             <GradCap className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap overflow-hidden">ESTRUC. ACAD.</span>}
           </NavLink>
-
-          {/* TRÁMITES (SOLICITUDES Y PRÉSTAMOS) */}
-          <div className="flex flex-col relative">
-            <button onClick={() => toggleSubmenu('tramites')} className={sectionBtnClass(isTramitesSection)} title={collapsed ? 'TRÁMITES' : ''}>
-              <div className="flex items-center gap-4"><Inbox className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap">TRÁMITES</span>}</div>
-              {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${tramitesVisible ? 'rotate-180' : ''}`} />}
-            </button>
-            {(!collapsed && tramitesVisible) && (
-              <div className="flex flex-col ml-[34px] border-l border-gray-800 mt-1 mb-2 space-y-1 py-1 pr-4 animate-fade-in">
-                <NavLink to="/docente/solicitudes" className={subLinkClass}><FileText className="w-4 h-4 shrink-0" /> <span>SOLICITUDES</span></NavLink>
-                <NavLink to="/docente/prestamos" className={subLinkClass}><ArrowLeftRight className="w-4 h-4 shrink-0" /> <span>PRÉSTAMOS</span></NavLink>
-              </div>
-            )}
-          </div>
-
-          {/* RECURSOS ACADÉMICOS */}
-          <div className="flex flex-col relative">
-            <button onClick={() => toggleSubmenu('recursos')} className={sectionBtnClass(isRecursosSection)} title={collapsed ? 'RECURSOS' : ''}>
-              <div className="flex items-center gap-4"><Library className="w-5 h-5 shrink-0" />{!collapsed && <span className="whitespace-nowrap">RECURSOS</span>}</div>
-              {!collapsed && <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ${recursosVisible ? 'rotate-180' : ''}`} />}
-            </button>
-            {(!collapsed && recursosVisible) && (
-              <div className="flex flex-col ml-[34px] border-l border-gray-800 mt-1 mb-2 space-y-1 py-1 pr-4 animate-fade-in">
-                <NavLink to="/docente/recursos" className={subLinkClass}><Library className="w-4 h-4 shrink-0" /> <span>MATERIAL ACAD.</span></NavLink>
-                <NavLink to="/docente/formatos" className={subLinkClass}><FileText className="w-4 h-4 shrink-0" /> <span>REPOSITORIO</span></NavLink>
-              </div>
-            )}
-          </div>
 
           {ASISTENTE_VISIBLE && (
             <NavLink to="/docente/asistente" className={navLinkClass} title={collapsed ? 'ASISTENTE' : ''}>

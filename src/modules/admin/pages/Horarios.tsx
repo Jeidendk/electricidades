@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { AlignmentType, BorderStyle, Document, Footer, ImageRun, Packer, Paragraph, Table, TableCell, TableRow, TextRun, VerticalAlignTable, WidthType, type FileChild } from 'docx';
 import { BreadcrumbRuta } from '../../../components/ui/BreadcrumbRuta';
 import { useOutletContext } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -17,14 +15,14 @@ import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useDocentesStore } from '../../../store/docentesStore';
-import { horasFinDisponibles, PARALELO_POR_DEFECTO, CAMPOS_CLASE_POR_DEFECTO, diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo, type CamposClase } from '../components/Horarios/horariosData';
+import { horasFinDisponibles, PARALELO_POR_DEFECTO, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from '../components/Horarios/horariosData';
 import { altoPaginaEnPx, contarPaginas, paginaDesdeScroll } from '../components/Horarios/paginacionPdf';
 import { mapearClases } from '../components/Horarios/mapearClases';
+import { exportarHorariosWord } from '../data/exportarHorarios';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 import { avisoError } from '../../../lib/aviso';
 import { useSoloLectura } from '../../../lib/soloLectura';
-import banderaEspoch from '../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 
 // Preferencias del formato de exportación (persisten entre sesiones para no
 // reconfigurar período, tipografía, orientación, etc. cada vez).
@@ -159,7 +157,6 @@ export const Horarios = () => {
   const [exportAula, setExportAula] = useState('');
   /** ID del espacio (se usa para filtrar clases con precisión, evita colisiones de nombres). */
   const [exportAulaId, setExportAulaId] = useState('');
-  const [exportAlcance, setExportAlcance] = useState<'aula' | 'edificio' | 'facultad'>('aula');
   // Id de carrera por la que se filtra el documento; '' = todas. No se persiste junto al resto
   // de preferencias: depende del aula, y al cambiarla una carrera recordada ya no tendría clases.
   const [exportCarrera, setExportCarrera] = useState('');
@@ -581,80 +578,6 @@ export const Horarios = () => {
     }
   };
 
-  const getUbicacionesConClases = (edificioId?: string) => {
-    const espaciosConClases = new Set(clases.map(clase => clase.idEspacio).filter(Boolean));
-    const ubicaciones = [...edificiosRaw]
-      .filter(edificio => !edificioId || edificio.id === edificioId)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-      .flatMap(edificio => [...espaciosRaw]
-        .filter(espacio => espacio.id_edificio === edificio.id && espaciosConClases.has(espacio.id))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-        .map(espacio => ({ edificio, espacio })));
-
-    return ubicaciones;
-  };
-
-  /**
-   * Las aulas del alcance elegido y el nombre del archivo. Con alcance `facultad` no se pide
-   * edificio: `getUbicacionesConClases()` sin argumento ya devuelve todos, ordenados por
-   * edificio y luego por aula, que es justamente el agrupado que se busca.
-   */
-  /** Cómo se nombra el alcance en los títulos de los botones de descarga. */
-  const etiquetaAlcance =
-    exportAlcance === 'aula' ? 'aula seleccionada'
-    : exportAlcance === 'edificio' ? 'todas las aulas del edificio'
-    : 'todos los horarios de la facultad, por edificio';
-
-  const resolverLoteExport = () => {
-    if (exportAlcance === 'facultad') {
-      const ubicaciones = getUbicacionesConClases();
-      if (ubicaciones.length === 0) {
-        void avisoError('No hay horarios para descargar', 'Todavía no hay clases asignadas a ningún aula.');
-        return null;
-      }
-      return { ubicaciones, nombre: 'Horarios_Facultad' };
-    }
-
-    const edificio = edificiosRaw.find(item => item.nombre === exportEdificio);
-    if (!edificio) {
-      void avisoError('Selecciona un edificio', 'Elige el edificio cuyos horarios quieres descargar.');
-      return null;
-    }
-    const ubicaciones = getUbicacionesConClases(edificio.id);
-    if (ubicaciones.length === 0) {
-      void avisoError('No hay horarios para descargar', `El edificio ${edificio.nombre} no tiene aulas con clases asignadas.`);
-      return null;
-    }
-    return { ubicaciones, nombre: `Horarios_${edificio.nombre}` };
-  };
-
-  const handleDownloadTodos = () => {
-    const lote = resolverLoteExport();
-    if (!lote) return;
-    const { ubicaciones, nombre } = lote;
-
-    const documentos = ubicaciones.map(({ edificio, espacio }) => {
-      const html = renderToStaticMarkup(
-        <PlantillaPDF
-          pdfZoom={120} orientation={orientation} paperSize={paperSize} typography={typography}
-          headerImg={headerImg} footerImg={footerImg} documentFontSize={documentFontSize}
-          exportAula={espacio.nombre} exportAulaId={espacio.id} exportEdificio={edificio.nombre}
-          exportPeriodo={exportPeriodo} clases={clases} includeFooter={includeFooter}
-          camposClase={camposClase}
-        />
-      );
-      return `<section class="horario-lote">${html}</section>`;
-    }).join('');
-
-    void handleDownloadPDF(documentos, nombre);
-  };
-
-  const handleDownloadTodosWord = async () => {
-    const lote = resolverLoteExport();
-    if (!lote) return;
-    await descargarWordDocx(lote.ubicaciones, `${lote.nombre}.docx`);
-  };
-
   /**
    * Convierte una imagen a PNG en base64.
    *
@@ -662,130 +585,14 @@ export const Horarios = () => {
    * y el escudo sale como un recuadro roto. Encima Word no muestra WebP. Incrustarla como PNG
    * resuelve las dos cosas y deja el archivo autocontenido: se puede enviar por correo.
    */
-  const aPngDataUri = (url: string): Promise<string> => {
-    if (url.startsWith('data:image/png')) return Promise.resolve(url);
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { reject(new Error('Sin contexto 2d')); return; }
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = () => reject(new Error(`No se pudo cargar ${url}`));
-      img.src = url;
-    });
-  };
-
-  const descargarWordDocx = async (
+  const descargarWordDocx = (
     ubicaciones: { edificio: (typeof edificiosRaw)[number]; espacio: (typeof espaciosRaw)[number] }[],
     nombreArchivo: string,
     carreraId = '',
-  ) => {
-    const fuente = typography || 'Arial';
-    // docx mide el tamaño de fuente en medios puntos; el número del panel está en puntos.
-    const tamano = documentFontSize;
-    const linea = (texto: string, negrita = false, size = tamano * 2) =>
-      new TextRun({ text: texto, bold: negrita, size, font: fuente });
-    const parrafo = (texto: string, negrita = false, size = tamano * 2) =>
-      new Paragraph({ children: [linea(texto, negrita, size)], spacing: { before: 0, after: 0 }, alignment: AlignmentType.CENTER });
-    const borde = { style: BorderStyle.SINGLE, size: 5, color: '222222' };
-    const celda = (renglones: { texto: string; negrita?: boolean; pao?: boolean }[]) => new TableCell({
-      children: renglones.length ? renglones.map(r => {
-        if (!r.pao) return parrafo(r.texto, r.negrita);
-        const anchoPt = orientation === 'horizontal' ? 139 : 94;
-        const puntos = Math.min(tamano, anchoPt / (r.texto.length * 0.55));
-        return parrafo(r.texto.replaceAll(' ', '\u00a0'), false, Math.max(10, Math.floor(puntos * 2)));
-      }) : [parrafo('')],
-      borders: { top: borde, bottom: borde, left: borde, right: borde },
-      margins: { top: 35, bottom: 35, left: 35, right: 35 },
-    });
-    const png = async (url: string) => {
-      const uri = await aPngDataUri(url);
-      return Uint8Array.from(atob(uri.split(',')[1]), char => char.charCodeAt(0));
-    };
-    let escudo: Uint8Array | null = null;
-    try { escudo = await png(headerImg || banderaEspoch); } catch { /* Título sin imagen si falla. */ }
-    const hijos: FileChild[] = [];
-
-    ubicaciones.forEach(({ edificio, espacio }, indice) => {
-      if (indice > 0) hijos.push(new Paragraph({ pageBreakBefore: true, spacing: { after: 0 } }));
-      const sinBorde = { style: BorderStyle.NONE };
-      const lineaRoja = { style: BorderStyle.SINGLE, size: 6, color: 'EF4444' };
-      const bordesEncabezado = { top: sinBorde, left: sinBorde, right: sinBorde, bottom: sinBorde };
-      const anchoEncabezado = orientation === 'horizontal' ? [3100, 9300, 3100] : [2500, 5600, 2500];
-      hijos.push(new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        columnWidths: anchoEncabezado,
-        borders: { top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde, insideHorizontal: sinBorde, insideVertical: sinBorde },
-        rows: [new TableRow({ children: [
-          new TableCell({
-            borders: bordesEncabezado, verticalAlign: VerticalAlignTable.CENTER,
-            children: [new Paragraph({ alignment: AlignmentType.LEFT, children: escudo ? [new ImageRun({ type: 'png', data: escudo, transformation: orientation === 'horizontal' ? { width: 190, height: 115 } : { width: 150, height: 92 } })] : [linea('ESPOCH', true)] })],
-          }),
-          new TableCell({
-            borders: bordesEncabezado, verticalAlign: VerticalAlignTable.CENTER,
-            children: [
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [linea('ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO', true, (tamano + 7) * 2)], spacing: { after: 40 } }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [linea('FACULTAD DE INFORMÁTICA Y ELECTRÓNICA', true, (tamano + 3) * 2)] }),
-            ],
-          }),
-          new TableCell({ borders: bordesEncabezado, children: [new Paragraph('')] }),
-        ] })],
-      }));
-      hijos.push(new Paragraph({ children: [new TextRun(' ')], border: { bottom: lineaRoja }, spacing: { after: 40 } }));
-      hijos.push(new Paragraph({ children: [linea(espacio.nombre.toUpperCase(), true, (tamano + 4) * 2)], spacing: { after: 25 } }));
-      hijos.push(new Paragraph({ children: [linea(edificio.nombre.toUpperCase(), true, (tamano + 1) * 2)], spacing: { after: 25 } }));
-      hijos.push(new Paragraph({ children: [linea(exportPeriodo, true, (tamano + 1) * 2)], spacing: { after: 100 } }));
-
-      const filas = [new TableRow({ children: ['HORA', ...diasFormales].map(dia => celda([{ texto: dia.toUpperCase(), negrita: true }])) })];
-      horas.forEach(hora => {
-        const celdas = [celda([{ texto: hora.replaceAll(':', 'H'), negrita: true }])];
-        diasFormales.forEach(dia => {
-          const clase = clases.find(c => c.idEspacio === espacio.id && mismoDia(c.dia, dia) && rangoIncluyeBloque(c.hora, hora) && (!carreraId || c.idCarrera === carreraId));
-          const renglones = clase ? [
-            { texto: clase.materia.toUpperCase(), negrita: true },
-            ...(camposClase.paoParalelo && etiquetaPaoParalelo(clase.pao, clase.paralelo) ? [{ texto: etiquetaPaoParalelo(clase.pao, clase.paralelo), pao: true }] : []),
-            ...(camposClase.carrera && clase.carrera ? [{ texto: clase.carrera.toUpperCase() }] : []),
-            ...(camposClase.docente && clase.docente ? [{ texto: clase.docente.toUpperCase() }] : []),
-          ] : [];
-          celdas.push(celda(renglones));
-        });
-        filas.push(new TableRow({ children: celdas, cantSplit: true }));
-      });
-      hijos.push(new Table({ rows: filas, width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: orientation === 'horizontal' ? [1600, 2780, 2780, 2780, 2780, 2780] : [1200, 1880, 1880, 1880, 1880, 1880] }));
-    });
-
-    let pie: Footer | undefined;
-    if (includeFooter) {
-      let contenido: Paragraph;
-      if (footerImg) {
-        try { contenido = new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'png', data: await png(footerImg), transformation: { width: 260, height: 45 } })] }); }
-        catch { contenido = parrafo('Riobamba - Ecuador', false, Math.max(7, tamano - 2) * 2); }
-      } else {
-        contenido = new Paragraph({ alignment: AlignmentType.CENTER, children: [linea('Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155.  Riobamba - Ecuador', false, Math.max(7, tamano - 2) * 2)] });
-      }
-      pie = new Footer({ children: [contenido] });
-    }
-    const horizontal = orientation === 'horizontal';
-    const corto = paperSize === 'Carta' ? 12240 : 11906;
-    const largo = paperSize === 'Carta' ? 15840 : 16838;
-    const doc = new Document({ sections: [{
-      properties: { page: { size: { width: horizontal ? largo : corto, height: horizontal ? corto : largo }, margin: { top: 700, bottom: 1000, left: 650, right: 650, footer: 350 } } },
-      footers: pie ? { default: pie } : undefined,
-      children: hijos,
-    }] });
-    const url = URL.createObjectURL(await Packer.toBlob(doc));
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = nombreArchivo;
-    enlace.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
+  ) => exportarHorariosWord(ubicaciones, nombreArchivo, {
+    orientation, paperSize, typography, documentFontSize, headerImg, footerImg,
+    exportPeriodo, clases, includeFooter, camposClase, carreraId,
+  });
 
   const handleDownloadWord = async () => {
     const edificio = edificiosRaw.find(item => item.nombre === exportEdificio);
@@ -799,7 +606,7 @@ export const Horarios = () => {
   };
 
   const handleResetFilters = () => {
-    setExportEdificio(''); setExportAula(''); setExportAulaId(''); setExportAlcance('aula'); setExportCarrera(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
+    setExportEdificio(''); setExportAula(''); setExportAulaId(''); setExportCarrera(''); setExportPeriodo('MARZO 2026 - SEPTIEMBRE 2026'); setPdfZoom(100); setOrientation('vertical');
     setPaperSize('A4'); setIncludeFooter(true); setDocumentFontSize(11); setTypography('Inter');
   };
 
@@ -956,7 +763,7 @@ export const Horarios = () => {
                 documentFontSize={documentFontSize} setDocumentFontSize={setDocumentFontSize}
                 typography={typography} setTypography={setTypography}
                 formattedDate={formattedDate} formattedTime={formattedTime}
-                exportAlcance={exportAlcance} setExportAlcance={setExportAlcance} handleResetFilters={handleResetFilters}
+                handleResetFilters={handleResetFilters}
               />
 
               <div className="flex-1 flex flex-col h-full bg-[#f1f3f4] rounded-[20px] overflow-hidden border border-gray-200/50 min-h-[600px] lg:min-h-0">
@@ -1011,11 +818,11 @@ export const Horarios = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { if (exportAlcance === 'aula') void handleDownloadPDF(); else handleDownloadTodos(); }} disabled={isGeneratingPDF} title={`PDF: ${etiquetaAlcance}`} className="flex flex-col items-center justify-center py-1.5 px-3 border border-red-100 rounded-xl bg-red-50/50 hover:bg-red-50 text-red-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
+                    <button onClick={() => void handleDownloadPDF()} disabled={isGeneratingPDF} title="Descargar PDF del aula seleccionada" className="flex flex-col items-center justify-center py-1.5 px-3 border border-red-100 rounded-xl bg-red-50/50 hover:bg-red-50 text-red-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
                       {isGeneratingPDF ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4 text-red-600" />}
                       <span className="text-[9px] font-bold">PDF</span>
                     </button>
-                    <button onClick={() => { if (exportAlcance === 'aula') void handleDownloadWord(); else void handleDownloadTodosWord(); }} title={`Word: ${etiquetaAlcance}`} className="flex flex-col items-center justify-center py-1.5 px-3 border border-blue-100 rounded-xl bg-blue-50/50 hover:bg-blue-50 text-blue-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
+                    <button onClick={() => void handleDownloadWord()} title="Descargar Word del aula seleccionada" className="flex flex-col items-center justify-center py-1.5 px-3 border border-blue-100 rounded-xl bg-blue-50/50 hover:bg-blue-50 text-blue-700 transition-colors shadow-sm gap-0.5 hover:shadow cursor-pointer min-w-[56px]">
                       <FileText className="w-4 h-4 text-blue-600" />
                       <span className="text-[9px] font-bold">Word</span>
                     </button>

@@ -1,12 +1,12 @@
-import { useMemo, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Clock, BookOpen, Calendar, ArrowRight,
-  DoorOpen, GraduationCap, Info
+  ArrowRight, BookOpen, Calendar, CheckCircle, Clock, DoorOpen,
+  GraduationCap, MapPin,
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
-  Tooltip as RechartsTooltip, PieChart, Pie, Cell,
+  Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer,
+  Tooltip as RechartsTooltip, XAxis, YAxis,
 } from 'recharts';
 import { PageHero } from '../../../components/ui/PageHero';
 import { HERO_BG } from '../../../components/ui/heroBackgrounds';
@@ -14,35 +14,28 @@ import { useAuthStore } from '../../../store/authStore';
 import { useClasesStore } from '../../../store/clasesStore';
 import { useMateriasStore } from '../../../store/materiasStore';
 import { useEspaciosStore } from '../../../store/espaciosStore';
-import { componerNombreCompleto } from '../../../lib/texto';
+import { componerNombreCompleto, normalizarTexto } from '../../../lib/texto';
 import {
-  calcularKpisDocente,
-  horasPorDiaSemana,
-  distribucionPorMateria,
+  calcularKpisDocente, distribucionPorMateria, horasPorDiaSemana,
   type ClaseDocente,
 } from '../utils/docenteDashboardMetrics';
-import { DocenteScheduleCard, type AsignaturaDocenteItem } from '../components/DocenteScheduleCard';
-import { DocenteQuickActions } from '../components/DocenteQuickActions';
 
-const TituloTarjeta = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex items-center gap-2">
-    <h3 className="text-xs font-bold text-gray-800">{children}</h3>
-    <Info className="w-3.5 h-3.5 text-gray-400" />
-  </div>
-);
+const ORDEN_DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+const INDICE_HOY = [6, 0, 1, 2, 3, 4, 5];
 
-const TooltipGrafico = ({ active, payload, label }: any) => {
+const minutosDe = (hora: string) => {
+  const [horas, minutos] = hora.split(':').map(Number);
+  return (horas || 0) * 60 + (minutos || 0);
+};
+
+const TooltipCarga = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
+  const dato = payload[0]?.payload;
   return (
-    <div className="bg-white p-2.5 rounded-xl shadow-lg border border-gray-100">
-      <p className="text-[11px] font-bold text-gray-800 mb-1">{label}</p>
-      {payload.map((entrada: any, i: number) => (
-        <div key={i} className="flex items-center gap-1.5 text-[10px] font-medium text-gray-600 mb-0.5">
-          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entrada.color || entrada.fill }} />
-          <span>{entrada.name}:</span>
-          <span className="font-bold text-gray-900">{entrada.value} hrs</span>
-        </div>
-      ))}
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg">
+      <p className="text-[10px] font-extrabold text-slate-800">{label}</p>
+      <p className="mt-1 text-[9px] font-semibold text-blue-600">{dato?.horas ?? 0} horas</p>
+      <p className="text-[9px] text-slate-500">{dato?.clases ?? 0} clases</p>
     </div>
   );
 };
@@ -50,7 +43,6 @@ const TooltipGrafico = ({ active, payload, label }: any) => {
 export const DocenteDashboard = () => {
   const navigate = useNavigate();
   const authUser = useAuthStore(s => s.user);
-
   const clases = useClasesStore(s => s.clases);
   const fetchClases = useClasesStore(s => s.fetchClases);
   const fetchMaterias = useMateriasStore(s => s.fetchMaterias);
@@ -62,43 +54,44 @@ export const DocenteDashboard = () => {
     fetchEspacios();
   }, [fetchClases, fetchMaterias, fetchEspacios]);
 
-  // Si el usuario autenticado es docente, filtrar por su ID o nombre; si es admin en modo inspección, mostrar todas o las asignadas
   const misClases = useMemo<ClaseDocente[]>(() => {
     const listado = (clases as any[]) || [];
-
     let filtradas = listado;
-    if (authUser?.role === 'docente' && authUser.id) {
-      const docenteId = authUser.id;
-      const nombreUsuario = (authUser.nombre || '').toLowerCase();
 
-      const porId = listado.filter(c => c.id_docente === docenteId);
+    if (authUser?.role === 'docente') {
+      const porId = listado.filter(clase => clase.id_docente === authUser.id);
       if (porId.length > 0) {
         filtradas = porId;
       } else {
-        // Fallback por nombre si el id no coincide directamente
-        filtradas = listado.filter(c => {
-          const docNom = [c.docentes?.nombre, c.docentes?.apellido].filter(Boolean).join(' ').toLowerCase();
-          return docNom && (docNom.includes(nombreUsuario) || nombreUsuario.includes(docNom));
+        const nombreUsuario = normalizarTexto(authUser.nombre || '');
+        filtradas = listado.filter(clase => {
+          const nombreClase = normalizarTexto(
+            [clase.docentes?.nombre, clase.docentes?.apellido].filter(Boolean).join(' '),
+          );
+          return Boolean(nombreUsuario && nombreClase) &&
+            (nombreClase.includes(nombreUsuario) || nombreUsuario.includes(nombreClase));
         });
-        if (filtradas.length === 0) filtradas = listado; // fallback demostrativo para vista previa
       }
     }
 
-    return filtradas.map(c => ({
-      id: String(c.id),
-      id_docente: c.id_docente || '',
-      docente_nombre: [c.docentes?.titulo, componerNombreCompleto(c.docentes?.nombre, c.docentes?.apellido)].filter(Boolean).join(' ') || 'Docente',
-      materia_id: c.id_materia || '',
-      materia_nombre: c.materias?.nombre || 'Materia sin asignar',
-      materia_codigo: c.materias?.codigo || 'MAT-000',
-      espacio_nombre: c.espacios?.nombre || 'Aula por asignar',
-      espacio_tipo: c.espacios?.tipo || 'Aula',
-      edificio_nombre: c.espacios?.id_edificio || 'Campus',
-      dia: c.dia || 'Lunes',
-      hora_inicio: (c.hora_inicio || '07:00').slice(0, 5),
-      hora_fin: (c.hora_fin || '09:00').slice(0, 5),
-      paralelo: c.paralelo || 1,
-      semestre: c.materias?.semestre,
+    return filtradas.map(clase => ({
+      id: String(clase.id),
+      id_docente: clase.id_docente || '',
+      docente_nombre: [
+        clase.docentes?.titulo,
+        componerNombreCompleto(clase.docentes?.nombre, clase.docentes?.apellido),
+      ].filter(Boolean).join(' ') || 'Docente',
+      materia_id: clase.id_materia || '',
+      materia_nombre: clase.materias?.nombre || 'Materia sin asignar',
+      materia_codigo: clase.materias?.codigo || 'MAT-000',
+      espacio_nombre: clase.espacios?.nombre || 'Aula por asignar',
+      espacio_tipo: clase.espacios?.tipo || 'Aula',
+      edificio_nombre: clase.espacios?.id_edificio || 'Campus',
+      dia: clase.dia || 'Lunes',
+      hora_inicio: (clase.hora_inicio || '07:00').slice(0, 5),
+      hora_fin: (clase.hora_fin || '09:00').slice(0, 5),
+      paralelo: clase.paralelo || 1,
+      semestre: clase.materias?.semestre,
     }));
   }, [clases, authUser]);
 
@@ -106,157 +99,243 @@ export const DocenteDashboard = () => {
   const horasPorDia = useMemo(() => horasPorDiaSemana(misClases), [misClases]);
   const repartoMaterias = useMemo(() => distribucionPorMateria(misClases), [misClases]);
 
-  const nombreDocente = authUser?.nombre ? authUser.nombre.split(' ')[0] : 'Docente';
-
-  // Obtener materias agrupadas para tarjetas de cursos
-  const asignaturasUnicas = useMemo<AsignaturaDocenteItem[]>(() => {
-    const mapa = new Map<string, AsignaturaDocenteItem>();
-
-    for (const c of misClases) {
-      const key = c.materia_nombre;
-      if (!mapa.has(key)) {
-        mapa.set(key, {
-          codigo: c.materia_codigo,
-          nombre: c.materia_nombre,
-          clasesCount: 0,
-          espacios: new Set(),
-          paralelos: new Set(),
-        });
-      }
-      const entry = mapa.get(key)!;
-      entry.clasesCount += 1;
-      if (c.espacio_nombre) entry.espacios.add(c.espacio_nombre);
-      if (c.paralelo) entry.paralelos.add(c.paralelo);
-    }
-
-    return Array.from(mapa.values());
+  const asignaturas = useMemo(() => {
+    const mapa = new Map<string, {
+      codigo: string;
+      nombre: string;
+      clases: number;
+      espacios: Set<string>;
+      paralelos: Set<number>;
+    }>();
+    misClases.forEach(clase => {
+      const clave = clase.materia_id || clase.materia_nombre;
+      const actual = mapa.get(clave) ?? {
+        codigo: clase.materia_codigo,
+        nombre: clase.materia_nombre,
+        clases: 0,
+        espacios: new Set<string>(),
+        paralelos: new Set<number>(),
+      };
+      actual.clases += 1;
+      if (clase.espacio_nombre) actual.espacios.add(clase.espacio_nombre);
+      if (clase.paralelo) actual.paralelos.add(clase.paralelo);
+      mapa.set(clave, actual);
+    });
+    return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [misClases]);
 
+  const proximasClases = useMemo(() => {
+    const ahora = new Date();
+    const diaActual = INDICE_HOY[ahora.getDay()];
+    const minutoActual = ahora.getHours() * 60 + ahora.getMinutes();
+    return [...misClases].sort((a, b) => {
+      const posicion = (clase: ClaseDocente) => {
+        const indiceDia = Math.max(0, ORDEN_DIAS.indexOf(normalizarTexto(clase.dia)));
+        let dias = (indiceDia - diaActual + 7) % 7;
+        const minuto = minutosDe(clase.hora_inicio);
+        if (dias === 0 && minuto < minutoActual) dias = 7;
+        return dias * 1440 + minuto;
+      };
+      return posicion(a) - posicion(b);
+    }).slice(0, 5);
+  }, [misClases]);
+
+  const nombreDocente = authUser?.nombre?.split(' ')[0] || 'Docente';
+  const tarjetas = [
+    {
+      titulo: 'Carga semanal', valor: `${kpis.totalHorasSemanales}h`,
+      detalle: 'Horas programadas', Icono: Clock,
+      fondo: 'from-[#b00000] to-[#d33131]', sombra: 'shadow-red-900/15',
+    },
+    {
+      titulo: 'Materias asignadas', valor: kpis.totalMaterias,
+      detalle: `${asignaturas.length} asignaturas activas`, Icono: BookOpen,
+      fondo: 'from-amber-500 to-orange-500', sombra: 'shadow-orange-900/15',
+    },
+    {
+      titulo: 'Clases semanales', valor: kpis.totalClases,
+      detalle: 'Bloques en el horario', Icono: Calendar,
+      fondo: 'from-blue-600 to-cyan-500', sombra: 'shadow-blue-900/15',
+    },
+    {
+      titulo: 'Aulas y laboratorios', valor: kpis.totalEspacios,
+      detalle: 'Espacios utilizados', Icono: DoorOpen,
+      fondo: 'from-emerald-600 to-teal-500', sombra: 'shadow-emerald-900/15',
+    },
+  ];
+
   return (
-    <div className="flex flex-col h-full bg-[#f4f7fb] overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden bg-[#f4f7fb]">
       <PageHero
         icon={GraduationCap}
-        title={`Bienvenido, Profesor ${nombreDocente}`}
-        subtitle="Planificación académica, gestión de clases, asignación de laboratorios y recursos docentes."
-        stats={[
-          { Icon: Clock, value: `${kpis.totalHorasSemanales}h`, label: 'Carga Semanal' },
-          { Icon: BookOpen, value: kpis.totalMaterias, label: 'Materias' },
-          { Icon: Calendar, value: kpis.totalClases, label: 'Clases' },
-          { Icon: DoorOpen, value: kpis.totalEspacios, label: 'Aulas / Labs' },
-        ]}
+        title={`Hola, ${nombreDocente}`}
+        subtitle="Resumen de tu carga académica, asignaturas y próximas clases."
         backgroundImage={HERO_BG.docente}
       />
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-4 lg:p-5 flex flex-col gap-3 lg:gap-4">
-
-        {/* FILA 1: GRÁFICOS ANALÍTICOS DE LA CARGA DOCENTE */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 shrink-0">
-
-          {/* Gráfico de Horas por Día */}
-          <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col h-[220px]">
-            <div className="flex items-center justify-between mb-2">
-              <TituloTarjeta>Carga Horaria Semanal por Día</TituloTarjeta>
-              <span className="text-[10px] font-semibold text-gray-400">Total: {kpis.totalHorasSemanales} horas / semana</span>
-            </div>
-
-            {misClases.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                <Clock className="w-8 h-8 opacity-20 mb-2" />
-                <p className="text-[11px] font-bold text-gray-500">No hay horarios registrados</p>
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-5 lg:p-6 xl:grid xl:grid-rows-[minmax(0,1.14fr)_92px_minmax(0,0.86fr)] xl:gap-3 xl:overflow-hidden">
+        <div className="grid gap-4 xl:min-h-0 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,0.65fr)]">
+          <section className="flex min-h-0 flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-espoch-red">Actividad académica</p>
+                <h2 className="mt-1 text-[18px] font-extrabold text-slate-900">Carga horaria semanal</h2>
+                <p className="mt-1 text-[10px] font-medium text-slate-500">Horas y clases asignadas de lunes a sábado.</p>
               </div>
-            ) : (
-              <div className="w-full flex-1 min-h-0">
+              <div className="rounded-xl bg-slate-50 px-4 py-2 text-right">
+                <p className="text-[9px] font-semibold text-slate-400">Horas totales</p>
+                <p className="text-[22px] font-black leading-none text-slate-900">{kpis.totalHorasSemanales}h</p>
+              </div>
+            </div>
+            <div className="mt-4 h-[230px] xl:min-h-0 xl:flex-1">
+              {misClases.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-slate-400">
+                  <Clock className="h-9 w-9 text-slate-200" />
+                  <p className="mt-2 text-[10px] font-semibold">No tienes horarios registrados</p>
+                </div>
+              ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={horasPorDia} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="dia" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} unit="h" />
-                    <RechartsTooltip content={<TooltipGrafico />} cursor={{ fill: '#f8fafc' }} />
-                    <Bar dataKey="horas" name="Horas" fill="#B00020" radius={[6, 6, 0, 0]} barSize={32} />
-                  </BarChart>
+                  <AreaChart data={horasPorDia} margin={{ top: 12, right: 12, left: -25, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="docenteCarga" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#b00000" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#b00000" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} stroke="#e8eef5" strokeDasharray="3 4" />
+                    <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} />
+                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                    <RechartsTooltip content={<TooltipCarga />} />
+                    <Area
+                      type="monotone" dataKey="horas" name="Horas" stroke="#b00000" strokeWidth={2.5}
+                      fill="url(#docenteCarga)" dot={{ r: 3, fill: '#fff', stroke: '#b00000', strokeWidth: 2 }}
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-
-          {/* Distribución por Materia */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col h-[220px]">
-            <div className="mb-2">
-              <TituloTarjeta>Distribución por Asignatura</TituloTarjeta>
+              )}
             </div>
+          </section>
 
-            {misClases.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                <BookOpen className="w-8 h-8 opacity-20 mb-2" />
-                <p className="text-[11px] font-bold text-gray-500">Sin asignaturas registradas</p>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center gap-3 min-h-0">
-                <div className="relative w-[110px] h-[110px] shrink-0">
+          <section className="flex min-h-0 flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Distribución académica</p>
+            <h2 className="mt-1 text-[18px] font-extrabold text-slate-900">Horas por asignatura</h2>
+            <div className="relative mx-auto mt-3 h-[180px] w-full max-w-[230px] xl:min-h-[120px] xl:flex-1">
+              {repartoMaterias.length > 0 ? (
+                <>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={repartoMaterias} cx="50%" cy="50%" innerRadius={34} outerRadius={52} paddingAngle={3} dataKey="horas" stroke="none">
-                        {repartoMaterias.map((porcion, i) => <Cell key={i} fill={porcion.color} />)}
+                      <Pie data={repartoMaterias} dataKey="horas" nameKey="name" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none">
+                        {repartoMaterias.map(porcion => <Cell key={porcion.name} fill={porcion.color} />)}
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-[8px] font-bold text-gray-400 mb-0.5">Materias</span>
-                    <span className="text-sm font-bold text-gray-800 leading-none">{kpis.totalMaterias}</span>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-[9px] font-bold text-slate-400">MATERIAS</span>
+                    <span className="text-[28px] font-black text-slate-900">{kpis.totalMaterias}</span>
                   </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5 w-full overflow-y-auto max-h-[140px] custom-scrollbar pr-1">
-                  {repartoMaterias.map(porcion => (
-                    <div key={porcion.name} className="flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: porcion.color }} />
-                        <span className="text-[10px] font-medium text-gray-700 truncate" title={porcion.name}>{porcion.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-[10px] font-bold text-gray-900">{porcion.horas}h</span>
-                        <span className="text-[9px] text-gray-400">({porcion.porcentaje})</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* FILA 2: MIS CURSOS / ASIGNATURAS ACTIVAS */}
-        <div className="bg-white rounded-2xl border border-gray-200/60 shadow-sm p-4 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Mis Asignaturas y Aulas Asignadas</h3>
-              <span className="bg-red-50 text-espoch-red border border-red-200/50 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                {asignaturasUnicas.length} asignaturas
-              </span>
+                </>
+              ) : (
+                <div className="flex h-full items-center justify-center text-[11px] text-slate-400">Sin asignaturas</div>
+              )}
             </div>
-            <button
-              onClick={() => navigate('/docente/horarios')}
-              className="text-[11px] font-bold text-espoch-red hover:underline flex items-center gap-1"
-            >
-              Ver grilla de horarios <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {asignaturasUnicas.length === 0 ? (
-            <p className="text-[11px] text-gray-400 py-4 text-center">No se han registrado asignaturas asociadas a este docente.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {asignaturasUnicas.map(asig => (
-                <DocenteScheduleCard key={asig.nombre} asignatura={asig} />
+            <div className="custom-scrollbar max-h-[72px] space-y-1.5 overflow-y-auto pr-1 xl:max-h-[54px]">
+              {repartoMaterias.map(porcion => (
+                <div key={porcion.name} className="flex items-center justify-between gap-2 text-[9px]">
+                  <span className="flex min-w-0 items-center gap-1.5 font-semibold text-slate-600">
+                    <i className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: porcion.color }} />
+                    <span className="truncate">{porcion.name}</span>
+                  </span>
+                  <span className="shrink-0 font-extrabold text-slate-800">{porcion.horas}h · {porcion.porcentaje}</span>
+                </div>
               ))}
             </div>
-          )}
+          </section>
         </div>
 
-        {/* FILA 3: ACCESOS DIRECTOS Y HERRAMIENTAS DOCENTES */}
-        <DocenteQuickActions />
+        <section aria-label="Resumen académico" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:mt-0 xl:min-h-0 xl:grid-cols-4">
+          {tarjetas.map(({ titulo, valor, detalle, Icono, fondo, sombra }) => (
+            <article key={titulo} className={`relative min-h-[112px] overflow-hidden rounded-2xl bg-gradient-to-br ${fondo} p-4 text-white shadow-lg ${sombra} xl:h-full xl:min-h-0`}>
+              <div className="absolute -bottom-8 -right-6 h-24 w-24 rounded-full bg-white/10" />
+              <div className="relative flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold text-white/80">{titulo}</p>
+                  <p className="mt-2 text-[26px] font-black leading-none">{valor}</p>
+                  <p className="mt-2 text-[9px] font-medium text-white/75">{detalle}</p>
+                </div>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
+                  <Icono className="h-4 w-4" />
+                </span>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <div className="mt-4 grid gap-4 xl:mt-0 xl:min-h-0 xl:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.65fr)]">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-espoch-red">Agenda semanal</p>
+                <h2 className="mt-1 text-[15px] font-extrabold text-slate-900">Próximas clases</h2>
+              </div>
+              <button onClick={() => navigate('/docente/horarios')} className="text-[9px] font-bold text-espoch-red hover:underline">Ver horario</button>
+            </div>
+            <div className="custom-scrollbar mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              {proximasClases.length === 0 ? (
+                <div className="flex min-h-[190px] flex-col items-center justify-center text-slate-400">
+                  <CheckCircle className="h-8 w-8 text-emerald-300" />
+                  <p className="mt-2 text-[10px] font-semibold">No hay clases asignadas</p>
+                </div>
+              ) : proximasClases.map(clase => (
+                <div key={clase.id} className="flex gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-espoch-red">
+                    <Calendar className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[10px] font-extrabold text-slate-800">{clase.materia_nombre}</p>
+                    <p className="mt-0.5 text-[9px] font-semibold text-slate-500">{clase.dia} · {clase.hora_inicio}–{clase.hora_fin}</p>
+                    <p className="mt-0.5 flex items-center gap-1 truncate text-[8.5px] text-slate-400">
+                      <MapPin className="h-3 w-3 shrink-0" /> {clase.espacio_nombre}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-espoch-red">Planificación docente</p>
+                <h2 className="mt-1 text-[15px] font-extrabold text-slate-900">Mis asignaturas y aulas</h2>
+              </div>
+              <button onClick={() => navigate('/docente/horarios')} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2 text-[9px] font-bold text-white transition-colors hover:bg-black">
+                Ver grilla <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="custom-scrollbar mt-4 min-h-0 flex-1 overflow-auto">
+              <div className="min-w-[650px] overflow-hidden rounded-xl border border-slate-100">
+                <div className="grid grid-cols-[90px_minmax(190px,1.5fr)_minmax(150px,1fr)_90px_70px] gap-3 bg-slate-900 px-3 py-2 text-[8px] font-bold uppercase tracking-wider text-white">
+                  <span>Código</span><span>Asignatura</span><span>Aulas</span><span>Paralelos</span><span className="text-right">Clases</span>
+                </div>
+                {asignaturas.length === 0 ? (
+                  <p className="py-14 text-center text-[11px] text-slate-400">Todavía no tienes asignaturas asociadas.</p>
+                ) : asignaturas.slice(0, 7).map(asignatura => (
+                  <div key={asignatura.codigo + asignatura.nombre} className="grid grid-cols-[90px_minmax(190px,1.5fr)_minmax(150px,1fr)_90px_70px] items-center gap-3 border-t border-slate-100 px-3 py-3 text-[9px]">
+                    <span className="truncate font-bold text-blue-600">{asignatura.codigo}</span>
+                    <span className="truncate font-extrabold text-slate-800">{asignatura.nombre}</span>
+                    <span className="truncate text-slate-500">{[...asignatura.espacios].join(', ') || 'Sin aula'}</span>
+                    <span className="text-slate-500">{[...asignatura.paralelos].join(', ') || '—'}</span>
+                    <span className="text-right font-extrabold text-slate-800">{asignatura.clases}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
 
       </div>
     </div>
   );
 };
+
+export default DocenteDashboard;

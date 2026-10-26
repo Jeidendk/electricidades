@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronLeft, GraduationCap, Clock, Building2, GraduationCap as GradCap, BarChart2, Eye, LayoutGrid } from 'lucide-react';
+import { ChevronLeft, GraduationCap, Clock, Building2, GraduationCap as GradCap, BarChart2, LayoutGrid } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
 import { useAuthStore, ETIQUETA_ROL } from '../../../store/authStore';
@@ -86,14 +86,6 @@ export const AutoridadSidebar = () => {
           </button>
 
           <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar">
-            {/* Que el panel es de consulta se dice de entrada, no se deja deducir de que no
-                haya botones de guardar. */}
-            {!collapsed && (
-              <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg border border-gray-800 bg-black/20 px-3 py-2">
-                <Eye className="h-3.5 w-3.5 shrink-0 text-espoch-yellow" />
-                <span className="text-[10px] font-bold leading-tight text-gray-400">Modo consulta: sin edición</span>
-              </div>
-            )}
 
             {opciones.map(({ to, etiqueta, Icon }) => (
               <NavLink key={to} to={to} className={navLinkClass} title={collapsed ? etiqueta : ''}>

@@ -249,10 +249,10 @@ export const AppRouter = () => {
             <Route path="horarios" element={<Horarios />} />
             <Route path="estructura-academica" element={<EstructuraAcademica />} />
             <Route path="academico" element={<Navigate to="/docente/estructura-academica" replace />} />
-            <Route path="solicitudes" element={<Solicitudes />} />
-            <Route path="prestamos" element={<Prestamos />} />
-            <Route path="recursos" element={<Recursos />} />
-            <Route path="formatos" element={<Formatos />} />
+            <Route path="solicitudes" element={<Navigate to="/docente/dashboard" replace />} />
+            <Route path="prestamos" element={<Navigate to="/docente/dashboard" replace />} />
+            <Route path="recursos" element={<Navigate to="/docente/dashboard" replace />} />
+            <Route path="formatos" element={<Navigate to="/docente/dashboard" replace />} />
             {ASISTENTE_VISIBLE && <Route path="asistente" element={<Asistente />} />}
             <Route path="reportes" element={<Reportes />} />
           </Route>
