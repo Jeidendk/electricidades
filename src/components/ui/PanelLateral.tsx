@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PanelLeft, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * Panel lateral que se SUPERPONE al contenido en vez de empujarlo.
@@ -66,10 +67,11 @@ export const PanelLateral = ({ abierto, onCerrar, titulo, accion, buscador, chil
 );
 
 /** Botón que abre el panel. Se marca cuando está abierto, para saber que la capa está encima. */
-export const BotonPanelLateral = ({ abierto, onClick, titulo }: {
+export const BotonPanelLateral = ({ abierto, onClick, titulo, Icon = PanelLeft }: {
   abierto: boolean;
   onClick: () => void;
   titulo: string;
+  Icon?: LucideIcon;
 }) => (
   <button
     onClick={onClick}
@@ -81,6 +83,6 @@ export const BotonPanelLateral = ({ abierto, onClick, titulo }: {
         : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900'
     }`}
   >
-    <PanelLeft className="h-4 w-4" />
+    <Icon className="h-4 w-4" />
   </button>
 );

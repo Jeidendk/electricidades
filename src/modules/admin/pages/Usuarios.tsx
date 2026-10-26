@@ -62,7 +62,7 @@ export const Usuarios = () => {
 
   // Opciones de dropdowns desde la BD; caen a las constantes solo si aún no cargan.
   const rolNombres = rolesDb.length
-    ? Array.from(new Set([...rolesDb.map(r => r.nombre), 'Docente']))
+    ? Array.from(new Set([...rolesDb.map(r => r.nombre), 'Docente', 'Administrativo']))
     : ROLES;
   // Mapear campos de Supabase al formato del componente
   const usuarios = useMemo(() => items.map((u: any) => {
@@ -818,7 +818,7 @@ export const Usuarios = () => {
         {modalType && (
           <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px] p-4 animate-fade-in">
             {(modalType === 'create' || modalType === 'edit') && (
-              <div className="bg-white rounded-3xl w-full max-w-[500px] max-h-[92vh] overflow-y-auto custom-scrollbar relative animate-scale-in flex flex-col p-8 shadow-2xl">
+              <div className="bg-white rounded-3xl w-full max-w-[500px] max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain custom-scrollbar relative animate-scale-in flex flex-col p-8 shadow-2xl">
                 <button onClick={() => setModalType(null)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-gray-100"><X className="w-4 h-4" /></button>
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">

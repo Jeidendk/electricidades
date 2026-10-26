@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import {
-  LayoutGrid, Clock3, Building2, Users, CalendarDays,
+  LayoutGrid, Clock3, Building2, Users, CalendarDays, Sparkles, ArrowUpRight,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
@@ -188,6 +188,29 @@ export const AutoridadDashboard = () => {
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-semibold text-amber-900">
             Tu cuenta no tiene {esCoordinador ? 'una carrera' : 'una facultad'} asignada. Un administrador debe completar ese dato para mostrar indicadores sin mezclar información de otros ámbitos.
           </div>
+        )}
+
+        {esAdministrativo && (
+          <section className="relative mb-4 shrink-0 overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-r from-[#eef2ff] via-white to-[#f5f3ff] px-5 py-4 shadow-sm">
+            <div className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-indigo-200/30 blur-2xl" />
+            <div className="relative flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-100">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-500">Resumen institucional</p>
+                  <h2 className="mt-0.5 text-[18px] font-black tracking-tight text-slate-900">Todo el campus, en una sola vista</h2>
+                  <p className="mt-0.5 text-[11px] font-medium text-slate-500">Consulta horarios, espacios y actividad académica sin modificar registros.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2 text-[10px] font-bold text-slate-600 ring-1 ring-indigo-100">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Datos actualizados
+                <ArrowUpRight className="h-3.5 w-3.5 text-indigo-500" />
+              </div>
+            </div>
+          </section>
         )}
 
         <section aria-label="Indicadores principales" className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

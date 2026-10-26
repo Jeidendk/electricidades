@@ -425,3 +425,16 @@ Cada Codex debe avisar en el chat antes de iniciar un bloque y al terminar cada 
 - **Aviso previo:** se explicó que la unificación reasignaría usuarios sin borrar los roles históricos; el usuario aprobó.
 - **Cambio realizado:** la migración local `0058_rol_administrativo_consulta.sql` ahora reasigna usuarios con rol `Decano` o `Subdecano` al rol `Administrativo`. Los registros antiguos de `roles` se conservan para no romper referencias históricas.
 - **Estado:** preparado localmente; no ejecutado en Supabase.
+
+### 2026-10-26 — Selector y formulario del rol Administrativo
+
+- **Cambio realizado:** Administrativo se añadió al selector “Ver como” del administrador y navega al dashboard institucional de consulta. El formulario de usuarios lo incluye como opción de rol aunque la consulta de roles aún no se haya refrescado; el modal limita su alto al viewport para evitar desbordamiento.
+- **Comprobaciones:** `npm run build` terminó correctamente (`tsc -b` y Vite, 2930 módulos transformados).
+
+### 2026-10-26 — Acceso rápido al panel de Infraestructura
+
+- **Aviso previo:** se explicó que se reutilizaría el patrón visual de Horarios para abrir el panel de edificios y pisos, sin modificar datos, permisos ni RLS.
+- **Cambio realizado:** el botón circular de edificios y espacios se movió a la barra superior del hero de Infraestructura y ahora usa el icono de edificio; se eliminó el duplicado de la barra de gestión. Conserva la apertura superpuesta, búsqueda, selección de edificio y navegación a pisos. El componente reutilizable admite iconos específicos sin cambiar el comportamiento de otras pantallas.
+- **Archivos:** `src/modules/admin/pages/Infraestructura.tsx`, `src/components/ui/PanelLateral.tsx`; `HISTORIAL_CAMBIOS_CUMPLIMIENTO.md`.
+- **Comprobaciones:** `npx tsc --noEmit -p tsconfig.app.json` finalizó correctamente. La compilación completa no pudo escribir los archivos temporales de `node_modules/.tmp` por permisos del entorno; no se detectó error de tipos en el código.
+- **Riesgos pendientes:** falta validación visual autenticada del botón y panel en resoluciones móvil y escritorio.

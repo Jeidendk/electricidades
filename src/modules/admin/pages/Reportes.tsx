@@ -1,9 +1,10 @@
 import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText, BookOpen, Clock, Download, BarChart2,
-  Users, Calendar, ChevronRight, Eye, Trash2, X, Building2,
+  Users, Calendar, ChevronRight, Eye, X, Building2,
   Search, ArrowLeft, Filter, RefreshCcw, ChevronLeft, ChevronDown,
   LayoutGrid, Armchair, CheckCircle2, SlidersHorizontal,
+  Printer, Maximize2, Minimize2, ZoomIn, ZoomOut, Check, Bookmark,
 } from 'lucide-react';
 import { useReportesStore } from '../../../store/reportesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
@@ -61,6 +62,14 @@ export const Reportes = () => {
     item?: any;
   } | null>(null);
 
+  const [zoomPrevia, setZoomPrevia] = useState(100);
+  const [paginaPrevia, setPaginaPrevia] = useState(1);
+  const [guardadoExitoso, setGuardadoExitoso] = useState(false);
+  const [observacionesReporte, setObservacionesReporte] = useState('');
+  const [incluirLogo, setIncluirLogo] = useState(true);
+  const [incluirFirma, setIncluirFirma] = useState(true);
+  const [vistaPreviaFullscreen, setVistaPreviaFullscreen] = useState(false);
+
   const tituloReporteActivo = ({
     Docentes: 'Carga docente',
     Horarios: 'Horarios por aula',
@@ -77,6 +86,14 @@ export const Reportes = () => {
     (id: string) => edificios.find((e: any) => e.id === id)?.nombre || id || '—',
     [edificios],
   );
+
+  /** Ventana de máximo 5 páginas visibles alrededor de la actual para no saturar la barra */
+  const obtenerPaginasVisibles = (actual: number, total: number, max: number = 5): number[] => {
+    if (total <= max) return Array.from({ length: total }, (_, i) => i + 1);
+    const mitad = Math.floor(max / 2);
+    const inicio = Math.min(Math.max(1, actual - mitad), total - max + 1);
+    return Array.from({ length: max }, (_, i) => inicio + i);
+  };
 
   // ═════════════════════════════════════════════════════════════════════════════
   // 1. CONFIGURACIÓN Y TABLA DE HORARIOS POR AULA
@@ -103,6 +120,12 @@ export const Reportes = () => {
       camposClase: { ...CAMPOS_CLASE_POR_DEFECTO, ...guardado.camposClase },
     };
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('horario-export-prefs', JSON.stringify(horarioConfig));
+    } catch { /* ignorar */ }
+  }, [horarioConfig]);
 
   const edificiosConHorario = useMemo(() => {
     const ids = new Set(clases.map(clase => clase.idEspacio));
@@ -144,6 +167,15 @@ export const Reportes = () => {
       (filtroEstadoHorarios === 'todos' || f.estado === filtroEstadoHorarios)
     );
   }, [ubicacionesHorario, clases, horarioConfig.exportPeriodo, busquedaHorarios, filtroEstadoHorarios]);
+
+  const aulaParaPrevia = useMemo(() => {
+    if (modalExportar?.item?.aula) return modalExportar.item;
+    if (aulasSeleccionadas.size > 0) {
+      const primerId = Array.from(aulasSeleccionadas)[0];
+      return filasTablaHorarios.find(f => f.id === primerId) || filasTablaHorarios[0];
+    }
+    return filasTablaHorarios[0] || null;
+  }, [modalExportar, aulasSeleccionadas, filasTablaHorarios]);
 
   const totalPaginasHorarios = Math.max(1, Math.ceil(filasTablaHorarios.length / filasPorPaginaHorarios));
   const filasHorariosVisibles = filasTablaHorarios.slice((paginaHorarios - 1) * filasPorPaginaHorarios, paginaHorarios * filasPorPaginaHorarios);
@@ -523,22 +555,27 @@ export const Reportes = () => {
     }
   };
 
-  const confirmarExportacionModal = async () => {
+  const confirmarExportacionModal = async (fmtOverride?: 'PDF' | 'Word') => {
     if (!modalExportar) return;
-    const { tipo, formato, modo, item } = modalExportar;
+    const { tipo, modo, item } = modalExportar;
+    const formato = fmtOverride || modalExportar.formato;
     setModalExportar(null);
     if (tipo === 'Horarios') {
       if (modo === 'masivo') await exportarAulasSeleccionadas(formato);
       else if (item) await exportarAulaIndividual(item, formato);
+      else await exportarAulasSeleccionadas(formato);
     } else if (tipo === 'Docentes') {
       if (modo === 'masivo') await exportarDocentesSeleccionados(formato);
       else if (item) await exportarDocenteIndividual(item, formato);
+      else await exportarDocentesSeleccionados(formato);
     } else if (tipo === 'Disponibilidad') {
       if (modo === 'masivo') await exportarEspaciosSeleccionados(formato);
       else if (item) await exportarEspacioIndividual(item, formato);
+      else await exportarEspaciosSeleccionados(formato);
     } else if (tipo === 'Historial') {
       if (modo === 'masivo') await exportarHistorialSeleccionados(formato);
       else if (item) await exportarHistorialIndividual(item, formato);
+      else await exportarHistorialSeleccionados(formato);
     }
   };
 
@@ -701,139 +738,8 @@ export const Reportes = () => {
           ═════════════════════════════════════════════════════════════════════════════ */}
       {vistaReportes === 'detalle' && (
         <div className="flex-1 flex flex-col p-6 md:p-8 min-h-0 overflow-hidden bg-[#f4f7fb]/90 backdrop-blur-xl animate-fade-in">
-          <div className={tipoReporte === 'Historial' ? 'flex flex-col flex-1 min-h-0' : 'grid grid-cols-1 xl:grid-cols-[400px_minmax(0,1fr)] 2xl:grid-cols-[430px_minmax(0,1fr)] gap-6 flex-1 min-h-0'}>
-
-            {/* ── COLUMNA IZQUIERDA: CONFIGURACIÓN DEL REPORTE (NO APLICA PARA HISTORIAL) ── */}
-            {tipoReporte !== 'Historial' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200/70 p-6 flex flex-col min-h-0">
-                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
-                  <div className="w-9 h-9 rounded-xl bg-red-50 text-espoch-red flex items-center justify-center shrink-0">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-[13px] font-extrabold text-gray-900 leading-tight">Configuración del reporte</h3>
-                    <p className="text-[10.5px] text-gray-500 mt-0.5">Parámetros de formato, alcance y filtros de exportación.</p>
-                  </div>
-                </div>
-
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-5 pr-1">
-                  {/* Parámetros para Horarios */}
-                  {tipoReporte === 'Horarios' && (
-                    <div className="flex flex-col gap-3">
-                      <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Qué horarios incluir</label>
-                      <select value={alcanceHorarios} onChange={e => setAlcanceHorarios(e.target.value as 'edificio' | 'facultad')} className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[12px] font-semibold text-gray-800">
-                        <option value="edificio">Todas las aulas de un edificio</option>
-                        <option value="facultad">Toda la facultad, por edificio</option>
-                      </select>
-                      {alcanceHorarios === 'edificio' && (
-                        <select value={edificioHorariosVigente} onChange={e => setEdificioHorariosId(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[12px] font-semibold text-gray-800">
-                          {edificiosConHorario.length === 0 && <option value="">Sin edificios con horarios</option>}
-                          {edificiosConHorario.map(edificio => <option key={edificio.id} value={edificio.id}>{edificio.nombre}</option>)}
-                        </select>
-                      )}
-                      <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Período académico</label>
-                      <input value={horarioConfig.exportPeriodo} onChange={e => setHorarioConfig(actual => ({ ...actual, exportPeriodo: e.target.value }))} className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[11px] font-semibold text-gray-800" />
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="text-[10px] font-semibold text-gray-600">Orientación
-                          <select value={horarioConfig.orientation} onChange={e => setHorarioConfig(actual => ({ ...actual, orientation: e.target.value as 'vertical' | 'horizontal' }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white p-2 text-[11px]"><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option></select>
-                        </label>
-                        <label className="text-[10px] font-semibold text-gray-600">Papel
-                          <select value={horarioConfig.paperSize} onChange={e => setHorarioConfig(actual => ({ ...actual, paperSize: e.target.value as 'A4' | 'Carta' }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white p-2 text-[11px]"><option value="A4">A4</option><option value="Carta">Carta</option></select>
-                        </label>
-                        <label className="text-[10px] font-semibold text-gray-600">Tamaño de letra (pt)
-                          <input type="number" min="5" max="30" value={horarioConfig.documentFontSize} onChange={e => setHorarioConfig(actual => ({ ...actual, documentFontSize: Number(e.target.value) || 10 }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white p-2 text-[11px]" />
-                        </label>
-                        <label className="text-[10px] font-semibold text-gray-600">Tipografía
-                          <select value={horarioConfig.typography} onChange={e => setHorarioConfig(actual => ({ ...actual, typography: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white p-2 text-[11px]"><option>Times New Roman</option><option>Arial</option><option>Inter</option><option>Roboto</option></select>
-                        </label>
-                      </div>
-                      <div className="flex flex-col gap-1.5 border-t border-gray-100 pt-3">
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Datos en casillas</span>
-                        {([
-                          ['paoParalelo', 'PAO y paralelo'], ['carrera', 'Carrera'], ['docente', 'Docente'],
-                        ] as const).map(([clave, etiqueta]) => (
-                          <label key={clave} className="flex items-center gap-2 text-[10.5px] font-semibold text-gray-700">
-                            <input type="checkbox" checked={horarioConfig.camposClase[clave]} onChange={e => setHorarioConfig(actual => ({ ...actual, camposClase: { ...actual.camposClase, [clave]: e.target.checked } }))} className="accent-espoch-red" />{etiqueta}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Parámetros para Carga Docente */}
-                  {tipoReporte === 'Docentes' && (
-                    <div className="flex flex-col gap-4">
-                      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-700">Resumen de carga</span>
-                        <p className="mt-1 text-[12px] font-bold text-gray-800">{todosDocentes.length} docentes registrados</p>
-                        <p className="text-[11px] text-gray-500">{todosDocentes.reduce((acc, d) => acc + d.horasSemana, 0)} horas semanales asignadas</p>
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Período académico</label>
-                        <input value={horarioConfig.exportPeriodo} onChange={e => setHorarioConfig(actual => ({ ...actual, exportPeriodo: e.target.value }))} className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[11px] font-semibold text-gray-800" />
-                      </div>
-
-                      <div className="flex flex-col gap-2 border-t border-gray-100 pt-3">
-                        <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Acciones rápidas</label>
-                        <button
-                          type="button"
-                          onClick={() => setDocentesSeleccionados([])}
-                          disabled={docentesSeleccionados.length === 0}
-                          className="w-full py-2 px-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 text-[11px] font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-40"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-red-500" /> Limpiar selección ({docentesSeleccionados.length})
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Parámetros para Disponibilidad de Espacios */}
-                  {tipoReporte === 'Disponibilidad' && (
-                    <div className="flex flex-col gap-3">
-                      <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Día de la semana</label>
-                      <select value={diaDisponibilidad} onChange={e => setDiaDisponibilidad(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[12px] font-semibold text-gray-800">
-                        {dias.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-
-                      <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Edificio</label>
-                      <select value={edificioDisponibilidadId} onChange={e => setEdificioDisponibilidadId(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[12px] font-semibold text-gray-800">
-                        <option value="">Todos los edificios</option>
-                        {edificios.map(edificio => <option key={edificio.id} value={edificio.id}>{edificio.nombre}</option>)}
-                      </select>
-
-                      <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Tipo de espacio</label>
-                      <select value={tipoEspacioDisponibilidad} onChange={e => setTipoEspacioDisponibilidad(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[12px] font-semibold text-gray-800">
-                        <option value="">Todos los tipos</option>
-                        <option value="aula">Aulas</option>
-                        <option value="laboratorio">Laboratorios</option>
-                      </select>
-
-                      <div className="mt-2 rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-[10.5px] text-amber-800">
-                        <span className="font-bold block">Jornada horaria:</span>
-                        07:00 a 21:00 (14 horas operativas por día)
-                      </div>
-
-                      {espaciosSeleccionados.size > 0 && (
-                        <div className="flex flex-col gap-2 border-t border-gray-100 pt-3">
-                          <label className="text-[9px] font-extrabold uppercase tracking-widest text-gray-500">Acciones rápidas</label>
-                          <button
-                            type="button"
-                            onClick={() => setEspaciosSeleccionados(new Set())}
-                            className="w-full py-2 px-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 text-[11px] font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-red-500" /> Limpiar selección ({espaciosSeleccionados.size})
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── COLUMNA DERECHA: TABLA Y VISTA DEL REPORTE ── */}
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm relative before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r before:from-amber-400 before:via-orange-500 before:to-red-700 flex-1">
+          {/* ── TABLA Y VISTA DEL REPORTE A ANCHO COMPLETO ── */}
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm relative before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r before:from-amber-400 before:via-orange-500 before:to-red-700 flex-1">
 
               {/* ═══ ENCABEZADO UNIFICADO ═══ */}
               <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-white via-white/95 to-white/40 px-6 py-5">
@@ -866,19 +772,29 @@ export const Reportes = () => {
                         type="text"
                         value={busquedaHorarios}
                         onChange={e => setBusquedaHorarios(e.target.value)}
-                        placeholder="Buscar aula o edificio..."
+                        placeholder="Buscar aula o docente..."
                         className="w-full h-[42px] rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-[12px] text-gray-800 outline-none placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-200/50 transition-all"
                       />
                     </div>
-                    <span className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[11.5px] font-semibold text-gray-700">
-                      <Calendar className="w-4 h-4 text-blue-500" />
-                      <span className="hidden sm:inline">Período:</span> {horarioConfig.exportPeriodo}
-                    </span>
-                    {alcanceHorarios === 'edificio' && edificioHorariosVigente && (
-                      <span className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-[11.5px] font-semibold text-blue-700">
-                        <Building2 className="w-4 h-4" />
-                        <span className="truncate max-w-[180px]">{edificios.find(e => e.id === edificioHorariosVigente)?.nombre || 'Edificio'}</span>
-                      </span>
+                    <select
+                      value={alcanceHorarios}
+                      onChange={e => setAlcanceHorarios(e.target.value as 'edificio' | 'facultad')}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11.5px] font-semibold text-gray-700 outline-none cursor-pointer"
+                    >
+                      <option value="edificio">Por edificio</option>
+                      <option value="facultad">Toda la facultad</option>
+                    </select>
+                    {alcanceHorarios === 'edificio' && (
+                      <select
+                        value={edificioHorariosVigente}
+                        onChange={e => setEdificioHorariosId(e.target.value)}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11.5px] font-semibold text-gray-700 outline-none cursor-pointer max-w-[220px]"
+                      >
+                        {edificiosConHorario.length === 0 && <option value="">Sin edificios con horarios</option>}
+                        {edificiosConHorario.map(edificio => (
+                          <option key={edificio.id} value={edificio.id}>{edificio.nombre}</option>
+                        ))}
+                      </select>
                     )}
                     <button
                       type="button"
@@ -891,10 +807,19 @@ export const Reportes = () => {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setModalExportar({ abierto: true, tipo: 'Horarios', formato: 'PDF', modo: 'config' })}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[11.5px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                      title="Configurar opciones de formato de exportación"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
+                      <span className="hidden sm:inline">Formato</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => { setBusquedaHorarios(''); setFiltroEstadoHorarios('todos'); setAulasSeleccionadas(new Set()); }}
                       className="inline-flex items-center gap-1.5 bg-transparent text-[12px] font-semibold text-gray-500 hover:text-gray-800 transition-colors px-2 cursor-pointer"
                     >
-                      <RefreshCcw className="w-3.5 h-3.5" /> Limpiar filtros
+                      <RefreshCcw className="w-3.5 h-3.5" /> Limpiar
                     </button>
 
                     {/* Botones de exportación masiva condicional */}
@@ -905,7 +830,7 @@ export const Reportes = () => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => void exportarAulasSeleccionadas('PDF')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Horarios', formato: 'PDF', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -913,7 +838,7 @@ export const Reportes = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void exportarAulasSeleccionadas('Word')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Horarios', formato: 'Word', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f172a] hover:bg-black text-white px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -943,10 +868,19 @@ export const Reportes = () => {
                     </span>
                     <button
                       type="button"
+                      onClick={() => setModalExportar({ abierto: true, tipo: 'Docentes', formato: 'PDF', modo: 'config' })}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[11.5px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                      title="Configurar opciones de formato de exportación"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
+                      <span className="hidden sm:inline">Formato</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => { setBusquedaDocente(''); setDocentesSeleccionados([]); }}
                       className="inline-flex items-center gap-1.5 bg-transparent text-[12px] font-semibold text-gray-500 hover:text-gray-800 transition-colors px-2 cursor-pointer"
                     >
-                      <RefreshCcw className="w-3.5 h-3.5" /> Limpiar filtros
+                      <RefreshCcw className="w-3.5 h-3.5" /> Limpiar
                     </button>
 
                     {/* Botones de exportación masiva para Docentes */}
@@ -957,7 +891,7 @@ export const Reportes = () => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => void exportarDocentesSeleccionados('PDF')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Docentes', formato: 'PDF', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -965,7 +899,7 @@ export const Reportes = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void exportarDocentesSeleccionados('Word')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Docentes', formato: 'Word', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f172a] hover:bg-black text-white px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -1010,10 +944,19 @@ export const Reportes = () => {
                     </select>
                     <button
                       type="button"
+                      onClick={() => setModalExportar({ abierto: true, tipo: 'Historial', formato: 'PDF', modo: 'config' })}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[11.5px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                      title="Configurar opciones de formato de exportación"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
+                      <span className="hidden sm:inline">Formato</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => { setBusquedaHistorial(''); setFiltroTipoHistorial('todos'); setFiltroFormatoHistorial('todos'); setHistorialSeleccionados(new Set()); }}
                       className="inline-flex items-center gap-1.5 bg-transparent text-[12px] font-semibold text-gray-500 hover:text-gray-800 transition-colors px-2 cursor-pointer"
                     >
-                      <RefreshCcw className="w-3.5 h-3.5" /> Limpiar filtros
+                      <RefreshCcw className="w-3.5 h-3.5" /> Limpiar
                     </button>
 
                     {/* Botones de exportación masiva condicional para Historial */}
@@ -1024,7 +967,7 @@ export const Reportes = () => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => void exportarHistorialSeleccionados('PDF')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Historial', formato: 'PDF', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -1032,7 +975,7 @@ export const Reportes = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void exportarHistorialSeleccionados('Word')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Historial', formato: 'Word', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f172a] hover:bg-black text-white px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -1052,17 +995,46 @@ export const Reportes = () => {
                         type="text"
                         value={busquedaDisponibilidad}
                         onChange={e => setBusquedaDisponibilidad(e.target.value)}
-                        placeholder="Buscar espacio..."
+                        placeholder="Buscar espacio o edificio..."
                         className="w-full h-[42px] rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-[12px] text-gray-800 outline-none placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-200/50 transition-all"
                       />
                     </div>
-                    <span className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[11.5px] font-semibold text-gray-700">
-                      <Calendar className="w-4 h-4 text-orange-500" />
-                      Día: {diaDisponibilidad}
-                    </span>
+                    <select
+                      value={diaDisponibilidad}
+                      onChange={e => setDiaDisponibilidad(e.target.value)}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11.5px] font-semibold text-gray-700 outline-none cursor-pointer"
+                    >
+                      {dias.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <select
+                      value={edificioDisponibilidadId}
+                      onChange={e => setEdificioDisponibilidadId(e.target.value)}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11.5px] font-semibold text-gray-700 outline-none cursor-pointer max-w-[200px]"
+                    >
+                      <option value="">Todos los edificios</option>
+                      {edificios.map(edificio => <option key={edificio.id} value={edificio.id}>{edificio.nombre}</option>)}
+                    </select>
+                    <select
+                      value={tipoEspacioDisponibilidad}
+                      onChange={e => setTipoEspacioDisponibilidad(e.target.value)}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11.5px] font-semibold text-gray-700 outline-none cursor-pointer"
+                    >
+                      <option value="">Todos los tipos</option>
+                      <option value="aula">Aulas</option>
+                      <option value="laboratorio">Laboratorios</option>
+                    </select>
                     <button
                       type="button"
-                      onClick={() => { setBusquedaDisponibilidad(''); setEspaciosSeleccionados(new Set()); }}
+                      onClick={() => setModalExportar({ abierto: true, tipo: 'Disponibilidad', formato: 'PDF', modo: 'config' })}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[11.5px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                      title="Configurar opciones de formato de exportación"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
+                      <span className="hidden sm:inline">Formato</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setBusquedaDisponibilidad(''); setEdificioDisponibilidadId(''); setTipoEspacioDisponibilidad(''); setEspaciosSeleccionados(new Set()); }}
                       className="inline-flex items-center gap-1.5 bg-transparent text-[12px] font-semibold text-gray-500 hover:text-gray-800 transition-colors px-2 cursor-pointer"
                     >
                       <RefreshCcw className="w-3.5 h-3.5" /> Limpiar
@@ -1076,7 +1048,7 @@ export const Reportes = () => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => void exportarEspaciosSeleccionados('PDF')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Disponibilidad', formato: 'PDF', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -1084,7 +1056,7 @@ export const Reportes = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void exportarEspaciosSeleccionados('Word')}
+                          onClick={() => setModalExportar({ abierto: true, tipo: 'Disponibilidad', formato: 'Word', modo: 'masivo' })}
                           disabled={isGenerating}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f172a] hover:bg-black text-white px-3.5 py-2 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                         >
@@ -1164,7 +1136,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarAulaIndividual(fila, 'PDF')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Horarios', formato: 'PDF', modo: 'individual', item: fila })}
                                   disabled={isGenerating}
                                   title="Exportar horario en PDF"
                                   className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 text-[11px] font-bold text-red-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1173,7 +1145,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarAulaIndividual(fila, 'Word')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Horarios', formato: 'Word', modo: 'individual', item: fila })}
                                   disabled={isGenerating}
                                   title="Exportar horario en Word"
                                   className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-2.5 py-1 text-[11px] font-bold text-blue-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1263,7 +1235,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarDocenteIndividual(docente, 'PDF')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Docentes', formato: 'PDF', modo: 'individual', item: docente })}
                                   disabled={isGenerating}
                                   title="Descargar carga docente en PDF"
                                   className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 text-[11px] font-bold text-red-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1272,7 +1244,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarDocenteIndividual(docente, 'Word')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Docentes', formato: 'Word', modo: 'individual', item: docente })}
                                   disabled={isGenerating}
                                   title="Descargar carga docente en Word"
                                   className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-2.5 py-1 text-[11px] font-bold text-blue-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1368,7 +1340,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarHistorialIndividual(r, 'PDF')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Historial', formato: 'PDF', modo: 'individual', item: r })}
                                   disabled={isGenerating}
                                   title="Exportar registro en PDF"
                                   className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 text-[11px] font-bold text-red-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1377,7 +1349,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarHistorialIndividual(r, 'Word')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Historial', formato: 'Word', modo: 'individual', item: r })}
                                   disabled={isGenerating}
                                   title="Exportar registro en Word"
                                   className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-2.5 py-1 text-[11px] font-bold text-blue-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1480,7 +1452,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarEspacioIndividual(espacio, 'PDF')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Disponibilidad', formato: 'PDF', modo: 'individual', item: espacio })}
                                   disabled={isGenerating}
                                   title="Exportar espacio en PDF"
                                   className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 text-[11px] font-bold text-red-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1489,7 +1461,7 @@ export const Reportes = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void exportarEspacioIndividual(espacio, 'Word')}
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Disponibilidad', formato: 'Word', modo: 'individual', item: espacio })}
                                   disabled={isGenerating}
                                   title="Exportar espacio en Word"
                                   className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-2.5 py-1 text-[11px] font-bold text-blue-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
@@ -1533,7 +1505,7 @@ export const Reportes = () => {
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    {Array.from({ length: totalPaginasHorarios }, (_, i) => i + 1).map(p => (
+                    {obtenerPaginasVisibles(paginaHorarios, totalPaginasHorarios).map(p => (
                       <button
                         key={p}
                         type="button"
@@ -1583,7 +1555,7 @@ export const Reportes = () => {
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    {Array.from({ length: totalPaginasDocente }, (_, i) => i + 1).map(p => (
+                    {obtenerPaginasVisibles(paginaDocente, totalPaginasDocente).map(p => (
                       <button
                         key={p}
                         type="button"
@@ -1633,7 +1605,7 @@ export const Reportes = () => {
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    {Array.from({ length: totalPaginasHistorial }, (_, i) => i + 1).map(p => (
+                    {obtenerPaginasVisibles(paginaHistorial, totalPaginasHistorial).map(p => (
                       <button
                         key={p}
                         type="button"
@@ -1683,7 +1655,7 @@ export const Reportes = () => {
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    {Array.from({ length: totalPaginasDisponibilidad }, (_, i) => i + 1).map(p => (
+                    {obtenerPaginasVisibles(paginaDisponibilidad, totalPaginasDisponibilidad).map(p => (
                       <button
                         key={p}
                         type="button"
@@ -1707,7 +1679,6 @@ export const Reportes = () => {
                 </div>
               )}
             </div>
-          </div>
         </div>
       )}
 
@@ -2054,6 +2025,642 @@ export const Reportes = () => {
               <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 text-[11px] text-emerald-800 leading-relaxed">
                 <span className="font-bold block mb-1">Certificación de auditoría institucional</span>
                 Este registro certifica la generación del informe desde el Sistema de Gestión de Horarios y Espacios de la ESPOCH (FIE). Puede volver a exportar la bitácora en PDF o Word con los botones superiores.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════════════
+          MODAL DE CONFIGURACIÓN Y VISTA PREVIA DEL REPORTE (2 COLUMNAS - ESTILO INSTITUCIONAL ESPOCH)
+          ═════════════════════════════════════════════════════════════════════════════ */}
+      {modalExportar?.abierto && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-3 md:p-6 bg-slate-900/65 backdrop-blur-sm animate-fade-in">
+          <div className={`relative z-10 w-full ${
+            vistaPreviaFullscreen ? 'max-w-[98vw] h-[96vh]' : 'max-w-[1380px] max-h-[92vh]'
+          } bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100 transition-all duration-300`}>
+
+            {/* Modal Global Top Bar */}
+            <div className="px-6 py-3.5 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-espoch-red animate-pulse" />
+                <span className="text-[12px] font-extrabold uppercase tracking-wider text-gray-800">
+                  Sistema de Reportes · FIE ESPOCH
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="text-[12px] font-semibold text-gray-500">
+                  {tituloReporteActivo} ({modalExportar.formato})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVistaPreviaFullscreen(prev => !prev)}
+                  className="text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl p-1.5 transition-colors cursor-pointer"
+                  title={vistaPreviaFullscreen ? 'Restaurar tamaño' : 'Pantalla completa'}
+                >
+                  {vistaPreviaFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalExportar(null)}
+                  className="text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl p-1.5 transition-colors cursor-pointer"
+                  title="Cerrar modal"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: 2 Columns */}
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[480px_minmax(0,1fr)] xl:grid-cols-[510px_minmax(0,1fr)] divide-y lg:divide-y-0 lg:divide-x divide-gray-100 overflow-hidden">
+
+              {/* ── COLUMNA 1: CONFIGURACIÓN DEL REPORTE ── */}
+              <div className="flex flex-col min-h-0 bg-white">
+                {/* Col Header */}
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 shrink-0">
+                  <div className="w-10 h-10 rounded-2xl bg-red-50 text-espoch-red flex items-center justify-center shrink-0 border border-red-100/80 shadow-2xs">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-[14px] font-extrabold text-gray-900 leading-tight">Configuración del reporte</h3>
+                    <p className="text-[11px] text-gray-500 mt-0.5">Personaliza los parámetros del reporte antes de generar la vista previa.</p>
+                  </div>
+                </div>
+
+                {/* Form Controls (Scrollable) */}
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 flex flex-col gap-4 text-gray-700">
+                  {/* Grid 2 columnas de campos */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Período Académico */}
+                    <div className="flex flex-col gap-1.5 sm:col-span-2">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600 flex items-center gap-1">
+                        Período académico <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={horarioConfig.exportPeriodo}
+                          onChange={e => setHorarioConfig(actual => ({ ...actual, exportPeriodo: e.target.value }))}
+                          placeholder="MARZO 2026 - SEPTIEMBRE 2026"
+                          className="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-[11.5px] font-semibold text-gray-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Sede / Edificio */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600 flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-gray-400" /> Sede / Edificio
+                      </label>
+                      <select
+                        value={edificioHorariosVigente}
+                        onChange={e => setEdificioHorariosId(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-white p-2 text-[11.5px] font-semibold text-gray-800 outline-none cursor-pointer"
+                      >
+                        {edificios.map(e => (
+                          <option key={e.id} value={e.id}>{e.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Alcance / Qué horarios incluir */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
+                        Qué horarios incluir
+                      </label>
+                      <select
+                        value={alcanceHorarios}
+                        onChange={e => setAlcanceHorarios(e.target.value as 'edificio' | 'facultad')}
+                        className="w-full rounded-xl border border-gray-200 bg-white p-2 text-[11.5px] font-semibold text-gray-800 outline-none cursor-pointer"
+                      >
+                        <option value="edificio">Todas las aulas de un edificio</option>
+                        <option value="facultad">Toda la facultad, por edificio</option>
+                      </select>
+                    </div>
+
+                    {/* Formato de archivo */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
+                        Formato de archivo
+                      </label>
+                      <select
+                        value={modalExportar.formato}
+                        onChange={e => setModalExportar(actual => actual ? ({ ...actual, formato: e.target.value as 'PDF' | 'Word' }) : null)}
+                        className="w-full rounded-xl border border-gray-200 bg-white p-2 text-[11.5px] font-semibold text-gray-800 outline-none cursor-pointer"
+                      >
+                        <option value="PDF">PDF (recomendado)</option>
+                        <option value="Word">Word (.docx)</option>
+                      </select>
+                    </div>
+
+                    {/* Tamaño de papel */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
+                        Tamaño de papel
+                      </label>
+                      <select
+                        value={horarioConfig.paperSize}
+                        onChange={e => setHorarioConfig(actual => ({ ...actual, paperSize: e.target.value as 'A4' | 'Carta' }))}
+                        className="w-full rounded-xl border border-gray-200 bg-white p-2 text-[11.5px] font-semibold text-gray-800 outline-none cursor-pointer"
+                      >
+                        <option value="A4">A4 (210 x 297 mm)</option>
+                        <option value="Carta">Carta (Letter)</option>
+                      </select>
+                    </div>
+
+                    {/* Tamaño de letra y Tipografía */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
+                        Tamaño letra (pt)
+                      </label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="20"
+                        value={horarioConfig.documentFontSize}
+                        onChange={e => setHorarioConfig(actual => ({ ...actual, documentFontSize: Number(e.target.value) || 6 }))}
+                        className="w-full rounded-xl border border-gray-200 bg-white p-2 text-[11.5px] font-semibold text-gray-800 outline-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
+                        Tipografía
+                      </label>
+                      <select
+                        value={horarioConfig.typography}
+                        onChange={e => setHorarioConfig(actual => ({ ...actual, typography: e.target.value }))}
+                        className="w-full rounded-xl border border-gray-200 bg-white p-2 text-[11.5px] font-semibold text-gray-800 outline-none cursor-pointer"
+                      >
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Roboto">Roboto</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Orientación (Botones estilo pestaña como en la imagen) */}
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
+                      Orientación del documento
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setHorarioConfig(actual => ({ ...actual, orientation: 'vertical' }))}
+                        className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-[11.5px] font-bold transition-all cursor-pointer ${
+                          horarioConfig.orientation === 'vertical'
+                            ? 'border-espoch-red bg-red-50/80 text-espoch-red shadow-2xs ring-1 ring-espoch-red/30'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <FileText className="w-4 h-4" /> Vertical
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHorarioConfig(actual => ({ ...actual, orientation: 'horizontal' }))}
+                        className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-[11.5px] font-bold transition-all cursor-pointer ${
+                          horarioConfig.orientation === 'horizontal'
+                            ? 'border-espoch-red bg-red-50/80 text-espoch-red shadow-2xs ring-1 ring-espoch-red/30'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <LayoutGrid className="w-4 h-4" /> Horizontal
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Switches de formato: Logo y Firma */}
+                  <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
+                    <label className="flex items-center justify-between p-2 rounded-xl border border-gray-100 hover:bg-gray-50/60 transition-colors cursor-pointer">
+                      <span className="text-[11px] font-bold text-gray-700">Incluir logo institucional</span>
+                      <input
+                        type="checkbox"
+                        checked={incluirLogo}
+                        onChange={e => setIncluirLogo(e.target.checked)}
+                        className="w-4 h-4 rounded accent-espoch-red cursor-pointer"
+                      />
+                    </label>
+                    <label className="flex items-center justify-between p-2 rounded-xl border border-gray-100 hover:bg-gray-50/60 transition-colors cursor-pointer">
+                      <span className="text-[11px] font-bold text-gray-700">Incluir firma responsable / pie de página</span>
+                      <input
+                        type="checkbox"
+                        checked={incluirFirma}
+                        onChange={e => {
+                          setIncluirFirma(e.target.checked);
+                          setHorarioConfig(actual => ({ ...actual, includeFooter: e.target.checked }));
+                        }}
+                        className="w-4 h-4 rounded accent-espoch-red cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Datos en casillas (PAO, Carrera, Docente) */}
+                  {modalExportar.tipo === 'Horarios' && (
+                    <div className="flex flex-col gap-2 p-3 rounded-2xl border border-gray-100 bg-gray-50/60">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">
+                        Datos visibles en las casillas
+                      </span>
+                      <div className="flex flex-wrap gap-4 pt-0.5">
+                        {([
+                          ['paoParalelo', 'PAO y paralelo'],
+                          ['carrera', 'Carrera'],
+                          ['docente', 'Docente'],
+                        ] as const).map(([clave, etiqueta]) => (
+                          <label key={clave} className="flex items-center gap-2 text-[11px] font-bold text-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={horarioConfig.camposClase[clave]}
+                              onChange={e => setHorarioConfig(actual => ({
+                                ...actual,
+                                camposClase: { ...actual.camposClase, [clave]: e.target.checked },
+                              }))}
+                              className="w-4 h-4 rounded accent-espoch-red cursor-pointer"
+                            />
+                            {etiqueta}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Observaciones (opcional con contador 0/300) */}
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
+                        Observaciones (opcional)
+                      </label>
+                      <span className="text-[10px] text-gray-400 font-semibold">{observacionesReporte.length}/300</span>
+                    </div>
+                    <textarea
+                      maxLength={300}
+                      rows={2}
+                      value={observacionesReporte}
+                      onChange={e => setObservacionesReporte(e.target.value)}
+                      placeholder="Ej. Información adicional o notas oficiales para mostrar en el reporte..."
+                      className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[11px] text-gray-800 outline-none resize-none placeholder:text-gray-400 focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Left Bottom Action Buttons (Guardar configuración & Generar vista previa) */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50/70 flex items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        localStorage.setItem('horario-export-prefs', JSON.stringify(horarioConfig));
+                        setGuardadoExitoso(true);
+                        setTimeout(() => setGuardadoExitoso(false), 2500);
+                      } catch { /* ignorar */ }
+                    }}
+                    className={`flex-1 py-2.5 px-3 rounded-xl border text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      guardadoExitoso
+                        ? 'border-green-300 bg-green-50 text-green-700 shadow-2xs'
+                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100 shadow-2xs'
+                    }`}
+                  >
+                    {guardadoExitoso ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-600" /> ¡Configuración guardada!
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="w-4 h-4 text-gray-500" /> Guardar configuración
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Trigger preview visual refresh
+                      setZoomPrevia(100);
+                    }}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-espoch-red hover:bg-[#a80c1d] text-white text-[11.5px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer hover:shadow-md"
+                  >
+                    <Eye className="w-4 h-4" /> Generar vista previa
+                  </button>
+                </div>
+              </div>
+
+              {/* ── COLUMNA 2: VISTA PREVIA DEL REPORTE ── */}
+              <div className="flex flex-col min-h-0 bg-[#f8fafc]">
+                {/* Col Header */}
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100/80 shadow-2xs">
+                      <Eye className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-[14px] font-extrabold text-gray-900 leading-tight">Vista previa del reporte</h3>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Revisa el resultado antes de exportar o imprimir.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg">
+                      {horarioConfig.paperSize} · {horarioConfig.orientation === 'horizontal' ? 'Horizontal' : 'Vertical'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sheet Canvas (Centering the realistic paper) */}
+                <div className="flex-1 min-h-0 overflow-auto p-4 md:p-6 flex justify-center items-start bg-[#eef2f6]/80 custom-scrollbar">
+                  <div
+                    style={{
+                      transform: `scale(${zoomPrevia / 100})`,
+                      transformOrigin: 'top center',
+                      transition: 'transform 0.2s ease',
+                    }}
+                    className={`bg-white shadow-xl border border-gray-200/90 rounded-sm p-6 sm:p-8 flex flex-col justify-between shrink-0 ${
+                      horarioConfig.orientation === 'horizontal'
+                        ? 'w-[780px] min-h-[520px]'
+                        : 'w-[560px] min-h-[720px]'
+                    }`}
+                  >
+                    {/* Header Institucional de la Hoja */}
+                    <div>
+                      {incluirLogo && (
+                        <div className="flex items-center justify-between pb-3 border-b-2 border-espoch-red mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-espoch-red text-white font-extrabold flex items-center justify-center text-[12px] shadow-sm">
+                              ESPOCH
+                            </div>
+                            <div>
+                              <h4 className="text-[12px] font-black uppercase text-gray-900 tracking-tight leading-tight">
+                                Escuela Superior Politécnica de Chimborazo
+                              </h4>
+                              <p className="text-[10px] font-semibold text-gray-600">
+                                Facultad de Informática y Electrónica · FIE
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right text-[9.5px] text-gray-400 font-semibold">
+                            <div>Reporte generado</div>
+                            <div>{new Date().toLocaleDateString('es-EC')}</div>
+                            <div>Página 1 de 1</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Título del Reporte en la Hoja */}
+                      <div className="text-center my-3">
+                        <h2 className="text-[15px] font-black uppercase tracking-tight text-gray-900">
+                          {modalExportar.tipo === 'Horarios' ? 'Horario Oficial de Clases por Aula' :
+                           modalExportar.tipo === 'Docentes' ? 'Reporte de Carga Horaria y Docentes' :
+                           modalExportar.tipo === 'Disponibilidad' ? 'Reporte de Disponibilidad de Espacios' :
+                           'Registro de Auditoría e Historial'}
+                        </h2>
+                        <p className="text-[11px] font-bold text-espoch-red mt-0.5">
+                          Período: {horarioConfig.exportPeriodo}
+                        </p>
+                      </div>
+
+                      {/* Metadatos en Fila */}
+                      <div className="grid grid-cols-4 gap-2 bg-gray-50/80 rounded-lg p-2.5 border border-gray-100 text-[10.5px] mb-3">
+                        <div>
+                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Edificio</span>
+                          <span className="font-bold text-gray-800 truncate block">
+                            {edificios.find(e => e.id === edificioHorariosVigente)?.nombre || 'Edificio de Aulas'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Elemento</span>
+                          <span className="font-bold text-gray-800 truncate block">
+                            {aulaParaPrevia?.aula || 'Aulas seleccionadas'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Formato</span>
+                          <span className="font-bold text-espoch-red block">{modalExportar.formato}</span>
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Estado</span>
+                          <span className="font-bold text-green-700 block">Vigente / Oficial</span>
+                        </div>
+                      </div>
+
+                      {/* Contenido Visual en la Hoja (Muestra horario de aulaParaPrevia) */}
+                      {modalExportar.tipo === 'Horarios' && aulaParaPrevia && (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
+                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-6 py-1.5 px-2 text-center border-b border-gray-200">
+                            <div>Hora</div>
+                            <div>Lunes</div>
+                            <div>Martes</div>
+                            <div>Miércoles</div>
+                            <div>Jueves</div>
+                            <div>Viernes</div>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {['07:00 - 08:00', '08:00 - 09:00', '09:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00'].map((hora, idx) => (
+                              <div key={hora} className="grid grid-cols-6 text-center py-2 px-1 text-[9.5px] items-center">
+                                <div className="font-bold text-gray-500 bg-gray-50 py-1 rounded">{hora}</div>
+                                <div className={`p-1 rounded ${idx % 2 === 0 ? 'bg-red-50 text-espoch-red font-semibold' : 'text-gray-300'}`}>
+                                  {idx % 2 === 0 ? 'Sistemas Eléctricos' : '—'}
+                                </div>
+                                <div className="p-1 text-gray-300">—</div>
+                                <div className={`p-1 rounded ${idx === 1 || idx === 3 ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-300'}`}>
+                                  {idx === 1 || idx === 3 ? 'Electrónica II' : '—'}
+                                </div>
+                                <div className="p-1 text-gray-300">—</div>
+                                <div className={`p-1 rounded ${idx === 0 ? 'bg-amber-50 text-amber-800 font-semibold' : 'text-gray-300'}`}>
+                                  {idx === 0 ? 'Laboratorio FIE' : '—'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Contenido si es Carga Docente */}
+                      {modalExportar.tipo === 'Docentes' && (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
+                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-4 py-1.5 px-3 text-left border-b border-gray-200">
+                            <div>Docente</div>
+                            <div>Materias</div>
+                            <div className="text-center">Horas / Sem.</div>
+                            <div className="text-center">Estado</div>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {todosDocentes.slice(0, 5).map(doc => (
+                              <div key={doc.idDocente} className="grid grid-cols-4 py-2 px-3 text-[10px] items-center">
+                                <div className="font-bold text-gray-800">{doc.docente}</div>
+                                <div className="text-gray-600 truncate">{doc.materias.join(', ')}</div>
+                                <div className="text-center font-extrabold text-blue-700">{doc.horasSemana} h</div>
+                                <div className="text-center text-green-700 font-bold">Asignado</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Contenido si es Disponibilidad */}
+                      {modalExportar.tipo === 'Disponibilidad' && (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
+                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-4 py-1.5 px-3 text-left border-b border-gray-200">
+                            <div>Espacio</div>
+                            <div>Edificio</div>
+                            <div className="text-center">Horas Libres</div>
+                            <div className="text-center">Estado</div>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {espaciosDisponiblesData.slice(0, 5).map(esp => (
+                              <div key={esp.id} className="grid grid-cols-4 py-2 px-3 text-[10px] items-center">
+                                <div className="font-bold text-gray-800">{esp.nombre}</div>
+                                <div className="text-gray-600">{esp.edificio}</div>
+                                <div className="text-center font-extrabold text-emerald-700">{esp.horasLibres} h libres</div>
+                                <div className="text-center text-green-700 font-bold">Disponible</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Contenido si es Historial */}
+                      {modalExportar.tipo === 'Historial' && (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
+                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-4 py-1.5 px-3 text-left border-b border-gray-200">
+                            <div>Tipo</div>
+                            <div>Formato</div>
+                            <div>Generado por</div>
+                            <div>Fecha</div>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {historial.slice(0, 5).map(h => (
+                              <div key={h.id} className="grid grid-cols-4 py-2 px-3 text-[10px] items-center">
+                                <div className="font-bold text-gray-800">{h.tipo}</div>
+                                <div className="text-espoch-red font-bold">{h.formato}</div>
+                                <div className="text-gray-600">{h.generadoPorNombre || 'Usuario'}</div>
+                                <div className="text-gray-400">{formatearFecha(h.created_at)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Observaciones impresas si existen */}
+                      {observacionesReporte && (
+                        <div className="mt-3 p-2 bg-amber-50/70 border border-amber-200 rounded-lg text-[9.5px] text-amber-900">
+                          <span className="font-bold block">Observaciones:</span>
+                          {observacionesReporte}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer de la Hoja con Firmas */}
+                    {incluirFirma && (
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <div className="grid grid-cols-2 gap-8 text-center text-[9px] text-gray-500 pt-4">
+                          <div>
+                            <div className="w-32 border-b border-gray-400 mx-auto mb-1" />
+                            <span className="font-bold text-gray-700 block">Coordinación de Carrera</span>
+                            <span>Facultad de Informática y Electrónica</span>
+                          </div>
+                          <div>
+                            <div className="w-32 border-b border-gray-400 mx-auto mb-1" />
+                            <span className="font-bold text-gray-700 block">Dirección de Escuela</span>
+                            <span>ESPOCH · Riobamba</span>
+                          </div>
+                        </div>
+                        <p className="text-[8px] text-gray-400 text-center mt-3">
+                          Panamericana Sur km 1 1/2 · Riobamba - Ecuador · www.espoch.edu.ec
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Bottom Footer: Zoom, Paginación y Botones de Exportar / Imprimir */}
+                <div className="p-4 border-t border-gray-100 bg-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+                  {/* Paginación y Zoom */}
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-xl px-2 py-1">
+                      <button
+                        type="button"
+                        onClick={() => setPaginaPrevia(p => Math.max(1, p - 1))}
+                        disabled={paginaPrevia <= 1}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white disabled:opacity-30 cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[11px] font-bold text-gray-700 px-1.5">
+                        {paginaPrevia} / 1
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPaginaPrevia(p => p + 1)}
+                        disabled={true}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white disabled:opacity-30 cursor-pointer"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-2 py-1">
+                      <button
+                        type="button"
+                        onClick={() => setZoomPrevia(z => Math.max(60, z - 10))}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white cursor-pointer"
+                        title="Reducir zoom"
+                      >
+                        <ZoomOut className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[11px] font-bold text-gray-700 px-1 min-w-[42px] text-center">
+                        {zoomPrevia}%
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setZoomPrevia(z => Math.min(140, z + 10))}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white cursor-pointer"
+                        title="Aumentar zoom"
+                      >
+                        <ZoomIn className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Botones de acción principales (PDF, Word, Imprimir) */}
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => void confirmarExportacionModal('PDF')}
+                      disabled={isGenerating}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 text-[11.5px] font-bold shadow-xs transition-all cursor-pointer disabled:opacity-40"
+                    >
+                      <FileText className="w-4 h-4 text-espoch-red" /> Exportar PDF
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void confirmarExportacionModal('Word')}
+                      disabled={isGenerating}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 text-[11.5px] font-bold shadow-xs transition-all cursor-pointer disabled:opacity-40"
+                    >
+                      <Download className="w-4 h-4 text-blue-600" /> Exportar Word
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void confirmarExportacionModal('PDF')}
+                      disabled={isGenerating}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-espoch-red hover:bg-[#a80c1d] text-white text-[11.5px] font-bold shadow-sm transition-all cursor-pointer hover:shadow-md disabled:opacity-40"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCcw className="w-4 h-4 animate-spin" /> Procesando...
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="w-4 h-4" /> Imprimir
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

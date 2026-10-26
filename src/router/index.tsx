@@ -44,6 +44,7 @@ const TecnicoDashboard = lazy(() => cargarPagina(() => import('../modules/tecnic
 const AutoridadDashboard = lazy(() => cargarPagina(() => import('../modules/autoridad/pages/AutoridadDashboard').then(m => ({ default: m.AutoridadDashboard }))));
 const AutoridadLayout = lazy(() => cargarPagina(() => import('../modules/autoridad/layout/AutoridadLayout').then(m => ({ default: m.AutoridadLayout }))));
 const AdministrativoLayout = lazy(() => cargarPagina(() => import('../modules/administrativo/layout/AdministrativoLayout').then(m => ({ default: m.AdministrativoLayout }))));
+const AdministrativoDashboard = lazy(() => cargarPagina(() => import('../modules/administrativo/pages/AdministrativoDashboard').then(m => ({ default: m.AdministrativoDashboard }))));
 const DocenteLayout = lazy(() => cargarPagina(() => import('../modules/docente/layout/DocenteLayout').then(m => ({ default: m.DocenteLayout }))));
 const DocenteDashboard = lazy(() => cargarPagina(() => import('../modules/docente/pages/DocenteDashboard').then(m => ({ default: m.DocenteDashboard }))));
 const Dashboard = lazy(() => cargarPagina(() => import('../modules/admin/pages/Dashboard').then(m => ({ default: m.Dashboard }))));
@@ -283,7 +284,7 @@ export const AppRouter = () => {
         <Route element={<RequireAuth allowedRoles={['administrativo']} />}>
           <Route path="/administrativo" element={<AdministrativoLayout />}>
             <Route index element={<Navigate to="/administrativo/dashboard" replace />} />
-            <Route path="dashboard" element={<AutoridadDashboard />} />
+            <Route path="dashboard" element={<AdministrativoDashboard />} />
             <Route path="horarios" element={<Horarios />} />
             <Route path="infraestructura" element={<Infraestructura />} />
             <Route path="estructura-academica" element={<EstructuraAcademica />} />

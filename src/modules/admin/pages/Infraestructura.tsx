@@ -530,21 +530,27 @@ export const Infraestructura = () => {
           {/* LEFT: MAESTRO-DETALLE DE EDIFICIOS (mismo patrón que Ubicaciones en Horarios) */}
           {/* PANEL UBICACIONES — flotante, mismo lenguaje que Horarios: dos tarjetas sueltas
               sobre el contenido en vez de un contenedor blanco con cabecera y pie. */}
-          {panelAbierto && <div className="absolute inset-0 z-[30]" onClick={() => setPanelAbierto(false)} />}
-          <div className={`absolute inset-y-0 left-0 z-[40] flex w-[620px] max-w-[94%] flex-col transition-transform duration-300 pointer-events-none ${panelAbierto ? 'translate-x-0' : '-translate-x-full'}`}>
-            <div className="shrink-0 px-3 pt-3 pb-2 pointer-events-auto">
-              <div className="relative w-[280px] max-w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                <input type="text" placeholder="Buscar edificio o espacio..." value={searchNav} onChange={e => setSearchNav(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-[12.5px] text-gray-700 shadow-sm outline-none transition-colors focus:border-indigo-400 focus:bg-white placeholder:text-gray-400" />
-              </div>
-            </div>
-
+          {/* El panel queda debajo de la ficha del edificio y de la barra de búsqueda/controles. */}
+          {panelAbierto && <div className="absolute inset-x-0 bottom-0 top-[280px] z-[30] lg:top-[260px]" onClick={() => setPanelAbierto(false)} />}
+          <div className={`absolute bottom-0 left-0 top-[280px] z-[40] flex w-[620px] max-w-[94%] flex-col transition-transform duration-300 pointer-events-none lg:top-[260px] ${panelAbierto ? 'translate-x-0' : '-translate-x-full'}`}>
             {/* En celular las dos tarjetas se apilan: a 375px no entran 280px + el detalle. */}
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto custom-scrollbar px-3 pb-3 pointer-events-none sm:flex-row sm:items-start sm:overflow-visible">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto custom-scrollbar p-3 pointer-events-none sm:flex-row sm:items-start sm:overflow-visible">
               {/* IZQUIERDA: edificios. Seleccionar uno muestra sus pisos al lado, así que nunca
                   hay dos edificios desplegados a la vez como pasaba con el árbol. */}
-              <div className={`pointer-events-auto w-full shrink-0 flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:w-[280px] sm:overflow-y-auto ${pasoPanelMovil === 'edificios' ? 'flex' : 'hidden'}`}>
-                <div className="flex items-center gap-1 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
+              <div className={`pointer-events-auto w-full shrink-0 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:w-[280px] sm:overflow-y-auto ${pasoPanelMovil === 'edificios' ? 'flex' : 'hidden'}`}>
+                {/* Buscador integrado dentro de la tarjeta para alinear ambos paneles al mismo nivel */}
+                <div className="relative mb-0.5">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar edificio o espacio..."
+                    value={searchNav}
+                    onChange={e => setSearchNav(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-8 pr-2.5 text-[12px] text-gray-700 shadow-2xs outline-none transition-colors focus:border-indigo-400 focus:bg-white placeholder:text-gray-400"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
                   <Building2 className="h-3 w-3" /> Edificios
                 </div>
                 {filteredNavEdificios.length === 0 && (
@@ -757,13 +763,12 @@ export const Infraestructura = () => {
                   <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full lg:w-auto">
                     <BotonPanelLateral
                       abierto={panelAbierto}
-                      // Al abrirlo se vuelve siempre a la lista de edificios: reaparecer en los
-                      // pisos del que se miró la vez anterior desorienta más de lo que ahorra.
                       onClick={() => {
                         if (!panelAbierto) setPasoPanelMovil('edificios');
                         setPanelAbierto(!panelAbierto);
                       }}
                       titulo="Edificios y espacios"
+                      Icon={Building2}
                     />
                     {/* El buscador toma el resto de la fila en celular; desde sm vuelve a 200px. */}
                     <div className="relative flex-1 min-w-[140px] sm:flex-none">
