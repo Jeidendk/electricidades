@@ -22,6 +22,7 @@ export interface OpcionesHorario {
   clases: ClaseUI[];
   includeFooter: boolean;
   camposClase: CamposClase;
+  carreraId?: string;
 }
 
 export const ubicacionesConClases = (
@@ -176,6 +177,7 @@ export const imprimirHorariosPdf = async (ubicaciones: UbicacionHorario[], nombr
           headerImg={headerImg} footerImg={footerImg} documentFontSize={documentFontSize}
           exportAula={espacio.nombre} exportAulaId={espacio.id} exportEdificio={edificio.nombre}
           exportPeriodo={exportPeriodo} clases={clases} includeFooter={includeFooter} camposClase={camposClase}
+          exportCarrera={opciones.carreraId || ''}
         />
       );
       return `<section class="horario-lote">${html}</section>`;

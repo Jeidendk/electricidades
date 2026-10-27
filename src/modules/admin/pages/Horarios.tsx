@@ -18,7 +18,7 @@ import { useDocentesStore } from '../../../store/docentesStore';
 import { horasFinDisponibles, PARALELO_POR_DEFECTO, CAMPOS_CLASE_POR_DEFECTO, type CamposClase } from '../components/Horarios/horariosData';
 import { altoPaginaEnPx, contarPaginas, paginaDesdeScroll } from '../components/Horarios/paginacionPdf';
 import { mapearClases } from '../components/Horarios/mapearClases';
-import { exportarHorariosWord } from '../data/exportarHorarios';
+import { exportarHorariosWord, imprimirHorariosPdf } from '../data/exportarHorarios';
 import { mismoDia } from '../../../lib/texto';
 import { useUiPrefsStore } from '../../../store/uiPrefsStore';
 import { avisoError } from '../../../lib/aviso';
@@ -472,6 +472,28 @@ export const Horarios = () => {
   const handleDownloadPDF = async (documentos?: string, titulo?: string) => {
     setIsGeneratingPDF(true);
     try {
+      const edificio = edificiosRaw.find(item => item.nombre === exportEdificio);
+      const espacio = espaciosRaw.find(item => item.id === exportAulaId)
+        ?? espaciosRaw.find(item => item.id_edificio === edificio?.id && item.nombre === exportAula);
+
+      if (edificio && espacio && !documentos) {
+        const nombreDoc = titulo || `${exportEdificio}_${exportAula || 'Blanco'}${nombreCarreraExport ? `_${nombreCarreraExport}` : ''}`;
+        await imprimirHorariosPdf([{ edificio, espacio }], nombreDoc, {
+          orientation,
+          paperSize,
+          typography,
+          documentFontSize,
+          headerImg,
+          footerImg,
+          exportPeriodo,
+          clases,
+          includeFooter,
+          camposClase,
+          carreraId: exportCarrera,
+        });
+        return;
+      }
+
       const element = document.getElementById('documento-pdf-oficial');
       if (!element && !documentos) return;
       
@@ -504,31 +526,25 @@ export const Horarios = () => {
           <style>
             @page {
               size: ${paperSize === 'Carta' ? 'letter' : 'A4'} ${isLandscape ? 'landscape' : 'portrait'};
-              margin: 15mm 25mm 15mm 25mm;
+              margin: 8mm 14mm;
             }
             * { box-sizing: border-box; transform: none !important; transform-origin: unset !important; }
             html, body { width: 100%; font-size: ${documentFontSize}pt; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-            /* table-layout se deja en AUTO a propósito. Con fixed todas las columnas miden
-               igual y, en vertical, las palabras largas se dibujan FUERA de la celda; además la
-               columna HORA quedaba tan angosta que el rango horario (que lleva nowrap) se metía
-               en LUNES. En auto el navegador reparte según el contenido y eso no pasa. */
             .schedule-table { border-collapse: collapse; width: 100%; }
-            /* Red de seguridad por si alguna palabra sigue sin entrar: que se parta antes de
-               salirse de su casilla. */
             .schedule-table th, .schedule-table td { overflow-wrap: break-word; }
-            .schedule-table th, .schedule-table td { border: 1.5px solid black !important; padding: 3px 4px !important; text-align: center; vertical-align: middle; }
+            .schedule-table th, .schedule-table td { border: 1.5px solid black !important; padding: 2px 3px !important; text-align: center; vertical-align: middle; }
             .schedule-table th { font-weight: 900; text-transform: uppercase; }
             .schedule-table, .schedule-table th, .schedule-table td, .schedule-table td span { font-size: ${documentFontSize}pt !important; }
             .schedule-table td span.pao-linea { display: block !important; width: 100% !important; white-space: nowrap !important; overflow: hidden !important; }
             .schedule-table tr { height: auto !important; }
+            .schedule-table td > div { gap: 0 !important; }
+            .schedule-table td span { line-height: 1.1 !important; }
             img { max-width: 100%; height: auto; }
-            .printable-area img { max-height: 78px; width: auto; }
-            .print-footer-source { display: block !important; margin-top: 8mm !important; padding-top: 0 !important; break-inside: avoid; page-break-inside: avoid; }
-            .printable-area { margin: 0 !important; padding: 0 40px 12px 40px !important; box-shadow: none !important; min-height: auto !important; width: 100% !important; }
-            /* Antes se aplicaba page-break avoid a TODOS los elementos. Pedirle al navegador
-               que no corte nada no evita el corte —el contenido tiene que caber igual—, solo lo
-               vuelve impredecible. Ahora se dice donde SI puede cortar: entre filas, nunca dentro
-               de una, y la cabecera se repite en cada hoja. */
+            .printable-area table:first-of-type img { height: 96px !important; width: 146px !important; max-height: none !important; }
+            .printable-area h1 { font-size: calc(${documentFontSize}pt + 4px) !important; margin-bottom: 8px !important; }
+            .printable-area h2 { font-size: calc(${documentFontSize}pt + 1px) !important; }
+            .print-footer-source { display: block !important; margin-top: auto !important; padding-top: 4mm !important; break-inside: avoid; page-break-inside: avoid; }
+            .printable-area { margin: 0 !important; padding: 0 !important; box-shadow: none !important; min-height: ${isLandscape ? '160mm' : '267mm'} !important; width: 100% !important; }
             thead { display: table-header-group; }
             tr { page-break-inside: avoid; break-inside: avoid; }
             img { page-break-inside: avoid; break-inside: avoid; }

@@ -3,13 +3,13 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronLeft, GraduationCap, Clock, Building2, GraduationCap as GradCap, BarChart2, LayoutGrid } from 'lucide-react';
 import { useSidebarStore } from '../../../store/sidebarStore';
 import { MenuUsuario } from '../../../components/ui/MenuUsuario';
-import { useAuthStore, ETIQUETA_ROL } from '../../../store/authStore';
+import { useAuthStore } from '../../../store/authStore';
 
 /**
  * Menú de Decano, Subdecano y Coordinador. Son cuatro pantallas de consulta y ninguna de
  * gestión, así que no hay submenús: la lista entera cabe a la vista.
  */
-export const AutoridadSidebar = ({ basePath = '/autoridad', administrativo = false }: { basePath?: string; administrativo?: boolean }) => {
+export const AutoridadSidebar = ({ basePath = '/autoridad' }: { basePath?: string }) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const mobileOpen = useSidebarStore(s => s.mobileOpen);
@@ -69,7 +69,7 @@ export const AutoridadSidebar = ({ basePath = '/autoridad', administrativo = fal
                   <span className="text-xl font-extrabold tracking-tight text-white leading-none whitespace-nowrap">ESPOCH</span>
                   {/* La etiqueta sale del rol: los tres comparten panel y así cada uno ve el suyo. */}
                   <span className="text-espoch-yellow text-[9px] font-bold tracking-[0.2em] mt-1 whitespace-nowrap">
-                    {administrativo ? 'ADMINISTRATIVO' : rol ? ETIQUETA_ROL[rol].toUpperCase() : 'AUTORIDAD'}
+                    {rol === 'subdecano' ? 'SUBDECANATO' : rol === 'decano' ? 'DECANATO' : rol === 'coordinador' ? 'COORDINACIÓN' : 'DECANATO'}
                   </span>
                 </div>
               )}

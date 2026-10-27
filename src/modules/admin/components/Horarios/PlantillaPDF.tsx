@@ -40,6 +40,7 @@ interface PlantillaPDFProps {
   exportPeriodo: string;
   clases: any[];
   includeFooter: boolean;
+  includeLogo?: boolean;
   /** Líneas opcionales dentro de cada casilla. */
   camposClase?: CamposClase;
   documentFontSize: number;
@@ -59,6 +60,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
   exportPeriodo,
   clases,
   includeFooter,
+  includeLogo = true,
   camposClase = CAMPOS_CLASE_POR_DEFECTO,
   documentFontSize,
 }) => {
@@ -98,7 +100,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
     <div style={{ transform: `scale(${pdfZoom / 120})`, transformOrigin: 'top center', transition: 'transform 0.15s ease-out' }} className="flex-shrink-0">
       <div 
         id="documento-pdf-oficial" 
-        className={`bg-white shadow-[0_60px_50px_rgba(0,0,0,0.08)] px-[80px] pb-8 pt-0 printable-area flex flex-col text-gray-900 relative transition-all ${
+        className={`bg-white shadow-[0_10px_35px_rgba(0,0,0,0.35)] px-[70px] pb-8 pt-6 printable-area flex flex-col text-gray-900 relative transition-all ${
           orientation === 'vertical' 
             ? 'w-[800px] h-auto' 
             : 'w-[1300px] h-auto'
@@ -115,7 +117,9 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
           <tbody>
             <tr>
               <td width="200" align="left" valign="top" style={{ padding: 0 }}>
-                <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '115px', width: '175px', display: 'block', margin: 0 }} />
+                {includeLogo && (
+                  <img src={headerImg || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '115px', width: '175px', display: 'block', margin: 0 }} />
+                )}
               </td>
               <td align="center" valign="middle" style={{ paddingBottom: '4px' }}>
                 <h1 style={{ fontSize: getHeader1Size(), fontWeight: '900', letterSpacing: '2px', color: '#0f172a', margin: '0 0 12px 0', textTransform: 'uppercase', fontFamily: getFontFamily(typography) }}>
@@ -163,7 +167,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
             </thead>
             <tbody>
               {horas.map((hora) => (
-                <tr key={hora} className="h-[50px]">
+                <tr key={hora} className="h-[43px]">
                   <td className="border-[1.5px] border-black p-0.5 text-center font-bold whitespace-nowrap bg-white align-middle text-[#0f172a]" style={{ border: '1.5px solid black', fontFamily: getFontFamily(typography) }}>
                     {hora.replace(':', 'H').replace(':', 'H')}
                   </td>
@@ -172,7 +176,7 @@ export const PlantillaPDF: React.FC<PlantillaPDFProps> = ({
                     return (
                       <td key={`${dia}-${hora}`} className="border-[1.5px] border-black p-1 relative align-middle min-w-[15px] text-center" style={{ border: '1.5px solid black', fontFamily: getFontFamily(typography) }}>
                         {claseExport ? (
-                          <div className="flex flex-col items-center justify-center w-full h-full gap-1">
+                          <div className="flex flex-col items-center justify-center w-full h-full gap-0.5 leading-tight">
                             <span className="font-black uppercase leading-tight text-[#0f172a]" style={{ fontSize: getTitleSize() }}>
                               {claseExport.materia}
                             </span>

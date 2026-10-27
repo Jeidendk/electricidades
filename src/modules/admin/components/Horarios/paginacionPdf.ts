@@ -15,8 +15,8 @@ const PAPEL_MM: Record<string, { ancho: number; alto: number }> = {
   Carta: { ancho: 216, alto: 279 },
 };
 
-/** Márgenes declarados en la regla `@page` al imprimir (15mm arriba/abajo, 25mm a los lados). */
-const MARGEN_MM = { vertical: 15, horizontal: 25 };
+/** Márgenes declarados en la regla `@page` al imprimir (8mm arriba/abajo, 14mm a los lados). */
+const MARGEN_MM = { vertical: 8, horizontal: 14 };
 
 /** Ancho, en píxeles, con el que se dibuja la hoja en la vista previa. */
 export const ANCHO_HOJA_PX: Record<string, number> = { vertical: 800, horizontal: 1300 };

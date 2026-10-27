@@ -12,22 +12,40 @@ import { useEspaciosStore } from '../../../store/espaciosStore';
 import { useFacultadesStore } from '../../../store/facultadesStore';
 import { useClasesStore } from '../../../store/clasesStore';
 import { mapearClases } from '../components/Horarios/mapearClases';
-import { CAMPOS_CLASE_POR_DEFECTO, dias, etiquetaPaoParalelo } from '../components/Horarios/horariosData';
+import { CAMPOS_CLASE_POR_DEFECTO, dias, diasFormales, horas, rangoIncluyeBloque, etiquetaPaoParalelo } from '../components/Horarios/horariosData';
 import { PlantillaPDF } from '../components/Horarios/PlantillaPDF';
 import { exportarHorariosWord, imprimirHorariosPdf, ubicacionesConClases, type OpcionesHorario } from '../data/exportarHorarios';
 import { resumirDocentes, type ResumenDocente } from '../data/reporteDocentes';
 import { exportarPdfDocentes, exportarWordDocentes } from '../data/exportarReporteDocentes';
 import { calcularDisponibilidad, minutosHora, mostrarHora } from '../../../lib/disponibilidadEspacios';
-import { normalizarTexto } from '../../../lib/texto';
+import { normalizarTexto, mismoDia } from '../../../lib/texto';
 import { exportarPdfDisponibilidad, exportarWordDisponibilidad } from '../data/exportarDisponibilidad';
 import { exportarPdfHistorial, exportarWordHistorial } from '../data/exportarHistorial';
 import { avisoError } from '../../../lib/aviso';
+import banderaEspoch from '../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 import fondoCargaDocente from '../../../assets/reportes/carga-docente.webp';
 import fondoHorariosAula from '../../../assets/reportes/horarios-aula.webp';
 import fondoHistorialReportes from '../../../assets/reportes/historial-reportes.webp';
 import fondoInventario from '../../../assets/reportes/inventario.webp';
 import fondoInfraestructura from '../../../assets/reportes/infraestructura.webp';
 import fondoMantenimiento from '../../../assets/reportes/mantenimiento.webp';
+
+/** Retorna la fuente CSS correspondiente */
+const getFontFamily = (font: string) => {
+  switch (font) {
+    case 'Inter': return '"Inter", sans-serif';
+    case 'Roboto': return '"Roboto", sans-serif';
+    case 'Montserrat': return '"Montserrat", sans-serif';
+    case 'Open Sans': return '"Open Sans", sans-serif';
+    case 'Times New Roman': return '"Times New Roman", Times, serif';
+    case 'Arial': return 'Arial, Helvetica, sans-serif';
+    case 'Helvetica': return 'Helvetica, Arial, sans-serif';
+    case 'Courier New': return '"Courier New", Courier, monospace';
+    case 'Verdana': return 'Verdana, Geneva, sans-serif';
+    case 'Tahoma': return 'Tahoma, Geneva, sans-serif';
+    default: return '"Inter", sans-serif';
+  }
+};
 
 /** Fecha legible para la bitácora: "3 sep 2026, 10:47". */
 const formatearFecha = (iso: string) =>
@@ -65,7 +83,6 @@ export const Reportes = () => {
   const [zoomPrevia, setZoomPrevia] = useState(100);
   const [paginaPrevia, setPaginaPrevia] = useState(1);
   const [guardadoExitoso, setGuardadoExitoso] = useState(false);
-  const [observacionesReporte, setObservacionesReporte] = useState('');
   const [incluirLogo, setIncluirLogo] = useState(true);
   const [incluirFirma, setIncluirFirma] = useState(true);
   const [vistaPreviaFullscreen, setVistaPreviaFullscreen] = useState(false);
@@ -260,6 +277,14 @@ export const Reportes = () => {
       d.materias.some(m => m.toLowerCase().includes(q))
     );
   }, [todosDocentes, busquedaDocente]);
+
+  const docenteParaPrevia = useMemo(() => {
+    if (modalExportar?.item?.docente) return modalExportar.item;
+    if (docentesSeleccionados.length > 0) {
+      return todosDocentes.find(d => d.idDocente === docentesSeleccionados[0]) || todosDocentes[0];
+    }
+    return todosDocentes[0] || null;
+  }, [modalExportar, docentesSeleccionados, todosDocentes]);
 
   const totalPaginasDocente = Math.max(1, Math.ceil(docentesFiltrados.length / filasPorPaginaDocente));
   const docentesVisibles = docentesFiltrados.slice((paginaDocente - 1) * filasPorPaginaDocente, paginaDocente * filasPorPaginaDocente);
@@ -2286,24 +2311,6 @@ export const Reportes = () => {
                       </div>
                     </div>
                   )}
-
-                  {/* Observaciones (opcional con contador 0/300) */}
-                  <div className="flex flex-col gap-1.5 pt-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-600">
-                        Observaciones (opcional)
-                      </label>
-                      <span className="text-[10px] text-gray-400 font-semibold">{observacionesReporte.length}/300</span>
-                    </div>
-                    <textarea
-                      maxLength={300}
-                      rows={2}
-                      value={observacionesReporte}
-                      onChange={e => setObservacionesReporte(e.target.value)}
-                      placeholder="Ej. Información adicional o notas oficiales para mostrar en el reporte..."
-                      className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-[11px] text-gray-800 outline-none resize-none placeholder:text-gray-400 focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all"
-                    />
-                  </div>
                 </div>
 
                 {/* Left Bottom Action Buttons (Guardar configuración & Generar vista previa) */}
@@ -2368,210 +2375,306 @@ export const Reportes = () => {
                   </div>
                 </div>
 
-                {/* Sheet Canvas (Centering the realistic paper) */}
-                <div className="flex-1 min-h-0 overflow-auto p-4 md:p-6 flex justify-center items-start bg-[#eef2f6]/80 custom-scrollbar">
-                  <div
-                    style={{
-                      transform: `scale(${zoomPrevia / 100})`,
-                      transformOrigin: 'top center',
-                      transition: 'transform 0.2s ease',
-                    }}
-                    className={`bg-white shadow-xl border border-gray-200/90 rounded-sm p-6 sm:p-8 flex flex-col justify-between shrink-0 ${
-                      horarioConfig.orientation === 'horizontal'
-                        ? 'w-[780px] min-h-[520px]'
-                        : 'w-[560px] min-h-[720px]'
-                    }`}
-                  >
-                    {/* Header Institucional de la Hoja */}
-                    <div>
-                      {incluirLogo && (
-                        <div className="flex items-center justify-between pb-3 border-b-2 border-espoch-red mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-espoch-red text-white font-extrabold flex items-center justify-center text-[12px] shadow-sm">
-                              ESPOCH
-                            </div>
-                            <div>
-                              <h4 className="text-[12px] font-black uppercase text-gray-900 tracking-tight leading-tight">
-                                Escuela Superior Politécnica de Chimborazo
-                              </h4>
-                              <p className="text-[10px] font-semibold text-gray-600">
-                                Facultad de Informática y Electrónica · FIE
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right text-[9.5px] text-gray-400 font-semibold">
-                            <div>Reporte generado</div>
-                            <div>{new Date().toLocaleDateString('es-EC')}</div>
-                            <div>Página 1 de 1</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Título del Reporte en la Hoja */}
-                      <div className="text-center my-3">
-                        <h2 className="text-[15px] font-black uppercase tracking-tight text-gray-900">
-                          {modalExportar.tipo === 'Horarios' ? 'Horario Oficial de Clases por Aula' :
-                           modalExportar.tipo === 'Docentes' ? 'Reporte de Carga Horaria y Docentes' :
-                           modalExportar.tipo === 'Disponibilidad' ? 'Reporte de Disponibilidad de Espacios' :
-                           'Registro de Auditoría e Historial'}
-                        </h2>
-                        <p className="text-[11px] font-bold text-espoch-red mt-0.5">
-                          Período: {horarioConfig.exportPeriodo}
-                        </p>
-                      </div>
-
-                      {/* Metadatos en Fila */}
-                      <div className="grid grid-cols-4 gap-2 bg-gray-50/80 rounded-lg p-2.5 border border-gray-100 text-[10.5px] mb-3">
-                        <div>
-                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Edificio</span>
-                          <span className="font-bold text-gray-800 truncate block">
-                            {edificios.find(e => e.id === edificioHorariosVigente)?.nombre || 'Edificio de Aulas'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Elemento</span>
-                          <span className="font-bold text-gray-800 truncate block">
-                            {aulaParaPrevia?.aula || 'Aulas seleccionadas'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Formato</span>
-                          <span className="font-bold text-espoch-red block">{modalExportar.formato}</span>
-                        </div>
-                        <div>
-                          <span className="font-extrabold text-gray-400 block text-[9px] uppercase">Estado</span>
-                          <span className="font-bold text-green-700 block">Vigente / Oficial</span>
-                        </div>
-                      </div>
-
-                      {/* Contenido Visual en la Hoja (Muestra horario de aulaParaPrevia) */}
-                      {modalExportar.tipo === 'Horarios' && aulaParaPrevia && (
-                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
-                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-6 py-1.5 px-2 text-center border-b border-gray-200">
-                            <div>Hora</div>
-                            <div>Lunes</div>
-                            <div>Martes</div>
-                            <div>Miércoles</div>
-                            <div>Jueves</div>
-                            <div>Viernes</div>
-                          </div>
-                          <div className="divide-y divide-gray-100">
-                            {['07:00 - 08:00', '08:00 - 09:00', '09:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00'].map((hora, idx) => (
-                              <div key={hora} className="grid grid-cols-6 text-center py-2 px-1 text-[9.5px] items-center">
-                                <div className="font-bold text-gray-500 bg-gray-50 py-1 rounded">{hora}</div>
-                                <div className={`p-1 rounded ${idx % 2 === 0 ? 'bg-red-50 text-espoch-red font-semibold' : 'text-gray-300'}`}>
-                                  {idx % 2 === 0 ? 'Sistemas Eléctricos' : '—'}
-                                </div>
-                                <div className="p-1 text-gray-300">—</div>
-                                <div className={`p-1 rounded ${idx === 1 || idx === 3 ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-300'}`}>
-                                  {idx === 1 || idx === 3 ? 'Electrónica II' : '—'}
-                                </div>
-                                <div className="p-1 text-gray-300">—</div>
-                                <div className={`p-1 rounded ${idx === 0 ? 'bg-amber-50 text-amber-800 font-semibold' : 'text-gray-300'}`}>
-                                  {idx === 0 ? 'Laboratorio FIE' : '—'}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Contenido si es Carga Docente */}
-                      {modalExportar.tipo === 'Docentes' && (
-                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
-                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-4 py-1.5 px-3 text-left border-b border-gray-200">
-                            <div>Docente</div>
-                            <div>Materias</div>
-                            <div className="text-center">Horas / Sem.</div>
-                            <div className="text-center">Estado</div>
-                          </div>
-                          <div className="divide-y divide-gray-100">
-                            {todosDocentes.slice(0, 5).map(doc => (
-                              <div key={doc.idDocente} className="grid grid-cols-4 py-2 px-3 text-[10px] items-center">
-                                <div className="font-bold text-gray-800">{doc.docente}</div>
-                                <div className="text-gray-600 truncate">{doc.materias.join(', ')}</div>
-                                <div className="text-center font-extrabold text-blue-700">{doc.horasSemana} h</div>
-                                <div className="text-center text-green-700 font-bold">Asignado</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Contenido si es Disponibilidad */}
-                      {modalExportar.tipo === 'Disponibilidad' && (
-                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
-                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-4 py-1.5 px-3 text-left border-b border-gray-200">
-                            <div>Espacio</div>
-                            <div>Edificio</div>
-                            <div className="text-center">Horas Libres</div>
-                            <div className="text-center">Estado</div>
-                          </div>
-                          <div className="divide-y divide-gray-100">
-                            {espaciosDisponiblesData.slice(0, 5).map(esp => (
-                              <div key={esp.id} className="grid grid-cols-4 py-2 px-3 text-[10px] items-center">
-                                <div className="font-bold text-gray-800">{esp.nombre}</div>
-                                <div className="text-gray-600">{esp.edificio}</div>
-                                <div className="text-center font-extrabold text-emerald-700">{esp.horasLibres} h libres</div>
-                                <div className="text-center text-green-700 font-bold">Disponible</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Contenido si es Historial */}
-                      {modalExportar.tipo === 'Historial' && (
-                        <div className="border border-gray-200 rounded-lg overflow-hidden text-[10px]">
-                          <div className="bg-gray-100/80 font-extrabold text-gray-700 grid grid-cols-4 py-1.5 px-3 text-left border-b border-gray-200">
-                            <div>Tipo</div>
-                            <div>Formato</div>
-                            <div>Generado por</div>
-                            <div>Fecha</div>
-                          </div>
-                          <div className="divide-y divide-gray-100">
-                            {historial.slice(0, 5).map(h => (
-                              <div key={h.id} className="grid grid-cols-4 py-2 px-3 text-[10px] items-center">
-                                <div className="font-bold text-gray-800">{h.tipo}</div>
-                                <div className="text-espoch-red font-bold">{h.formato}</div>
-                                <div className="text-gray-600">{h.generadoPorNombre || 'Usuario'}</div>
-                                <div className="text-gray-400">{formatearFecha(h.created_at)}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Observaciones impresas si existen */}
-                      {observacionesReporte && (
-                        <div className="mt-3 p-2 bg-amber-50/70 border border-amber-200 rounded-lg text-[9.5px] text-amber-900">
-                          <span className="font-bold block">Observaciones:</span>
-                          {observacionesReporte}
-                        </div>
-                      )}
+                {/* Sheet Canvas: Renderiza la maqueta EXACTA idéntica al documento exportado */}
+                <div className="flex-1 min-h-0 overflow-auto p-4 md:p-8 flex justify-center items-start bg-[#525659] custom-scrollbar">
+                  {modalExportar.tipo === 'Horarios' && (
+                    <div className="flex justify-center items-start py-2">
+                      <PlantillaPDF
+                        pdfZoom={Math.round((zoomPrevia / 100) * (horarioConfig.orientation === 'horizontal' ? 70 : 96))}
+                        orientation={horarioConfig.orientation}
+                        paperSize={horarioConfig.paperSize}
+                        typography={horarioConfig.typography}
+                        headerImg={localStorage.getItem('espoch_header_img') || ''}
+                        footerImg={localStorage.getItem('espoch_footer_img') || ''}
+                        documentFontSize={horarioConfig.documentFontSize}
+                        exportAula={aulaParaPrevia?.aula || 'AULA 102'}
+                        exportAulaId={aulaParaPrevia?.id || ''}
+                        exportEdificio={aulaParaPrevia?.edificio || (edificios.find(e => e.id === edificioHorariosVigente)?.nombre || 'EDIFICIO DE AULAS')}
+                        exportCarrera=""
+                        exportPeriodo={horarioConfig.exportPeriodo}
+                        clases={clases}
+                        includeFooter={incluirFirma}
+                        includeLogo={incluirLogo}
+                        camposClase={horarioConfig.camposClase}
+                      />
                     </div>
+                  )}
 
-                    {/* Footer de la Hoja con Firmas */}
-                    {incluirFirma && (
-                      <div className="mt-6 pt-4 border-t border-gray-200">
-                        <div className="grid grid-cols-2 gap-8 text-center text-[9px] text-gray-500 pt-4">
-                          <div>
-                            <div className="w-32 border-b border-gray-400 mx-auto mb-1" />
-                            <span className="font-bold text-gray-700 block">Coordinación de Carrera</span>
-                            <span>Facultad de Informática y Electrónica</span>
+                  {modalExportar.tipo === 'Docentes' && (
+                    <div
+                      style={{
+                        transform: `scale(${(zoomPrevia / 120) * (horarioConfig.orientation === 'horizontal' ? 0.70 : 0.96)})`,
+                        transformOrigin: 'top center',
+                        transition: 'transform 0.15s ease-out',
+                      }}
+                      className="flex-shrink-0 py-2"
+                    >
+                      <div
+                        className={`bg-white shadow-[0_30px_60px_rgba(0,0,0,0.12)] px-[70px] pb-8 pt-6 flex flex-col text-gray-900 transition-all ${
+                          horarioConfig.orientation === 'vertical' ? 'w-[800px] min-h-[1132px]' : 'w-[1300px] min-h-[919px]'
+                        }`}
+                        style={{ fontFamily: getFontFamily(horarioConfig.typography) }}
+                      >
+                        {/* HEADER AS A TABLE FOR WORD/PDF COMPATIBILITY */}
+                        <table width="100%" style={{ borderCollapse: 'collapse', border: 'none', borderBottom: '1px solid #ef4444', marginBottom: '12px' }}>
+                          <tbody>
+                            <tr>
+                              <td width="200" align="left" valign="top" style={{ padding: 0 }}>
+                                {incluirLogo && (
+                                  <img src={localStorage.getItem('espoch_header_img') || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '115px', width: '175px', display: 'block', margin: 0 }} />
+                                )}
+                              </td>
+                              <td align="center" valign="middle" style={{ paddingBottom: '4px' }}>
+                                <h1 style={{ fontSize: `${horarioConfig.documentFontSize + 7}pt`, fontWeight: '900', letterSpacing: '2px', color: '#0f172a', margin: '0 0 12px 0', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO
+                                </h1>
+                                <h2 style={{ fontSize: `${horarioConfig.documentFontSize + 3}pt`, fontWeight: '600', letterSpacing: '1px', color: '#475569', margin: '0', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  FACULTAD DE INFORMÁTICA Y ELECTRÓNICA
+                                </h2>
+                              </td>
+                              <td width="150"></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        {/* DETAILS SECTION (LEFT ALIGNED) */}
+                        <div className="mb-2 text-[#0f172a] block text-left" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                          <div className="block mb-2">
+                            <span className="font-black uppercase tracking-wide inline-block pb-0.5 pr-10" style={{ fontSize: `${horarioConfig.documentFontSize + 4}pt`, borderBottom: '2px solid black', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                              {docenteParaPrevia?.docente || 'SELECCIONE UN DOCENTE'}
+                            </span>
                           </div>
-                          <div>
-                            <div className="w-32 border-b border-gray-400 mx-auto mb-1" />
-                            <span className="font-bold text-gray-700 block">Dirección de Escuela</span>
-                            <span>ESPOCH · Riobamba</span>
+                          <div className="flex flex-col gap-1 text-[11px] font-black uppercase text-[#0f172a]" style={{ fontSize: `${horarioConfig.documentFontSize + 1}pt` }}>
+                            <div>TOTAL DE HORAS SEMANALES: {docenteParaPrevia?.horasSemana || 0}</div>
+                            <div>{(docenteParaPrevia?.materias || []).length} {docenteParaPrevia?.materias.length === 1 ? 'MATERIA' : 'MATERIAS'}: {(docenteParaPrevia?.materias || []).join(' · ')}</div>
+                            <div>{horarioConfig.exportPeriodo}</div>
                           </div>
                         </div>
-                        <p className="text-[8px] text-gray-400 text-center mt-3">
-                          Panamericana Sur km 1 1/2 · Riobamba - Ecuador · www.espoch.edu.ec
-                        </p>
+
+                        {/* HORARIO TABLE */}
+                        <div className="mt-3 flex-grow">
+                          <table width="100%" style={{ borderCollapse: 'collapse', border: '1.5px solid #222222', tableLayout: 'fixed' }}>
+                            <thead>
+                              <tr style={{ background: '#ffffff' }}>
+                                <th style={{ border: '1.5px solid #222222', width: '130px', padding: '6px 4px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize}pt`, textTransform: 'uppercase', color: '#0f172a' }}>
+                                  HORA
+                                </th>
+                                {diasFormales.map(dia => (
+                                  <th key={dia} style={{ border: '1.5px solid #222222', padding: '6px 4px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize}pt`, textTransform: 'uppercase', color: '#0f172a' }}>
+                                    {dia}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {horas.map(franja => (
+                                <tr key={franja}>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                                    {franja.replace(/:00/g, 'H00')}
+                                  </td>
+                                  {diasFormales.map(dia => {
+                                    const bloque = (docenteParaPrevia?.bloques || []).find((b: any) => mismoDia(b.dia, dia) && rangoIncluyeBloque(`${b.horaInicio} - ${b.horaFin}`, franja));
+                                    return (
+                                      <td key={dia} style={{ border: '1.5px solid #222222', padding: '3px 4px', textAlign: 'center', verticalAlign: 'middle', height: '44px' }}>
+                                        {bloque ? (
+                                          <div className="flex flex-col gap-0.5 leading-tight justify-center items-center">
+                                            <span style={{ fontSize: `${horarioConfig.documentFontSize}pt` }} className="font-black text-[#0f172a] uppercase block w-full text-center">
+                                              {bloque.materia}
+                                            </span>
+                                            {horarioConfig.camposClase.paoParalelo && bloque.pao != null && (
+                                              <span style={{ fontSize: `${horarioConfig.documentFontSize}pt` }} className="uppercase font-medium text-[#475569] block w-full text-center">
+                                                {etiquetaPaoParalelo(bloque.pao, bloque.paralelo)}
+                                              </span>
+                                            )}
+                                            {horarioConfig.camposClase.carrera && (
+                                              <span style={{ fontSize: `${horarioConfig.documentFontSize}pt` }} className="uppercase font-medium text-[#475569] block w-full text-center">
+                                                {[bloque.aula, bloque.carrera].filter(Boolean).join(' · ')}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ) : null}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* FOOTER */}
+                        {incluirFirma && (
+                          <div className="mt-auto pt-6 text-center text-[10px] text-gray-500 font-medium tracking-wide block w-full" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                            Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155. Riobamba - Ecuador
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+
+                  {modalExportar.tipo === 'Disponibilidad' && (
+                    <div
+                      style={{
+                        transform: `scale(${(zoomPrevia / 120) * (horarioConfig.orientation === 'horizontal' ? 0.70 : 0.96)})`,
+                        transformOrigin: 'top center',
+                        transition: 'transform 0.15s ease-out',
+                      }}
+                      className="flex-shrink-0 py-2"
+                    >
+                      <div
+                        className={`bg-white shadow-[0_30px_60px_rgba(0,0,0,0.12)] px-[70px] pb-8 pt-6 flex flex-col text-gray-900 transition-all ${
+                          horarioConfig.orientation === 'vertical' ? 'w-[800px] min-h-[1132px]' : 'w-[1300px] min-h-[919px]'
+                        }`}
+                        style={{ fontFamily: getFontFamily(horarioConfig.typography) }}
+                      >
+                        <table width="100%" style={{ borderCollapse: 'collapse', border: 'none', borderBottom: '1px solid #ef4444', marginBottom: '12px' }}>
+                          <tbody>
+                            <tr>
+                              <td width="200" align="left" valign="top" style={{ padding: 0 }}>
+                                {incluirLogo && (
+                                  <img src={localStorage.getItem('espoch_header_img') || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '115px', width: '175px', display: 'block', margin: 0 }} />
+                                )}
+                              </td>
+                              <td align="center" valign="middle" style={{ paddingBottom: '4px' }}>
+                                <h1 style={{ fontSize: `${horarioConfig.documentFontSize + 7}pt`, fontWeight: '900', letterSpacing: '2px', color: '#0f172a', margin: '0 0 12px 0', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO
+                                </h1>
+                                <h2 style={{ fontSize: `${horarioConfig.documentFontSize + 3}pt`, fontWeight: '600', letterSpacing: '1px', color: '#475569', margin: '0', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  FACULTAD DE INFORMÁTICA Y ELECTRÓNICA
+                                </h2>
+                              </td>
+                              <td width="150"></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div className="mb-3 text-[#0f172a] block text-left" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                          <div className="block mb-2">
+                            <span className="font-black uppercase tracking-wide inline-block pb-0.5 pr-10" style={{ fontSize: `${horarioConfig.documentFontSize + 4}pt`, borderBottom: '2px solid black', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                              REPORTE DE DISPONIBILIDAD DE ESPACIOS
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1 text-[11px] font-black uppercase text-[#0f172a]" style={{ fontSize: `${horarioConfig.documentFontSize + 1}pt` }}>
+                            <div>EDIFICIO: {edificios.find(e => e.id === edificioHorariosVigente)?.nombre || 'TODOS LOS EDIFICIOS'}</div>
+                            <div>PERÍODO: {horarioConfig.exportPeriodo} · TOTAL ESPACIOS: {espaciosDisponiblesData.length}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex-grow">
+                          <table width="100%" style={{ borderCollapse: 'collapse', border: '1.5px solid #222222', tableLayout: 'fixed' }}>
+                            <thead>
+                              <tr style={{ background: '#ffffff' }}>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'left', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '22%' }}>ESPACIO</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'left', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '24%' }}>EDIFICIO</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '18%' }}>TIPO</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '18%' }}>HORAS LIBRES</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '18%' }}>ESTADO</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {espaciosDisponiblesData.slice(0, 15).map(esp => (
+                                <tr key={esp.id}>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a' }}>{esp.nombre}</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#334155' }}>{esp.edificio}</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', textAlign: 'center', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#334155' }}>{esp.tipo}</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a' }}>{esp.horasLibres} H / SEM</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', textAlign: 'center', fontWeight: 'bold', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#15803d' }}>DISPONIBLE</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {incluirFirma && (
+                          <div className="mt-auto pt-6 text-center text-[10px] text-gray-500 font-medium tracking-wide block w-full" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                            Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155. Riobamba - Ecuador
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {modalExportar.tipo === 'Historial' && (
+                    <div
+                      style={{
+                        transform: `scale(${(zoomPrevia / 120) * (horarioConfig.orientation === 'horizontal' ? 0.70 : 0.96)})`,
+                        transformOrigin: 'top center',
+                        transition: 'transform 0.15s ease-out',
+                      }}
+                      className="flex-shrink-0 py-2"
+                    >
+                      <div
+                        className={`bg-white shadow-[0_30px_60px_rgba(0,0,0,0.12)] px-[70px] pb-8 pt-6 flex flex-col text-gray-900 transition-all ${
+                          horarioConfig.orientation === 'vertical' ? 'w-[800px] min-h-[1132px]' : 'w-[1300px] min-h-[919px]'
+                        }`}
+                        style={{ fontFamily: getFontFamily(horarioConfig.typography) }}
+                      >
+                        <table width="100%" style={{ borderCollapse: 'collapse', border: 'none', borderBottom: '1px solid #ef4444', marginBottom: '12px' }}>
+                          <tbody>
+                            <tr>
+                              <td width="200" align="left" valign="top" style={{ padding: 0 }}>
+                                {incluirLogo && (
+                                  <img src={localStorage.getItem('espoch_header_img') || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '115px', width: '175px', display: 'block', margin: 0 }} />
+                                )}
+                              </td>
+                              <td align="center" valign="middle" style={{ paddingBottom: '4px' }}>
+                                <h1 style={{ fontSize: `${horarioConfig.documentFontSize + 7}pt`, fontWeight: '900', letterSpacing: '2px', color: '#0f172a', margin: '0 0 12px 0', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO
+                                </h1>
+                                <h2 style={{ fontSize: `${horarioConfig.documentFontSize + 3}pt`, fontWeight: '600', letterSpacing: '1px', color: '#475569', margin: '0', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  FACULTAD DE INFORMÁTICA Y ELECTRÓNICA
+                                </h2>
+                              </td>
+                              <td width="150"></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div className="mb-3 text-[#0f172a] block text-left" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                          <div className="block mb-2">
+                            <span className="font-black uppercase tracking-wide inline-block pb-0.5 pr-10" style={{ fontSize: `${horarioConfig.documentFontSize + 4}pt`, borderBottom: '2px solid black', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                              REGISTRO DE AUDITORÍA E HISTORIAL DE REPORTES
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1 text-[11px] font-black uppercase text-[#0f172a]" style={{ fontSize: `${horarioConfig.documentFontSize + 1}pt` }}>
+                            <div>SISTEMA INSTITUCIONAL DE GESTIÓN HORARIA FIE</div>
+                            <div>FECHA DE EMISIÓN: {new Date().toLocaleDateString('es-EC')} · TOTAL REGISTROS: {historial.length}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex-grow">
+                          <table width="100%" style={{ borderCollapse: 'collapse', border: '1.5px solid #222222', tableLayout: 'fixed' }}>
+                            <thead>
+                              <tr style={{ background: '#ffffff' }}>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'left', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '22%' }}>FECHA</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'left', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '26%' }}>TIPO DE REPORTE</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '16%' }}>FORMATO</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'left', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '22%' }}>GENERADO POR</th>
+                                <th style={{ border: '1.5px solid #222222', padding: '6px 6px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize + 1}pt`, textTransform: 'uppercase', color: '#0f172a', width: '14%' }}>ESTADO</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {historial.slice(0, 15).map(h => (
+                                <tr key={h.id}>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a', whiteSpace: 'nowrap' }}>{formatearFecha(h.created_at)}</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a' }}>{h.tipo}</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', textAlign: 'center', fontWeight: '900', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#c91024' }}>{h.formato}</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#334155' }}>{h.generadoPorNombre || 'Administrador'}</td>
+                                  <td style={{ border: '1.5px solid #222222', padding: '5px 6px', textAlign: 'center', fontWeight: 'bold', fontSize: `${horarioConfig.documentFontSize}pt`, color: '#15803d' }}>OFICIAL</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {incluirFirma && (
+                          <div className="mt-auto pt-6 text-center text-[10px] text-gray-500 font-medium tracking-wide block w-full" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                            Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155. Riobamba - Ecuador
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Bottom Footer: Zoom, Paginación y Botones de Exportar / Imprimir */}

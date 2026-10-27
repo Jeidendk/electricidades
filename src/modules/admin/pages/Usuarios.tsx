@@ -21,7 +21,7 @@ import { useExclusiveModal } from '../../../hooks/useExclusiveModal';
 import { AcentoTarjeta } from '../../../components/ui/AcentoTarjeta';
 
 // Constantes para formularios (dropdowns)
-const ROLES = ['Administrador', 'Administrativo', 'Estudiante', 'Tecnico', 'Docente'];
+const ROLES = ['Administrador', 'Decano', 'Subdecano', 'Estudiante', 'Tecnico', 'Docente'];
 
 /**
  * Roles que llevan facultad y carrera.
@@ -62,7 +62,7 @@ export const Usuarios = () => {
 
   // Opciones de dropdowns desde la BD; caen a las constantes solo si aún no cargan.
   const rolNombres = rolesDb.length
-    ? Array.from(new Set([...rolesDb.map(r => r.nombre), 'Docente', 'Administrativo']))
+    ? Array.from(new Set([...rolesDb.map(r => r.nombre), 'Docente']))
     : ROLES;
   // Mapear campos de Supabase al formato del componente
   const usuarios = useMemo(() => items.map((u: any) => {

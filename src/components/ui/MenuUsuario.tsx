@@ -36,21 +36,21 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
   const esAdmin = usuario?.role === 'admin';
 
   // Vista activa según el prefijo de la URL (para el selector de vista del admin).
-  const vistaActual: 'admin' | 'tecnico' | 'docente' | 'student' | 'administrativo' =
+  const vistaActual: 'admin' | 'tecnico' | 'docente' | 'student' | 'autoridad' =
     location.pathname.startsWith('/tecnico') ? 'tecnico'
     : location.pathname.startsWith('/docente') ? 'docente'
-    : location.pathname.startsWith('/administrativo') ? 'administrativo'
+    : location.pathname.startsWith('/autoridad') ? 'autoridad'
     : location.pathname.startsWith('/student') ? 'student'
     : 'admin';
 
-  const cambiarVista = (vista: 'admin' | 'tecnico' | 'docente' | 'student' | 'administrativo') => {
+  const cambiarVista = (vista: 'admin' | 'tecnico' | 'docente' | 'student' | 'autoridad') => {
     setAbierto(false);
     if (vista === vistaActual) return;
     navigate(
       vista === 'admin' ? '/admin'
       : vista === 'tecnico' ? '/tecnico/dashboard'
       : vista === 'docente' ? '/docente/dashboard'
-      : vista === 'administrativo' ? '/administrativo/dashboard'
+      : vista === 'autoridad' ? '/autoridad/dashboard'
       : '/student/catalog'
     );
   };
@@ -154,7 +154,7 @@ export const MenuUsuario = ({ colapsado = false }: { colapsado?: boolean }) => {
                   </span>
                 </div>
                 <div className="px-2 pb-1 flex gap-1">
-                  {([['admin', 'Admin', Users], ['tecnico', 'Técnico', Wrench], ['docente', 'Docente', BookOpen], ['administrativo', 'Admin.', ShieldCheck], ['student', 'Estudiante', GraduationCap]] as const).map(([clave, etiqueta, Icono]) => (
+                  {([['admin', 'Admin', Users], ['tecnico', 'Técnico', Wrench], ['docente', 'Docente', BookOpen], ['autoridad', 'Decanato', ShieldCheck], ['student', 'Estudiante', GraduationCap]] as const).map(([clave, etiqueta, Icono]) => (
                     <button
                       key={clave}
                       onClick={() => cambiarVista(clave)}

@@ -527,140 +527,6 @@ export const Infraestructura = () => {
         // Con `overflow-hidden` fijo, en celular la ficha y la barra ocupaban casi todo y la
         // lista quedaba recortada sin forma de desplazarse.
         <div className="relative flex-1 flex items-start lg:items-stretch p-3 sm:p-6 md:p-8 min-h-0 bg-[#f4f7fb]/90 gap-6 overflow-y-auto lg:overflow-hidden">
-          {/* LEFT: MAESTRO-DETALLE DE EDIFICIOS (mismo patrón que Ubicaciones en Horarios) */}
-          {/* PANEL UBICACIONES — flotante, mismo lenguaje que Horarios: dos tarjetas sueltas
-              sobre el contenido en vez de un contenedor blanco con cabecera y pie. */}
-          {/* El panel queda debajo de la ficha del edificio y de la barra de búsqueda/controles. */}
-          {panelAbierto && <div className="absolute inset-x-0 bottom-0 top-[280px] z-[30] lg:top-[260px]" onClick={() => setPanelAbierto(false)} />}
-          <div className={`absolute bottom-0 left-0 top-[280px] z-[40] flex w-[620px] max-w-[94%] flex-col transition-transform duration-300 pointer-events-none lg:top-[260px] ${panelAbierto ? 'translate-x-0' : '-translate-x-full'}`}>
-            {/* En celular las dos tarjetas se apilan: a 375px no entran 280px + el detalle. */}
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto custom-scrollbar p-3 pointer-events-none sm:flex-row sm:items-start sm:overflow-visible">
-              {/* IZQUIERDA: edificios. Seleccionar uno muestra sus pisos al lado, así que nunca
-                  hay dos edificios desplegados a la vez como pasaba con el árbol. */}
-              <div className={`pointer-events-auto w-full shrink-0 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:w-[280px] sm:overflow-y-auto ${pasoPanelMovil === 'edificios' ? 'flex' : 'hidden'}`}>
-                {/* Buscador integrado dentro de la tarjeta para alinear ambos paneles al mismo nivel */}
-                <div className="relative mb-0.5">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar edificio o espacio..."
-                    value={searchNav}
-                    onChange={e => setSearchNav(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-8 pr-2.5 text-[12px] text-gray-700 shadow-2xs outline-none transition-colors focus:border-indigo-400 focus:bg-white placeholder:text-gray-400"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
-                  <Building2 className="h-3 w-3" /> Edificios
-                </div>
-                {filteredNavEdificios.length === 0 && (
-                  <p className="px-2 py-3 text-[11px] italic text-gray-400">Sin coincidencias.</p>
-                )}
-                {filteredNavEdificios.map(ed => {
-                  const isSel = selectedEdificioId === ed.id;
-                  const edSpaces = espaciosMapped.filter(s => s.idEdificio === ed.id);
-                  const IconCmp = buildingIcons[ed.icono] || Building2;
-                  return (
-                    <button
-                      key={ed.id}
-                      onClick={() => { selectEdificio(ed.id); setPasoPanelMovil('pisos'); }}
-                      className={`flex items-start gap-2 rounded-xl px-2 py-2 text-left transition-colors ${isSel ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      <span className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${ed.estado === 'operativo' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
-                        <IconCmp className="h-3.5 w-3.5" />
-                      </span>
-                      {/* Sin `truncate`: el nombre completo se parte en dos líneas. Abreviado
-                          ("MODULAR DE TELEC...") no se distingue de los otros tres modulares. */}
-                      <span className={`flex-1 break-words text-[12px] leading-snug ${isSel ? 'font-extrabold' : 'font-bold'}`}>{ed.nombre}</span>
-                      <span className="mt-0.5 shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-extrabold text-gray-500">{edSpaces.length}</span>
-                    </button>
-                  );
-                })}
-                {!soloLectura && (
-                  <button onClick={() => openCreateEdificio()} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
-                    <Plus className="h-3 w-3" /> Nuevo edificio
-                  </button>
-                )}
-                <p className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-bold text-gray-400">
-                  {edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios
-                </p>
-              </div>
-
-              {/* DERECHA: solo los pisos del edificio elegido. Al seleccionar un piso se filtra abajo en el edificio */}
-              <div className={`pointer-events-auto min-w-0 flex-1 flex-col gap-1.5 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:overflow-y-auto ${pasoPanelMovil === 'pisos' ? 'flex' : 'hidden'}`}>
-                <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
-                  {/* Volver a la lista de edificios en móvil */}
-                  <button
-                    onClick={() => setPasoPanelMovil('edificios')}
-                    className="-ml-1 mr-0.5 flex h-5 w-5 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 sm:hidden"
-                    title="Volver a edificios"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                  </button>
-                  <Layers className="h-3.5 w-3.5 text-gray-400" />
-                  <span className="truncate">{selectedEdificio ? selectedEdificio.nombre : 'Pisos'}</span>
-                </div>
-                {!selectedEdificio ? (
-                  <p className="px-2 py-3 text-[11px] italic text-gray-400">Elige un edificio.</p>
-                ) : (() => {
-                  const edSpaces = espaciosMapped.filter(s => s.idEdificio === selectedEdificio.id);
-                  if (edSpaces.length === 0) {
-                    return <p className="px-2 py-3 text-[11px] italic text-gray-400">Sin espacios registrados.</p>;
-                  }
-                  const pisosUnicos = [...new Set(edSpaces.map(sp => sp.piso ?? 0))].sort((a, b) => a - b);
-                  return (
-                    <div className="flex flex-col gap-1">
-                      <button
-                        onClick={() => { setSelectedPiso(null); setPanelAbierto(false); }}
-                        className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[12px] font-bold transition-all border ${
-                          selectedPiso === null
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
-                            : 'text-gray-700 hover:bg-gray-50 border-transparent'
-                        }`}
-                      >
-                        <Layers className={`h-3.5 w-3.5 shrink-0 ${selectedPiso === null ? 'text-indigo-600' : 'text-gray-400'}`} />
-                        <span className="flex-1 truncate text-left">Todos los pisos</span>
-                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${selectedPiso === null ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-500'}`}>
-                          {edSpaces.length}
-                        </span>
-                      </button>
-                      {pisosUnicos.map(piso => {
-                        const delPiso = edSpaces.filter(sp => (sp.piso ?? 0) === piso);
-                        const isActivo = selectedPiso === piso;
-                        return (
-                          <button
-                            key={piso}
-                            onClick={() => {
-                              setSelectedPiso(piso);
-                              setPanelAbierto(false);
-                            }}
-                            className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[12px] font-bold transition-all border ${
-                              isActivo
-                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
-                                : 'text-gray-700 hover:bg-gray-50 border-gray-100'
-                            }`}
-                          >
-                            <Layers className={`h-3.5 w-3.5 shrink-0 ${isActivo ? 'text-indigo-600' : 'text-gray-400'}`} />
-                            <span className="flex-1 truncate text-left">{formatoPiso(piso)}</span>
-                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${isActivo ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-500'}`}>
-                              {delPiso.length}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-                {selectedEdificio && (
-                  <button onClick={() => openCreateEspacio(selectedPiso !== null ? { piso: selectedPiso } : {})} className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600">
-                    <Plus className="h-3 w-3" /> Agregar espacio
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-
           {/* RIGHT: BUILDING DETAIL */}
           {/* `overflow-hidden` se conserva: AcentoTarjeta lo necesita para que su franja respete
               las esquinas. Lo que clipaba en celular era la altura fija, no el recorte: con
@@ -764,7 +630,9 @@ export const Infraestructura = () => {
                     <BotonPanelLateral
                       abierto={panelAbierto}
                       onClick={() => {
-                        if (!panelAbierto) setPasoPanelMovil('edificios');
+                        if (!panelAbierto) {
+                          setPasoPanelMovil('edificios');
+                        }
                         setPanelAbierto(!panelAbierto);
                       }}
                       titulo="Edificios y espacios"
@@ -815,7 +683,153 @@ export const Infraestructura = () => {
                 </div>
 
                 {/* SPACES */}
-                <div className="flex-1 lg:min-h-0 flex flex-col">
+                <div className="flex-1 lg:min-h-0 flex flex-col relative overflow-hidden">
+                  {/* PANEL UBICACIONES (EDIFICIOS, PISOS Y AULAS) — overlay maestro/detalle idéntico a Horarios */}
+                  {panelAbierto && (
+                    <div className="fixed inset-0 z-[35] bg-transparent" onClick={() => setPanelAbierto(false)} />
+                  )}
+                  <div
+                    className={`absolute inset-y-0 left-0 z-[40] flex w-[560px] max-w-[94%] flex-col transition-all duration-300 ease-out pointer-events-none ${
+                      panelAbierto ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'
+                    }`}
+                  >
+                    <div className="px-1 pt-1 pb-2 shrink-0 pointer-events-auto">
+                      <div className="relative w-[250px] max-w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={searchNav}
+                          onChange={e => setSearchNav(e.target.value)}
+                          placeholder="Buscar edificio, piso o aula..."
+                          className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-[12.5px] text-gray-700 outline-none shadow-sm focus:bg-white focus:border-espoch-red/40 focus:ring-2 focus:ring-espoch-red/10 transition-colors placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-h-0 flex flex-col sm:flex-row sm:items-start gap-3 px-1 pb-3 pointer-events-none">
+                      {/* Izquierda: Edificios */}
+                      <div className={`pointer-events-auto w-full shrink-0 flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:w-[250px] sm:overflow-y-auto ${pasoPanelMovil === 'edificios' ? 'flex' : 'hidden'}`}>
+                        <div className="px-2 py-1 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                          <Building2 className="w-3 h-3" /> Edificios
+                        </div>
+                        {filteredNavEdificios.map(ed => {
+                          const total = espaciosMapped.filter(e => e.idEdificio === ed.id).length;
+                          const activo = selectedEdificioId === ed.id;
+                          return (
+                            <button
+                              key={ed.id}
+                              onClick={() => {
+                                selectEdificio(ed.id);
+                                setPasoPanelMovil('pisos');
+                              }}
+                              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-[11px] font-bold transition-colors border ${
+                                activo
+                                  ? 'bg-espoch-red/10 text-espoch-red border-espoch-red/20'
+                                  : 'text-gray-700 hover:bg-gray-50 border-transparent'
+                              }`}
+                            >
+                              <Building2 className={`w-3.5 h-3.5 shrink-0 ${activo ? 'text-espoch-red' : 'text-gray-400'}`} />
+                              <span className="truncate flex-1">{ed.nombre}</span>
+                              <span className={`text-[9px] font-bold rounded-full px-1.5 shrink-0 ${activo ? 'bg-espoch-red/15 text-espoch-red' : 'bg-gray-100 text-gray-400'}`}>
+                                {total}
+                              </span>
+                            </button>
+                          );
+                        })}
+                        {filteredNavEdificios.length === 0 && (
+                          <span className="text-[12px] text-gray-400 px-2 py-3">No hay edificios.</span>
+                        )}
+                        {!soloLectura && (
+                          <button
+                            onClick={() => openCreateEdificio()}
+                            className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-espoch-red/30 hover:bg-espoch-red/5 hover:text-espoch-red"
+                          >
+                            <Plus className="h-3 w-3" /> Nuevo edificio
+                          </button>
+                        )}
+                        <p className="px-2 pt-1.5 pb-0.5 text-center text-[10px] font-bold text-gray-400">
+                          {edificios.length} {edificios.length === 1 ? 'edificio' : 'edificios'} · {kpis.espacios} espacios
+                        </p>
+                      </div>
+
+                      {/* Derecha: Pisos y aulas */}
+                      <div className={`pointer-events-auto min-w-0 flex-1 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg custom-scrollbar sm:flex sm:max-h-full sm:w-[230px] sm:overflow-y-auto ${pasoPanelMovil === 'pisos' ? 'flex' : 'hidden'}`}>
+                        <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">
+                          <button
+                            onClick={() => setPasoPanelMovil('edificios')}
+                            className="-ml-1 mr-0.5 flex h-5 w-5 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 sm:hidden"
+                            title="Volver a edificios"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                          </button>
+                          <Layers className="h-3 w-3" />
+                          <span className="truncate">Pisos</span>
+                        </div>
+                        {(() => {
+                          if (!selectedEdificio) return <span className="text-[12px] text-gray-400 px-2 py-3">Elige un edificio.</span>;
+                          const q = searchNav.toLowerCase();
+                          const aulasEd = espaciosMapped.filter(e => e.idEdificio === selectedEdificio.id && (!q || e.nombre.toLowerCase().includes(q)));
+                          const pisos = [...new Set(aulasEd.map(a => a.piso ?? 0))].sort((x, y) => x - y);
+                          if (pisos.length === 0) return <span className="text-[12px] text-gray-400 px-2 py-3">Sin espacios.</span>;
+                          return (
+                            <div className="flex flex-col gap-1">
+                              {/* Todos los pisos */}
+                              <button
+                                onClick={() => {
+                                  setSelectedPiso(null);
+                                  setPanelAbierto(false);
+                                }}
+                                className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[12px] font-bold transition-all border ${
+                                  selectedPiso === null
+                                    ? 'bg-espoch-red/10 text-espoch-red border-espoch-red/20'
+                                    : 'text-gray-700 hover:bg-gray-50 border-transparent'
+                                }`}
+                              >
+                                <Layers className={`h-3.5 w-3.5 shrink-0 ${selectedPiso === null ? 'text-espoch-red' : 'text-gray-400'}`} />
+                                <span className="flex-1 truncate text-left">Todos los pisos</span>
+                                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${selectedPiso === null ? 'bg-espoch-red/15 text-espoch-red' : 'bg-gray-100 text-gray-500'}`}>
+                                  {aulasEd.length}
+                                </span>
+                              </button>
+
+                              {pisos.map(piso => {
+                                const delPiso = aulasEd.filter(a => (a.piso ?? 0) === piso);
+                                const isActivo = selectedPiso === piso;
+                                return (
+                                  <button
+                                    key={piso}
+                                    onClick={() => {
+                                      setSelectedPiso(piso);
+                                      setPanelAbierto(false);
+                                    }}
+                                    className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[12px] font-bold transition-all border ${
+                                      isActivo
+                                        ? 'bg-espoch-red/10 text-espoch-red border-espoch-red/20'
+                                        : 'text-gray-700 hover:bg-gray-50 border-transparent'
+                                    }`}
+                                  >
+                                    <Layers className={`h-3.5 w-3.5 shrink-0 ${isActivo ? 'text-espoch-red' : 'text-gray-400'}`} />
+                                    <span className="flex-1 truncate text-left">{formatoPiso(piso)}</span>
+                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${isActivo ? 'bg-espoch-red/15 text-espoch-red' : 'bg-gray-100 text-gray-500'}`}>
+                                      {delPiso.length}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                        {!soloLectura && selectedEdificio && (
+                          <button
+                            onClick={() => openCreateEspacio(selectedPiso !== null ? { piso: selectedPiso } : {})}
+                            className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 py-2 text-[10.5px] font-bold text-gray-500 transition-colors hover:border-espoch-red/30 hover:bg-espoch-red/5 hover:text-espoch-red"
+                          >
+                            <Plus className="h-3 w-3" /> Agregar espacio
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 {filteredEspacios.length === 0 ? (
                   <EmptyState
                     icon={Microscope}
