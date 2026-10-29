@@ -84,6 +84,15 @@ const esIngreso = (m: MovimientoAuditoria) =>
   m.tabla === 'usuarios' && m.operacion === 'UPDATE' &&
   m.camposCambiados.length === 1 && m.camposCambiados[0] === 'ultima_conexion';
 
+/** Movimientos residuales generados por logins antiguos que duplicaban o revertían cambios del admin */
+const esAutoSyncResidual = (m: MovimientoAuditoria) =>
+  m.tabla === 'usuarios' &&
+  m.operacion === 'UPDATE' &&
+  m.usuarioId != null &&
+  m.registroId != null &&
+  m.usuarioId === m.registroId &&
+  !esIngreso(m);
+
 const INFO_INGRESO = {
   valor: 'INGRESO' as const,
   etiqueta: 'Ingresó',
@@ -100,8 +109,6 @@ const infoMovimiento = (m: MovimientoAuditoria) =>
 
 /**
  * La frase que resume el movimiento: "Editó el aula Aula 103 · cambió Nombre y Capacidad".
- * El dato ya estaba repartido entre cuatro columnas —acción, módulo, registro, cambios— y
- * había que recomponerlo mentalmente; dicho en una línea se lee de corrido.
  */
 const resumenMovimiento = (m: MovimientoAuditoria, cat?: CatalogosAuditoria): string => {
   if (esIngreso(m)) return 'Ingresó al sistema';
@@ -299,10 +306,12 @@ export const Monitoreo = () => {
   };
 
   const filtrados = useMemo(() => {
-    let lista = movimientos;
+    // Excluir rastro residual del auto-sync antiguo sobre usuarios para no repetir
+    // ni atribuir falsamente al usuario cambios que el administrador ya realizó.
+    let lista = movimientos.filter(m => !esAutoSyncResidual(m));
 
-    // Ingreso y edición viajan como el mismo UPDATE: se separan aquí para que "Editó" muestre
-    // cambios de verdad y "Ingresó" solo accesos.
+    // Ingreso y edición viajan como el mismo UPDATE desde la base: se separan
+    // aquí para que "Editó" muestre cambios reales e "Ingresó" solo accesos.
     if (fOperacion === 'INGRESO') lista = lista.filter(esIngreso);
     else if (fOperacion === 'UPDATE') lista = lista.filter(m => !esIngreso(m));
 
@@ -319,7 +328,7 @@ export const Monitoreo = () => {
   const kpis = useMemo(() => ({
     total: filtrados.length,
     creados: filtrados.filter(m => m.operacion === 'INSERT').length,
-    // Los ingresos no cuentan como ediciones: si no, el número promete cambios que no hubo.
+    // Los ingresos no cuentan como ediciones: el número solo muestra cambios reales.
     editados: filtrados.filter(m => m.operacion === 'UPDATE' && !esIngreso(m)).length,
     eliminados: filtrados.filter(m => m.operacion === 'DELETE').length,
     ingresos: filtrados.filter(esIngreso).length,
@@ -635,7 +644,9 @@ export const Monitoreo = () => {
             {/* PIE: restaurar. Un ingreso no se deshace: no cambió ningún dato. */}
             <div className="shrink-0 border-t border-gray-100 bg-gray-50/60 px-5 py-3.5 sm:px-6">
               {esIngreso(detalle) ? (
-                <p className="text-center text-[11px] text-gray-400">Un acceso no se deshace.</p>
+                <p className="text-center text-[11px] text-gray-400">
+                  Un acceso no se deshace.
+                </p>
               ) : detalle.restauradoEn ? (
                 <p className="flex items-center justify-center gap-2 text-[11.5px] font-bold text-sky-700">
                   <CheckCircle2 className="h-4 w-4" />

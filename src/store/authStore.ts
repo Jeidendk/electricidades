@@ -76,50 +76,17 @@ interface AuthState {
  * RLS permite el self-update porque el usuario está autenticado como sí mismo.
  */
 async function syncPerfilOnLogin(userId: string): Promise<void> {
-  // La fila pública es la fuente principal. La metadata sólo completa datos
-  // todavía vacíos durante el primer acceso; nunca reemplaza una edición administrativa.
-  const { data: perfilActual } = await supabase
+  // ── Siempre registrar únicamente la última conexión ──────────────────────
+  // Este UPDATE solo toca `ultima_conexion`. El trigger de auditoría lo ve como un
+  // cambio de una sola columna y la pantalla de Monitoreo lo presenta como "Ingresó",
+  // no como "Editó".
+  // NUNCA debemos sobreescribir datos del perfil (como código, pao, paralelo, carrera)
+  // desde los metadatos de auth en cada login, porque eso revierte las ediciones hechas
+  // por el administrador y genera movimientos falsos de edición en auditoría.
+  await supabase
     .from('usuarios')
-    .select('codigo_institucional, facultad_nombre, carrera_nombre, pao, paralelo, nombre, apellido')
-    .eq('id', userId)
-    .maybeSingle();
-
-  const { data: authData } = await supabase.auth.getUser();
-  const meta = (authData?.user?.user_metadata ?? {}) as Record<string, any>;
-  const patch: Record<string, any> = {
-    ultima_conexion: new Date().toISOString(),
-  };
-  // El trigger de auth.users copia `nombre`; los dos campos separados llegan por metadata,
-  // así que se completan aquí en el primer acceso y ya no se vuelven a tocar.
-  if (!perfilActual?.nombre && meta.nombre) {
-    patch.nombre = meta.nombre;
-  }
-  if (!perfilActual?.apellido && meta.apellido) {
-    patch.apellido = meta.apellido;
-  }
-  if (!perfilActual?.codigo_institucional && meta.codigo_institucional) {
-    patch.codigo_institucional = meta.codigo_institucional;
-  }
-  if (!perfilActual?.facultad_nombre && meta.facultad_nombre) {
-    patch.facultad_nombre = meta.facultad_nombre;
-  }
-  if (!perfilActual?.carrera_nombre && meta.carrera_nombre) {
-    patch.carrera_nombre = meta.carrera_nombre;
-  }
-  if (
-    (perfilActual?.pao == null || perfilActual.pao === '') &&
-    meta.pao != null &&
-    meta.pao !== ''
-  ) {
-    patch.pao = Number(meta.pao);
-  }
-  // Mismo criterio que el PAO: la metadata solo rellena lo que la fila todavía no tiene, así
-  // que una asignación posterior del administrador no se pisa.
-  if (perfilActual?.paralelo == null && meta.paralelo != null && meta.paralelo !== '') {
-    const paralelo = Number(meta.paralelo);
-    if (Number.isInteger(paralelo) && paralelo >= 1) patch.paralelo = paralelo;
-  }
-  await supabase.from('usuarios').update(patch).eq('id', userId);
+    .update({ ultima_conexion: new Date().toISOString() })
+    .eq('id', userId);
 }
 
 /** Dado el id del usuario autenticado, carga su perfil de public.usuarios */

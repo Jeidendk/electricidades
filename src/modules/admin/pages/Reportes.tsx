@@ -198,13 +198,14 @@ export const Reportes = () => {
   const filasHorariosVisibles = filasTablaHorarios.slice((paginaHorarios - 1) * filasPorPaginaHorarios, paginaHorarios * filasPorPaginaHorarios);
   useEffect(() => { setPaginaHorarios(1); }, [busquedaHorarios, filtroEstadoHorarios, filasPorPaginaHorarios]);
 
-  const masterCheckHorarios = filasHorariosVisibles.length > 0 && filasHorariosVisibles.every(f => aulasSeleccionadas.has(f.id));
+  const masterCheckHorarios = filasTablaHorarios.length > 0 && filasTablaHorarios.every(f => aulasSeleccionadas.has(f.id));
+  const isIndeterminateHorarios = !masterCheckHorarios && filasTablaHorarios.some(f => aulasSeleccionadas.has(f.id));
   const toggleMasterHorarios = () => {
     const siguiente = new Set(aulasSeleccionadas);
     if (masterCheckHorarios) {
-      filasHorariosVisibles.forEach(f => siguiente.delete(f.id));
+      filasTablaHorarios.forEach(f => siguiente.delete(f.id));
     } else {
-      filasHorariosVisibles.forEach(f => siguiente.add(f.id));
+      filasTablaHorarios.forEach(f => siguiente.add(f.id));
     }
     setAulasSeleccionadas(siguiente);
   };
@@ -290,14 +291,15 @@ export const Reportes = () => {
   const docentesVisibles = docentesFiltrados.slice((paginaDocente - 1) * filasPorPaginaDocente, paginaDocente * filasPorPaginaDocente);
   useEffect(() => { setPaginaDocente(1); }, [busquedaDocente, filasPorPaginaDocente]);
 
-  const masterCheckDocentes = docentesVisibles.length > 0 && docentesVisibles.every(d => docentesSeleccionados.includes(d.idDocente));
+  const masterCheckDocentes = docentesFiltrados.length > 0 && docentesFiltrados.every(d => docentesSeleccionados.includes(d.idDocente));
+  const isIndeterminateDocentes = !masterCheckDocentes && docentesFiltrados.some(d => docentesSeleccionados.includes(d.idDocente));
   const toggleMasterDocentes = () => {
     if (masterCheckDocentes) {
-      const visiblesIds = new Set(docentesVisibles.map(d => d.idDocente));
-      setDocentesSeleccionados(actual => actual.filter(id => !visiblesIds.has(id)));
+      const filtradosIds = new Set(docentesFiltrados.map(d => d.idDocente));
+      setDocentesSeleccionados(actual => actual.filter(id => !filtradosIds.has(id)));
     } else {
       const nuevo = new Set(docentesSeleccionados);
-      docentesVisibles.forEach(d => nuevo.add(d.idDocente));
+      docentesFiltrados.forEach(d => nuevo.add(d.idDocente));
       setDocentesSeleccionados([...nuevo]);
     }
   };
@@ -392,21 +394,24 @@ export const Reportes = () => {
   };
 
   const masterCheckHistorial = useMemo(() => {
-    if (historialVisible.length === 0) return false;
-    return historialVisible.every(r => historialSeleccionados.has(r.id));
-  }, [historialVisible, historialSeleccionados]);
+    if (historialFiltrado.length === 0) return false;
+    return historialFiltrado.every(r => historialSeleccionados.has(r.id));
+  }, [historialFiltrado, historialSeleccionados]);
+  const isIndeterminateHistorial = useMemo(() => {
+    return !masterCheckHistorial && historialFiltrado.some(r => historialSeleccionados.has(r.id));
+  }, [historialFiltrado, historialSeleccionados, masterCheckHistorial]);
 
   const toggleMasterHistorial = () => {
     if (masterCheckHistorial) {
       setHistorialSeleccionados(prev => {
         const next = new Set(prev);
-        historialVisible.forEach(r => next.delete(r.id));
+        historialFiltrado.forEach(r => next.delete(r.id));
         return next;
       });
     } else {
       setHistorialSeleccionados(prev => {
         const next = new Set(prev);
-        historialVisible.forEach(r => next.add(r.id));
+        historialFiltrado.forEach(r => next.add(r.id));
         return next;
       });
     }
@@ -510,21 +515,24 @@ export const Reportes = () => {
   };
 
   const masterCheckEspacios = useMemo(() => {
-    if (espaciosDisponiblesVisibles.length === 0) return false;
-    return espaciosDisponiblesVisibles.every(e => espaciosSeleccionados.has(e.id));
-  }, [espaciosDisponiblesVisibles, espaciosSeleccionados]);
+    if (espaciosDisponiblesData.length === 0) return false;
+    return espaciosDisponiblesData.every(e => espaciosSeleccionados.has(e.id));
+  }, [espaciosDisponiblesData, espaciosSeleccionados]);
+  const isIndeterminateEspacios = useMemo(() => {
+    return !masterCheckEspacios && espaciosDisponiblesData.some(e => espaciosSeleccionados.has(e.id));
+  }, [espaciosDisponiblesData, espaciosSeleccionados, masterCheckEspacios]);
 
   const toggleMasterEspacios = () => {
     if (masterCheckEspacios) {
       setEspaciosSeleccionados(prev => {
         const next = new Set(prev);
-        espaciosDisponiblesVisibles.forEach(e => next.delete(e.id));
+        espaciosDisponiblesData.forEach(e => next.delete(e.id));
         return next;
       });
     } else {
       setEspaciosSeleccionados(prev => {
         const next = new Set(prev);
-        espaciosDisponiblesVisibles.forEach(e => next.add(e.id));
+        espaciosDisponiblesData.forEach(e => next.add(e.id));
         return next;
       });
     }
@@ -803,7 +811,10 @@ export const Reportes = () => {
                     </div>
                     <select
                       value={alcanceHorarios}
-                      onChange={e => setAlcanceHorarios(e.target.value as 'edificio' | 'facultad')}
+                      onChange={e => {
+                        setAlcanceHorarios(e.target.value as 'edificio' | 'facultad');
+                        setAulasSeleccionadas(new Set());
+                      }}
                       className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11.5px] font-semibold text-gray-700 outline-none cursor-pointer"
                     >
                       <option value="edificio">Por edificio</option>
@@ -812,7 +823,10 @@ export const Reportes = () => {
                     {alcanceHorarios === 'edificio' && (
                       <select
                         value={edificioHorariosVigente}
-                        onChange={e => setEdificioHorariosId(e.target.value)}
+                        onChange={e => {
+                          setEdificioHorariosId(e.target.value);
+                          setAulasSeleccionadas(new Set());
+                        }}
                         className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11.5px] font-semibold text-gray-700 outline-none cursor-pointer max-w-[220px]"
                       >
                         {edificiosConHorario.length === 0 && <option value="">Sin edificios con horarios</option>}
@@ -1104,13 +1118,24 @@ export const Reportes = () => {
                         <tr>
                           <th className="w-[44px] px-4 py-3.5 border-b border-gray-200">
                             <input
+                              id="check-all-aulas-reporte"
                               type="checkbox"
                               checked={masterCheckHorarios}
+                              ref={el => { if (el) el.indeterminate = isIndeterminateHorarios; }}
                               onChange={toggleMasterHorarios}
-                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer"
+                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer align-middle"
+                              title={masterCheckHorarios ? 'Deseleccionar todas las aulas' : 'Seleccionar todas las aulas'}
                             />
                           </th>
-                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Aula</th>
+                          <th
+                            onClick={toggleMasterHorarios}
+                            title={masterCheckHorarios ? 'Deseleccionar todas las aulas' : 'Seleccionar todas las aulas'}
+                            className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-900 select-none transition-colors"
+                          >
+                            <label htmlFor="check-all-aulas-reporte" className="cursor-pointer">
+                              Aula
+                            </label>
+                          </th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Edificio</th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Período</th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Clases cargadas</th>
@@ -1194,13 +1219,24 @@ export const Reportes = () => {
                         <tr>
                           <th className="w-[44px] px-4 py-3.5 border-b border-gray-200">
                             <input
+                              id="check-all-docentes-reporte"
                               type="checkbox"
                               checked={masterCheckDocentes}
+                              ref={el => { if (el) el.indeterminate = isIndeterminateDocentes; }}
                               onChange={toggleMasterDocentes}
-                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer"
+                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer align-middle"
+                              title={masterCheckDocentes ? 'Deseleccionar todos los docentes' : 'Seleccionar todos los docentes'}
                             />
                           </th>
-                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Docente</th>
+                          <th
+                            onClick={toggleMasterDocentes}
+                            title={masterCheckDocentes ? 'Deseleccionar todos los docentes' : 'Seleccionar todos los docentes'}
+                            className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-900 select-none transition-colors"
+                          >
+                            <label htmlFor="check-all-docentes-reporte" className="cursor-pointer">
+                              Docente
+                            </label>
+                          </th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Materias asignadas</th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Horas / sem</th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Clases</th>
@@ -1293,10 +1329,13 @@ export const Reportes = () => {
                         <tr>
                           <th className="w-[44px] px-4 py-3.5 border-b border-gray-200">
                             <input
+                              id="check-all-historial-reporte"
                               type="checkbox"
                               checked={masterCheckHistorial}
+                              ref={el => { if (el) el.indeterminate = isIndeterminateHistorial; }}
                               onChange={toggleMasterHistorial}
-                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer"
+                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer align-middle"
+                              title={masterCheckHistorial ? 'Deseleccionar todos los registros' : 'Seleccionar todos los registros'}
                             />
                           </th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider w-[50px] text-center">#</th>
@@ -1398,13 +1437,24 @@ export const Reportes = () => {
                         <tr>
                           <th className="w-[44px] px-4 py-3.5 border-b border-gray-200">
                             <input
+                              id="check-all-espacios-reporte"
                               type="checkbox"
                               checked={masterCheckEspacios}
+                              ref={el => { if (el) el.indeterminate = isIndeterminateEspacios; }}
                               onChange={toggleMasterEspacios}
-                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer"
+                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer align-middle"
+                              title={masterCheckEspacios ? 'Deseleccionar todos los espacios' : 'Seleccionar todos los espacios'}
                             />
                           </th>
-                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Espacio / Aula</th>
+                          <th
+                            onClick={toggleMasterEspacios}
+                            title={masterCheckEspacios ? 'Deseleccionar todos los espacios' : 'Seleccionar todos los espacios'}
+                            className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-900 select-none transition-colors"
+                          >
+                            <label htmlFor="check-all-espacios-reporte" className="cursor-pointer">
+                              Espacio / Aula
+                            </label>
+                          </th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Edificio</th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Tipo</th>
                           <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Horas libres</th>
