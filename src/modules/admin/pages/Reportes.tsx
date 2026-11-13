@@ -641,6 +641,14 @@ export const Reportes = () => {
     setCarrerasSeleccionadas(siguiente);
   };
 
+  const carreraParaPrevia = useMemo<ResumenOcupacionCarrera | null>(() => {
+    if (modalExportar?.item?.idCarrera) return modalExportar.item as ResumenOcupacionCarrera;
+    if (carrerasSeleccionadas.size > 0) {
+      return todasOcupaciones.find(o => carrerasSeleccionadas.has(o.idCarrera)) || todasOcupaciones[0] || null;
+    }
+    return todasOcupaciones[0] || null;
+  }, [modalExportar, carrerasSeleccionadas, todasOcupaciones]);
+
   const exportarOcupacionIndividual = async (carrera: ResumenOcupacionCarrera, fmt: 'PDF' | 'Word') => {
     setIsGenerating(true);
     try {
@@ -3069,6 +3077,110 @@ export const Reportes = () => {
                               ))}
                             </tbody>
                           </table>
+                        </div>
+
+                        {incluirFirma && (
+                          <div className="mt-auto pt-6 text-center text-[10px] text-gray-500 font-medium tracking-wide block w-full" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                            Panamericana Sur Km. 1 ½. | Teléfono: 593 (03) 2 998-200 | Telefax: (03) 2 317-001 | Código Postal: EC060155. Riobamba - Ecuador
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {modalExportar.tipo === 'Ocupacion' && (
+                    <div
+                      style={{
+                        transform: `scale(${(zoomPrevia / 120) * (horarioConfig.orientation === 'horizontal' ? 0.70 : 0.96)})`,
+                        transformOrigin: 'top center',
+                        transition: 'transform 0.15s ease-out',
+                      }}
+                      className="flex-shrink-0 py-2"
+                    >
+                      <div
+                        className={`bg-white shadow-[0_30px_60px_rgba(0,0,0,0.12)] px-[70px] pb-8 pt-6 flex flex-col text-gray-900 transition-all ${
+                          horarioConfig.orientation === 'vertical' ? 'w-[800px] min-h-[1132px]' : 'w-[1300px] min-h-[919px]'
+                        }`}
+                        style={{ fontFamily: getFontFamily(horarioConfig.typography) }}
+                      >
+                        <table width="100%" style={{ borderCollapse: 'collapse', border: 'none', borderBottom: '1px solid #ef4444', marginBottom: '12px' }}>
+                          <tbody>
+                            <tr>
+                              <td width="200" align="left" valign="top" style={{ padding: 0 }}>
+                                {incluirLogo && (
+                                  <img src={localStorage.getItem('espoch_header_img') || banderaEspoch} alt="Escudo ESPOCH" style={{ height: '115px', width: '175px', display: 'block', margin: 0 }} />
+                                )}
+                              </td>
+                              <td align="center" valign="middle" style={{ paddingBottom: '4px' }}>
+                                <h1 style={{ fontSize: `${horarioConfig.documentFontSize + 7}pt`, fontWeight: '900', letterSpacing: '2px', color: '#0f172a', margin: '0 0 12px 0', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO
+                                </h1>
+                                <h2 style={{ fontSize: `${horarioConfig.documentFontSize + 3}pt`, fontWeight: '600', letterSpacing: '1px', color: '#475569', margin: '0 0 4px', textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  FACULTAD DE INFORMÁTICA Y ELECTRÓNICA
+                                </h2>
+                                <h3 style={{ fontSize: `${horarioConfig.documentFontSize + 1}pt`, fontWeight: '700', letterSpacing: '1px', color: '#1f2937', margin: 0, textTransform: 'uppercase', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                                  OCUPACIÓN DE EDIFICIOS POR CARRERA
+                                </h3>
+                              </td>
+                              <td width="150"></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div className="mb-3 text-[#0f172a] block text-left" style={{ fontFamily: getFontFamily(horarioConfig.typography) }}>
+                          <div className="block mb-2">
+                            <span className="font-black uppercase tracking-wide inline-block pb-0.5 pr-10" style={{ fontSize: `${horarioConfig.documentFontSize + 4}pt`, borderBottom: '2px solid black', fontFamily: getFontFamily(horarioConfig.typography) }}>
+                              {carreraParaPrevia?.carrera || 'SELECCIONE UNA CARRERA'}
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1 text-[11px] font-black uppercase text-[#0f172a]" style={{ fontSize: `${horarioConfig.documentFontSize + 1}pt` }}>
+                            <div>TOTAL: {carreraParaPrevia?.totalEspacios || 0} ESPACIOS · {carreraParaPrevia?.totalAulas || 0} AULAS · {carreraParaPrevia?.totalLaboratorios || 0} LABORATORIOS · {carreraParaPrevia?.edificios.length || 0} EDIFICIOS</div>
+                            <div>{horarioConfig.exportPeriodo}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex-grow flex flex-col gap-3">
+                          {(carreraParaPrevia?.edificios || []).length === 0 ? (
+                            <p style={{ fontSize: `${horarioConfig.documentFontSize + 1}pt`, color: '#64748b', fontStyle: 'italic', padding: '20px 0' }}>
+                              Esta carrera no tiene clases programadas en el período actual.
+                            </p>
+                          ) : (carreraParaPrevia!.edificios.map(edificio => (
+                            <div key={edificio.idEdificio} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 12px' }}>
+                              <div style={{ fontSize: `${horarioConfig.documentFontSize + 1}pt`, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '.4px', color: '#0f172a', marginBottom: '6px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                                {edificio.nombre}
+                              </div>
+                              {edificio.aulas.length > 0 && (
+                                <div style={{ margin: '4px 0', lineHeight: 1.35 }}>
+                                  <span style={{ display: 'inline-block', fontWeight: 700, textTransform: 'uppercase', fontSize: `${horarioConfig.documentFontSize}pt`, letterSpacing: '.5px', color: '#475569', minWidth: '150px' }}>
+                                    Aulas ({edificio.aulas.length})
+                                  </span>
+                                  <span style={{ fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a' }}>
+                                    {edificio.aulas.map(a => a.nombre).join(' · ')}
+                                  </span>
+                                </div>
+                              )}
+                              {edificio.laboratorios.length > 0 && (
+                                <div style={{ margin: '4px 0', lineHeight: 1.35 }}>
+                                  <span style={{ display: 'inline-block', fontWeight: 700, textTransform: 'uppercase', fontSize: `${horarioConfig.documentFontSize}pt`, letterSpacing: '.5px', color: '#475569', minWidth: '150px' }}>
+                                    Laboratorios ({edificio.laboratorios.length})
+                                  </span>
+                                  <span style={{ fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a' }}>
+                                    {edificio.laboratorios.map(l => l.nombre).join(' · ')}
+                                  </span>
+                                </div>
+                              )}
+                              {edificio.otros.length > 0 && (
+                                <div style={{ margin: '4px 0', lineHeight: 1.35 }}>
+                                  <span style={{ display: 'inline-block', fontWeight: 700, textTransform: 'uppercase', fontSize: `${horarioConfig.documentFontSize}pt`, letterSpacing: '.5px', color: '#475569', minWidth: '150px' }}>
+                                    Otros ({edificio.otros.length})
+                                  </span>
+                                  <span style={{ fontSize: `${horarioConfig.documentFontSize}pt`, color: '#0f172a' }}>
+                                    {edificio.otros.map(o => o.nombre).join(' · ')}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )))}
                         </div>
 
                         {incluirFirma && (
