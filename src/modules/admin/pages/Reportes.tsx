@@ -5,6 +5,7 @@ import {
   Search, ArrowLeft, Filter, RefreshCcw, ChevronLeft, ChevronDown,
   LayoutGrid, Armchair, CheckCircle2, SlidersHorizontal,
   Printer, Maximize2, Minimize2, ZoomIn, ZoomOut, Check, Bookmark,
+  GraduationCap, FlaskConical, DoorOpen,
 } from 'lucide-react';
 import { useReportesStore } from '../../../store/reportesStore';
 import { useEdificiosStore } from '../../../store/edificiosStore';
@@ -21,6 +22,11 @@ import { calcularDisponibilidad, minutosHora, mostrarHora } from '../../../lib/d
 import { normalizarTexto, mismoDia } from '../../../lib/texto';
 import { exportarPdfDisponibilidad, exportarWordDisponibilidad } from '../data/exportarDisponibilidad';
 import { exportarPdfHistorial, exportarWordHistorial } from '../data/exportarHistorial';
+import {
+  resumirOcupacionCarreras, filtrarOcupacionCarreras, metricasOcupacion,
+  type ResumenOcupacionCarrera,
+} from '../data/reporteOcupacionCarrera';
+import { exportarPdfOcupacion, exportarWordOcupacion } from '../data/exportarOcupacionCarrera';
 import { avisoError } from '../../../lib/aviso';
 import banderaEspoch from '../../../assets/Bandera-ESPOCH-HORARIOS.webp';
 import fondoCargaDocente from '../../../assets/reportes/carga-docente.webp';
@@ -74,7 +80,7 @@ export const Reportes = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [modalExportar, setModalExportar] = useState<{
     abierto: boolean;
-    tipo: 'Horarios' | 'Docentes' | 'Historial' | 'Disponibilidad';
+    tipo: 'Horarios' | 'Docentes' | 'Historial' | 'Disponibilidad' | 'Ocupacion';
     formato: 'PDF' | 'Word';
     modo: 'masivo' | 'individual' | 'config';
     item?: any;
@@ -92,6 +98,7 @@ export const Reportes = () => {
     Horarios: 'Horarios por aula',
     Historial: 'Historial de reportes',
     Disponibilidad: 'Espacios disponibles',
+    Ocupacion: 'Ocupación por carrera',
   } as Record<string, string>)[tipoReporte] ?? tipoReporte;
 
   const abrirReporte = (tipo: string) => {
@@ -588,6 +595,100 @@ export const Reportes = () => {
     }
   };
 
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 5. CONFIGURACIÓN Y TABLA DE OCUPACIÓN POR CARRERA
+  // ═════════════════════════════════════════════════════════════════════════════
+  const [busquedaOcupacion, setBusquedaOcupacion] = useState('');
+  const [carrerasSeleccionadas, setCarrerasSeleccionadas] = useState<Set<string>>(new Set());
+  const [paginaOcupacion, setPaginaOcupacion] = useState(1);
+  const [filasPorPaginaOcupacion, setFilasPorPaginaOcupacion] = useState(10);
+  const [ocupacionDetalle, setOcupacionDetalle] = useState<ResumenOcupacionCarrera | null>(null);
+
+  const todasOcupaciones = useMemo(
+    () => resumirOcupacionCarreras(clases, nombreEdificio),
+    [clases, nombreEdificio],
+  );
+  const ocupacionesFiltradas = useMemo(
+    () => filtrarOcupacionCarreras(todasOcupaciones, busquedaOcupacion),
+    [todasOcupaciones, busquedaOcupacion],
+  );
+  const metricasOcupacionGlobal = useMemo(
+    () => metricasOcupacion(todasOcupaciones),
+    [todasOcupaciones],
+  );
+
+  const totalPaginasOcupacion = Math.max(1, Math.ceil(ocupacionesFiltradas.length / filasPorPaginaOcupacion));
+  const ocupacionesVisibles = ocupacionesFiltradas.slice(
+    (paginaOcupacion - 1) * filasPorPaginaOcupacion,
+    paginaOcupacion * filasPorPaginaOcupacion,
+  );
+  useEffect(() => { setPaginaOcupacion(1); }, [busquedaOcupacion, filasPorPaginaOcupacion]);
+
+  const masterCheckOcupacion = ocupacionesFiltradas.length > 0 && ocupacionesFiltradas.every(o => carrerasSeleccionadas.has(o.idCarrera));
+  const isIndeterminateOcupacion = !masterCheckOcupacion && ocupacionesFiltradas.some(o => carrerasSeleccionadas.has(o.idCarrera));
+  const toggleMasterOcupacion = () => {
+    const siguiente = new Set(carrerasSeleccionadas);
+    if (masterCheckOcupacion) {
+      ocupacionesFiltradas.forEach(o => siguiente.delete(o.idCarrera));
+    } else {
+      ocupacionesFiltradas.forEach(o => siguiente.add(o.idCarrera));
+    }
+    setCarrerasSeleccionadas(siguiente);
+  };
+  const toggleCarreraOcupacion = (id: string) => {
+    const siguiente = new Set(carrerasSeleccionadas);
+    if (siguiente.has(id)) siguiente.delete(id); else siguiente.add(id);
+    setCarrerasSeleccionadas(siguiente);
+  };
+
+  const exportarOcupacionIndividual = async (carrera: ResumenOcupacionCarrera, fmt: 'PDF' | 'Word') => {
+    setIsGenerating(true);
+    try {
+      if (fmt === 'Word') {
+        await exportarWordOcupacion([carrera], `ocupacion-${carrera.carrera.replace(/\s+/g, '_')}.docx`);
+      } else {
+        exportarPdfOcupacion([carrera]);
+      }
+      await registrarReporte({
+        tipo: 'Ocupacion',
+        formato: fmt,
+        filtros: { carrera: carrera.carrera },
+        filas: carrera.totalEspacios,
+      }).catch(() => {});
+      fetchReportes();
+    } catch {
+      void avisoError('No se pudo generar el reporte', 'Vuelve a intentar la descarga.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const exportarOcupacionSeleccionadas = async (fmt: 'PDF' | 'Word') => {
+    const aExportar = carrerasSeleccionadas.size > 0
+      ? todasOcupaciones.filter(o => carrerasSeleccionadas.has(o.idCarrera))
+      : ocupacionesFiltradas;
+    if (aExportar.length === 0) return;
+    setIsGenerating(true);
+    try {
+      if (fmt === 'Word') {
+        await exportarWordOcupacion(aExportar);
+      } else {
+        exportarPdfOcupacion(aExportar);
+      }
+      await registrarReporte({
+        tipo: 'Ocupacion',
+        formato: fmt,
+        filtros: { carreras: aExportar.map(o => o.carrera) },
+        filas: aExportar.reduce((suma, o) => suma + o.totalEspacios, 0),
+      }).catch(() => {});
+      fetchReportes();
+    } catch {
+      void avisoError('No se pudo generar el reporte', 'Vuelve a intentar la descarga masiva.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const confirmarExportacionModal = async (fmtOverride?: 'PDF' | 'Word') => {
     if (!modalExportar) return;
     const { tipo, modo, item } = modalExportar;
@@ -609,6 +710,10 @@ export const Reportes = () => {
       if (modo === 'masivo') await exportarHistorialSeleccionados(formato);
       else if (item) await exportarHistorialIndividual(item, formato);
       else await exportarHistorialSeleccionados(formato);
+    } else if (tipo === 'Ocupacion') {
+      if (modo === 'masivo') await exportarOcupacionSeleccionadas(formato);
+      else if (item) await exportarOcupacionIndividual(item, formato);
+      else await exportarOcupacionSeleccionadas(formato);
     }
   };
 
@@ -662,6 +767,11 @@ export const Reportes = () => {
               { Icono: CheckCircle2, valor: espaciosDisponiblesData.filter(e => e.horasLibres > 0).length, etiqueta: 'Espacios con libres' },
               { Icono: Calendar, valor: diaDisponibilidad, etiqueta: 'Día seleccionado' },
               { Icono: FileText, valor: historial.filter(r => r.tipo === 'Disponibilidad').length, etiqueta: 'Reportes generados' },
+            ] : tipoReporte === 'Ocupacion' ? [
+              { Icono: GraduationCap, valor: metricasOcupacionGlobal.totalCarreras, etiqueta: 'Carreras con clases' },
+              { Icono: DoorOpen, valor: metricasOcupacionGlobal.totalAulas, etiqueta: 'Aulas ocupadas' },
+              { Icono: FlaskConical, valor: metricasOcupacionGlobal.totalLaboratorios, etiqueta: 'Laboratorios ocupados' },
+              { Icono: FileText, valor: historial.filter(r => r.tipo === 'Ocupacion').length, etiqueta: 'Reportes generados' },
             ] : [
               { Icono: FileText, valor: historial.length, etiqueta: 'Total reportes' },
               { Icono: Calendar, valor: historial.filter(r => new Date(r.created_at).toDateString() === new Date().toDateString()).length, etiqueta: 'Generados hoy' },
@@ -695,7 +805,7 @@ export const Reportes = () => {
                 { tipo: 'Horarios', titulo: 'Horarios por aula', descripcion: 'Grilla semanal exportable por aula, edificio o toda la facultad.', etiquetas: ['Aulas y edificios', 'PDF y Word'], imagen: fondoHorariosAula, Icono: Clock, color: 'blue', disponible: true },
                 { tipo: 'Historial', titulo: 'Historial de reportes', descripcion: 'Bitácora de lo generado: qué, cuándo y quién lo pidió.', etiquetas: ['Auditoría', 'Consulta'], imagen: fondoHistorialReportes, Icono: FileText, color: 'green', disponible: true },
                 { tipo: 'Disponibilidad', titulo: 'Espacios disponibles', descripcion: 'Consulta de aulas y laboratorios libres por franja horaria y día.', etiquetas: ['Aulas libres', 'PDF y Word'], imagen: fondoInventario, Icono: LayoutGrid, color: 'orange', disponible: true },
-                { tipo: 'Infraestructura', titulo: 'Infraestructura', descripcion: 'Edificios, aulas y laboratorios registrados.', etiquetas: ['Edificios', 'Espacios'], imagen: fondoInfraestructura, Icono: Building2, color: 'purple', disponible: false },
+                { tipo: 'Ocupacion', titulo: 'Ocupación por carrera', descripcion: 'Aulas y laboratorios que usa cada carrera, agrupados por edificio.', etiquetas: ['Carreras', 'Edificios', 'PDF y Word'], imagen: fondoInfraestructura, Icono: GraduationCap, color: 'purple', disponible: true },
                 { tipo: 'Mantenimiento', titulo: 'Mantenimiento', descripcion: 'Órdenes abiertas, cerradas y promedio de resolución.', etiquetas: ['Órdenes', 'Seguimiento'], imagen: fondoMantenimiento, Icono: BarChart2, color: 'gray', disponible: false },
               ] as const).map(opcion => {
                 const colores: Record<string, string> = {
@@ -783,6 +893,7 @@ export const Reportes = () => {
                     {tipoReporte === 'Docentes' && 'Horas semanales por docente, materias y distribución de clases.'}
                     {tipoReporte === 'Historial' && 'Bitácora de auditoría de descargas y reportes generados.'}
                     {tipoReporte === 'Disponibilidad' && 'Consulta y reporte de aulas y laboratorios libres por día y horario.'}
+                    {tipoReporte === 'Ocupacion' && 'Aulas y laboratorios que usa cada carrera, agrupados por edificio.'}
                   </p>
                 </div>
                 <button
@@ -971,6 +1082,7 @@ export const Reportes = () => {
                       <option value="Horarios">Horarios por aula</option>
                       <option value="Docentes">Carga docente</option>
                       <option value="Disponibilidad">Espacios disponibles</option>
+                      <option value="Ocupacion">Ocupación por carrera</option>
                     </select>
                     <select
                       value={filtroFormatoHistorial}
@@ -1103,6 +1215,51 @@ export const Reportes = () => {
                         </button>
                       </div>
                     )}
+                  </>
+                )}
+
+                {/* Filtros para Ocupación por carrera */}
+                {tipoReporte === 'Ocupacion' && (
+                  <>
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={busquedaOcupacion}
+                        onChange={e => setBusquedaOcupacion(e.target.value)}
+                        placeholder="Buscar carrera, edificio o aula..."
+                        className="w-full h-[42px] rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-[12px] text-gray-800 outline-none placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-200/50 transition-all"
+                      />
+                    </div>
+                    <span className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[11.5px] font-semibold text-gray-700">
+                      <GraduationCap className="w-4 h-4 text-purple-500" />
+                      Total: {ocupacionesFiltradas.length} carreras
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setModalExportar({ abierto: true, tipo: 'Ocupacion', formato: 'PDF', modo: 'masivo' })}
+                      disabled={isGenerating || ocupacionesFiltradas.length === 0}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 px-3.5 py-2.5 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
+                      title="Exportar todas las carreras visibles en PDF"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> PDF ({carrerasSeleccionadas.size > 0 ? carrerasSeleccionadas.size : ocupacionesFiltradas.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalExportar({ abierto: true, tipo: 'Ocupacion', formato: 'Word', modo: 'masivo' })}
+                      disabled={isGenerating || ocupacionesFiltradas.length === 0}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f172a] hover:bg-black text-white px-3.5 py-2.5 text-[11.5px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
+                      title="Exportar todas las carreras visibles en Word"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Word ({carrerasSeleccionadas.size > 0 ? carrerasSeleccionadas.size : ocupacionesFiltradas.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setBusquedaOcupacion(''); setCarrerasSeleccionadas(new Set()); }}
+                      className="inline-flex items-center gap-1.5 bg-transparent text-[12px] font-semibold text-gray-500 hover:text-gray-800 transition-colors px-2 cursor-pointer"
+                    >
+                      <RefreshCcw className="w-3.5 h-3.5" /> Limpiar
+                    </button>
                   </>
                 )}
               </div>
@@ -1369,11 +1526,13 @@ export const Reportes = () => {
                               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold ${
                                 r.tipo === 'Horarios' ? 'bg-blue-50 text-blue-700' :
                                 r.tipo === 'Docentes' ? 'bg-red-50 text-red-700' :
+                                r.tipo === 'Ocupacion' ? 'bg-purple-50 text-purple-700' :
                                 'bg-emerald-50 text-emerald-700'
                               }`}>
                                 {r.tipo === 'Horarios' ? 'Horarios por aula' :
                                  r.tipo === 'Docentes' ? 'Carga docente' :
-                                 r.tipo === 'Disponibilidad' ? 'Espacios disponibles' : r.tipo}
+                                 r.tipo === 'Disponibilidad' ? 'Espacios disponibles' :
+                                 r.tipo === 'Ocupacion' ? 'Ocupación por carrera' : r.tipo}
                               </span>
                             </td>
                             <td className="px-4 py-3 border-b border-gray-100 text-center">
@@ -1551,6 +1710,129 @@ export const Reportes = () => {
                     </table>
                   </div>
                 )}
+
+                {/* 5. TABLA DE OCUPACIÓN POR CARRERA */}
+                {tipoReporte === 'Ocupacion' && (
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-[900px] border-collapse text-left">
+                      <thead>
+                        <tr>
+                          <th className="w-[44px] px-4 py-3.5 border-b border-gray-200">
+                            <input
+                              id="check-all-ocupacion-reporte"
+                              type="checkbox"
+                              checked={masterCheckOcupacion}
+                              ref={el => { if (el) el.indeterminate = isIndeterminateOcupacion; }}
+                              onChange={toggleMasterOcupacion}
+                              className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer align-middle"
+                              title={masterCheckOcupacion ? 'Deseleccionar todas las carreras' : 'Seleccionar todas las carreras'}
+                            />
+                          </th>
+                          <th
+                            onClick={toggleMasterOcupacion}
+                            title={masterCheckOcupacion ? 'Deseleccionar todas las carreras' : 'Seleccionar todas las carreras'}
+                            className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-900 select-none transition-colors"
+                          >
+                            <label htmlFor="check-all-ocupacion-reporte" className="cursor-pointer">
+                              Carrera
+                            </label>
+                          </th>
+                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Edificios</th>
+                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Aulas</th>
+                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Laboratorios</th>
+                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Total espacios</th>
+                          <th className="px-4 py-3.5 border-b border-gray-200 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ocupacionesVisibles.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-12 text-center text-[11px] text-gray-400 italic">
+                              {todasOcupaciones.length === 0
+                                ? 'No hay clases cargadas para calcular la ocupación por carrera.'
+                                : 'Ninguna carrera coincide con la búsqueda.'}
+                            </td>
+                          </tr>
+                        ) : ocupacionesVisibles.map(carrera => (
+                          <tr key={carrera.idCarrera} className="group transition-colors hover:bg-gray-50/70">
+                            <td className="px-4 py-3 border-b border-gray-100">
+                              <input
+                                type="checkbox"
+                                checked={carrerasSeleccionadas.has(carrera.idCarrera)}
+                                onChange={() => toggleCarreraOcupacion(carrera.idCarrera)}
+                                className="w-[17px] h-[17px] rounded accent-espoch-red cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-4 py-3 border-b border-gray-100 whitespace-nowrap">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 font-bold text-[11px] flex items-center justify-center border border-purple-100">
+                                  <GraduationCap className="w-4 h-4" />
+                                </div>
+                                <span className="text-[12px] font-bold text-gray-900">{carrera.carrera}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 border-b border-gray-100">
+                              <div className="flex flex-wrap gap-1.5 max-w-[380px]">
+                                {carrera.edificios.length > 0 ? (
+                                  carrera.edificios.map(ed => (
+                                    <span key={ed.idEdificio} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10.5px] font-bold text-gray-700">
+                                      <Building2 className="w-3 h-3 text-gray-400" /> {ed.nombre}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-[10.5px] text-gray-400 italic">Sin edificios asignados</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 border-b border-gray-100 text-center">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
+                                <DoorOpen className="w-3 h-3" /> {carrera.totalAulas}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 border-b border-gray-100 text-center">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                                <FlaskConical className="w-3 h-3" /> {carrera.totalLaboratorios}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 border-b border-gray-100 text-center">
+                              <span className="text-[13px] font-extrabold text-gray-900">{carrera.totalEspacios}</span>
+                            </td>
+                            <td className="px-4 py-3 border-b border-gray-100 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setOcupacionDetalle(carrera)}
+                                  title="Ver detalle de ocupación"
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-blue-600 transition-all cursor-pointer shadow-2xs hover:scale-105"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Ocupacion', formato: 'PDF', modo: 'individual', item: carrera })}
+                                  disabled={isGenerating}
+                                  title="Exportar ocupación en PDF"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200/60 px-2.5 py-1 text-[11px] font-bold text-red-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
+                                >
+                                  <FileText className="w-3 h-3" /> PDF
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setModalExportar({ abierto: true, tipo: 'Ocupacion', formato: 'Word', modo: 'individual', item: carrera })}
+                                  disabled={isGenerating}
+                                  title="Exportar ocupación en Word"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-2.5 py-1 text-[11px] font-bold text-blue-600 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
+                                >
+                                  <FileText className="w-3 h-3" /> Word
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* ═══ PIE DE TABLA Y PAGINACIÓN ACOPLADA AL FONDO (SIN ESPACIOS EXTRA) ═══ */}
@@ -1696,6 +1978,56 @@ export const Reportes = () => {
                       type="button"
                       onClick={() => setPaginaHistorial(p => Math.min(totalPaginasHistorial, p + 1))}
                       disabled={paginaHistorial >= totalPaginasHistorial}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {tipoReporte === 'Ocupacion' && ocupacionesFiltradas.length > 0 && (
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t border-gray-100 bg-white px-6 py-3.5 text-[12px] text-gray-500">
+                  <div className="flex items-center gap-5">
+                    <span>{(paginaOcupacion - 1) * filasPorPaginaOcupacion + 1}-{Math.min(paginaOcupacion * filasPorPaginaOcupacion, ocupacionesFiltradas.length)} de {ocupacionesFiltradas.length}</span>
+                    <div className="flex items-center gap-2">
+                      <span>Filas:</span>
+                      <select
+                        value={filasPorPaginaOcupacion}
+                        onChange={e => setFilasPorPaginaOcupacion(Number(e.target.value))}
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] text-gray-700 outline-none cursor-pointer"
+                      >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPaginaOcupacion(p => Math.max(1, p - 1))}
+                      disabled={paginaOcupacion <= 1}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {obtenerPaginasVisibles(paginaOcupacion, totalPaginasOcupacion).map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPaginaOcupacion(p)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-semibold transition-colors cursor-pointer ${
+                          p === paginaOcupacion ? 'bg-espoch-red text-white' : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setPaginaOcupacion(p => Math.min(totalPaginasOcupacion, p + 1))}
+                      disabled={paginaOcupacion >= totalPaginasOcupacion}
                       className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -2064,7 +2396,8 @@ export const Reportes = () => {
                   <p className="mt-1 text-[13px] font-bold text-gray-900">
                     {historialDetalle.tipo === 'Horarios' ? 'Horarios por aula' :
                      historialDetalle.tipo === 'Docentes' ? 'Carga docente' :
-                     historialDetalle.tipo === 'Disponibilidad' ? 'Espacios disponibles' : historialDetalle.tipo}
+                     historialDetalle.tipo === 'Disponibilidad' ? 'Espacios disponibles' :
+                     historialDetalle.tipo === 'Ocupacion' ? 'Ocupación por carrera' : historialDetalle.tipo}
                   </p>
                 </div>
                 <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3.5">
@@ -2101,6 +2434,109 @@ export const Reportes = () => {
                 <span className="font-bold block mb-1">Certificación de auditoría institucional</span>
                 Este registro certifica la generación del informe desde el Sistema de Gestión de Horarios y Espacios de la ESPOCH (FIE). Puede volver a exportar la bitácora en PDF o Word con los botones superiores.
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════════════
+          MODAL DE DETALLE DE OCUPACIÓN POR CARRERA
+          ═════════════════════════════════════════════════════════════════════════════ */}
+      {ocupacionDetalle && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="relative z-10 w-full max-w-[860px] max-h-[88vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-[14px] font-extrabold text-gray-900 leading-tight">
+                    Ocupación · {ocupacionDetalle.carrera}
+                  </h3>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {ocupacionDetalle.edificios.length} edificios · {ocupacionDetalle.totalAulas} aulas · {ocupacionDetalle.totalLaboratorios} laboratorios · {ocupacionDetalle.totalEspacios} espacios totales
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void exportarOcupacionIndividual(ocupacionDetalle, 'PDF')}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-[11px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" /> PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void exportarOcupacionIndividual(ocupacionDetalle, 'Word')}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f172a] hover:bg-black text-white px-3 py-1.5 text-[11px] font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" /> Word
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOcupacionDetalle(null)}
+                  className="ml-2 text-gray-400 hover:text-gray-700 bg-white shadow-sm border border-gray-200 rounded-full p-1.5 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              {ocupacionDetalle.edificios.length === 0 ? (
+                <p className="text-[12px] text-gray-500 italic text-center py-6">Esta carrera no tiene clases programadas en el período actual.</p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {ocupacionDetalle.edificios.map(edificio => (
+                    <div key={edificio.idEdificio} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+                        <Building2 className="w-4 h-4 text-gray-500" />
+                        <h4 className="text-[13px] font-extrabold text-gray-900 uppercase tracking-tight">{edificio.nombre}</h4>
+                      </div>
+                      {edificio.aulas.length > 0 && (
+                        <div className="mb-3">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600">Aulas ({edificio.aulas.length})</span>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {edificio.aulas.map(aula => (
+                              <span key={aula.idEspacio} className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
+                                <DoorOpen className="w-3 h-3" /> {aula.nombre}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {edificio.laboratorios.length > 0 && (
+                        <div className="mb-3">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">Laboratorios ({edificio.laboratorios.length})</span>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {edificio.laboratorios.map(lab => (
+                              <span key={lab.idEspacio} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                                <FlaskConical className="w-3 h-3" /> {lab.nombre}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {edificio.otros.length > 0 && (
+                        <div>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Otros espacios ({edificio.otros.length})</span>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {edificio.otros.map(otro => (
+                              <span key={otro.idEspacio} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-700">
+                                {otro.nombre}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
